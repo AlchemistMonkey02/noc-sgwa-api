@@ -73,10 +73,16 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Public routes (no authentication)
+app.use("/api/public/track", require("./app/public/public.routes"));
+app.use("/api/tools", require("./app/calculators/calculator.routes"));
+
 // API Routes
 app.use("/api/auth", require("./app/auth/auth.routes"));
 app.use("/api/master", require("./app/master-data/master.routes"));
 app.use("/api/documents", require("./app/documents/document.routes"));
+app.use("/api/applications/noc", require("./app/noc/noc.routes"));
+app.use("/api/officer", require("./app/noc/officer.routes"));
 
 // 404 handler
 app.use((req, res) => {
