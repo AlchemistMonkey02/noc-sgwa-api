@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Submitted Successfully</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f4f4f4;
+        }
+
+        .email-container {
+            background-color: #ffffff;
+            margin: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .success-message {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .application-details {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .detail-value {
+            color: #1f2937;
+            text-align: right;
+        }
+
+        .app-number {
+            background-color: #eff6ff;
+            border: 2px dashed #3b82f6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .app-number-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e40af;
+            font-family: 'Courier New', monospace;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #10b981;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+
+        .timeline {
+            background-color: #fef3c7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            border-top: 1px solid #e 5e7eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>✅ Application Submitted Successfully!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">SGWA Portal</p>
+        </div>
+
+        <div class="content">
+            <p>Dear {{firstName}},</p>
+
+            <div class="success-message">
+                <strong>🎉 Great news!</strong> Your NOC application has been successfully submitted and is now under
+                review.
+            </div>
+
+            <div class="app-number">
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #6b7280;">Application Number</p>
+                <div class="app-number-value">{{applicationNumber}}</div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #6b7280;">Save this number for future reference
+                </p>
+            </div>
+
+            <div class="application-details">
+                <h3 style="margin-top: 0; color: #1f2937;">📋 Application Summary</h3>
+
+                <div class="detail-row">
+                    <span class="detail-label">Application Type:</span>
+                    <span class="detail-value">{{applicationType}}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">Project Name:</span>
+                    <span class="detail-value">{{projectName}}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">Submitted Date:</span>
+                    <span class="detail-value">{{submittedDate}}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">Est. Processing Time:</span>
+                    <span class="detail-value">{{estimatedDays}} days</span>
+                </div>
+            </div>
+
+            <center>
+                <a href="{{trackingUrl}}" class="button">Track Application Status →</a>
+            </center>
+
+            <div class="timeline">
+                <h3 style="margin-top: 0; color: #92400e;">⏱️ What happens next?</h3>
+                <ol style="margin: 0; padding-left: 20px;">
+                    <li>Your application will be assigned to a reviewing officer</li>
+                    <li>Officer will review all submitted documents</li>
+                    <li>Site inspection may be scheduled (if required)</li>
+                    <li>You'll be notified if any queries are raised</li>
+                    <li>Final decision will be communicated via email</li>
+                </ol>
+            </div>
+
+            <p><strong>📱 Stay Updated:</strong></p>
+            <ul>
+                <li>Track your application status in real-time</li>
+                <li>Respond promptly to any queries raised</li>
+                <li>Check your email regularly for updates</li>
+                <li>Keep your documents ready for verification</li>
+            </ul>
+
+            <p>If you have any questions, please contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+            </p>
+
+            <p>Best regards,<br>
+                <strong>SGWA Portal Team</strong>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan</p>
+            <p>
+                <a href="{{portalUrl}}" style="color: #10b981; text-decoration: none;">Visit Portal</a> |
+                <a href="{{trackingUrl}}" style="color: #10b981; text-decoration: none;">Track Application</a>
+            </p>
+            <p style="font-size: 12px; margin-top: 15px;">
+                This is an automated confirmation email.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>
