@@ -1,0 +1,254 @@
+const logger = require("../utils/logger");
+
+class CalculatorService {
+    /**
+     * Calculate EC (Environmental Compensation) Charges
+     * Based on water requirement and block category
+     */
+    calculateECCharges(waterRequirement, blockCategory, industryType = "GENERAL") {
+        try {
+            // EC charges per MLD based on block category
+            const ecRates = {
+                SAFE: 1000,
+                SEMI_CRITICAL: 2000,
+                CRITICAL: 3000,
+                OVER_EXPLOITED: 5000,
+            };
+
+            // Industry multipliers
+            const industryMultipliers = {
+                AGRICULTURE: 0.5,
+                DOMESTIC: 0.7,
+                COMMERCIAL: 1.0,
+                MANUFACTURING: 1.2,
+                MINING: 1.5,
+                GENERAL: 1.0,
+            };
+
+            const baseRate = ecRates[blockCategory] || ecRates.SAFE;
+            const multiplier = industryMultipliers[industryType] || 1.0;
+
+            const ecCharges = waterRequirement * baseRate * multiplier;
+
+            return {
+                waterRequirement,
+                blockCategory,
+                industryType,
+                baseRate,
+                multiplier,
+                ecCharges: Math.round(ecCharges),
+                ecChargesPerMLD: baseRate,
+                calculation: `${waterRequirement} MLD × ₹${baseRate}/MLD × ${multiplier} = ₹${Math.round(ecCharges)}`,
+            };
+        } catch (error) {
+            logger.error("Error calculating EC charges", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate Abstraction Charges
+     * Based on water extraction volume and usage
+     */
+    calculateAbstractionCharges(
+        annualExtraction,
+        blockCategory,
+        purpose = "GENERAL"
+    ) {
+        try {
+            // Abstraction rates per Ham (Hectare Meter)
+            const abstractionRates = {
+                SAFE: 50,
+                SEMI_CRITICAL: 100,
+                CRITICAL: 200,
+                OVER_EXPLOITED: 500,
+            };
+
+            // Purpose-based multipliers
+            const purposeMultipliers = {
+                AGRICULTURE: 0.6,
+                DOMESTIC: 0.8,
+                INDUSTRIAL: 1.0,
+                COMMERCIAL: 1.2,
+                MINING: 1.5,
+                GENERAL: 1.0,
+            };
+
+            const baseRate = abstractionRates[blockCategory] || abstractionRates.SAFE;
+            const multiplier = purposeMultipliers[purpose] || 1.0;
+
+            const abstractionCharges = annualExtraction * baseRate * multiplier;
+
+            // Calculate stage of extraction impact
+            const stageMultiplier =
+                blockCategory === "OVER_EXPLOITED"
+                    ? 2.0
+                    : blockCategory === "CRITICAL"
+                        ? 1.5
+                        : 1.0;
+
+            const totalCharges = abstractionCharges * stageMultiplier;
+
+            return {
+                annualExtraction,
+                blockCategory,
+                purpose,
+                baseRate,
+                purposeMultiplier: multiplier,
+                stageMultiplier,
+                abstractionCharges: Math.round(abstractionCharges),
+                totalCharges: Math.round(totalCharges),
+                calculation: `${annualExtraction} Ham × ₹${baseRate}/Ham × ${multiplier} × ${stageMultiplier} = ₹${Math.round(totalCharges)}`,
+            };
+        } catch (error) {
+            logger.error("Error calculating abstraction charges", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate Water Budget
+     * Determines if NOC is required based on extraction vs resources
+     */
+    calculateWaterBudget(
+        dynamicResource,
+        proposedExtraction,
+        existingExtraction = 0
+    ) {
+        try {
+            const totalExtraction = proposedExtraction + existingExtraction;
+            const stageOfExtraction = (totalExtraction / dynamicResource) * 100;
+
+            // Determine category
+            let category;
+            let nocRequired;
+            let validityYears;
+            let recommendedAction;
+
+            if (stageOfExtraction < 70) {
+                category = "SAFE";
+                nocRequired = true;
+                validityYears = 5;
+                recommendedAction = "NOC can be granted with standard conditions";
+            } else if (stageOfExtraction < 90) {
+                category = "SEMI_CRITICAL";
+                nocRequired = true;
+                validityYears = 3;
+                recommendedAction = "NOC can be granted with monitoring conditions";
+            } else if (stageOfExtraction < 100) {
+                category = "CRITICAL";
+                nocRequired = true;
+                validityYears = 1;
+                recommendedAction =
+                    "NOC may be granted with strict monitoring and review";
+            } else {
+                category = "OVER_EXPLOITED";
+                nocRequired = true;
+                validityYears = 0;
+                recommendedAction =
+                    "New NOC not recommended. Only renewal for existing users with reduced extraction";
+            }
+
+            const availableResource = Math.max(0, dynamicResource - existingExtraction);
+            const exceedsCapacity = proposedExtraction > availableResource;
+
+            return {
+                dynamicGroundWaterResource: dynamicResource,
+                existingExtraction,
+                proposedExtraction,
+                totalExtraction,
+                availableResource,
+                stageOfExtraction: Math.round(stageOfExtraction * 100) / 100,
+                category,
+                nocRequired,
+                exceedsCapacity,
+                validityYears,
+                recommendedAction,
+                warning:
+                    exceedsCapacity
+                        ? "Proposed extraction exceeds available resource capacity"
+                        : null,
+            };
+        } catch (error) {
+            logger.error("Error calculating water budget", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate complete fee structure
+     * Combines all charges for NOC application
+     */
+    calculateTotalFees(
+        applicationType,
+        blockCategory,
+        waterRequirement,
+        industryType = "GENERAL"
+    ) {
+        try {
+            // Base fees by application type
+            const baseFees = {
+                NEW: {
+                    SAFE: 5000,
+                    SEMI_CRITICAL: 10000,
+                    CRITICAL: 15000,
+                    OVER_EXPLOITED: 20000,
+                },
+                RENEWAL: {
+                    SAFE: 3000,
+                    SEMI_CRITICAL: 5000,
+                    CRITICAL: 8000,
+                    OVER_EXPLOITED: 10000,
+                },
+                AMENDMENT: {
+                    SAFE: 2000,
+                    SEMI_CRITICAL: 3000,
+                    CRITICAL: 5000,
+                    OVER_EXPLOITED: 7000,
+                },
+            };
+
+            const baseAmount =
+                baseFees[applicationType]?.[blockCategory] || baseFees.NEW.SAFE;
+
+            // EC charges
+            const ecResult = this.calculateECCharges(
+                waterRequirement,
+                blockCategory,
+                industryType
+            );
+
+            // Fixed fees
+            const processingFee = 500;
+            const waterBudgetCharges = blockCategory === "OVER_EXPLOITED" ? 1000 : 500;
+            const inspectionFee = applicationType === "NEW" ? 1000 : 0;
+
+            const totalAmount =
+                baseAmount +
+                ecResult.ecCharges +
+                processingFee +
+                waterBudgetCharges +
+                inspectionFee;
+
+            return {
+                applicationType,
+                blockCategory,
+                waterRequirement,
+                industryType,
+                breakdown: {
+                    baseAmount,
+                    ecCharges: ecResult.ecCharges,
+                    processingFee,
+                    waterBudgetCharges,
+                    inspectionFee,
+                },
+                totalAmount,
+            };
+        } catch (error) {
+            logger.error("Error calculating total fees", error);
+            throw error;
+        }
+    }
+}
+
+module.exports = new CalculatorService();
