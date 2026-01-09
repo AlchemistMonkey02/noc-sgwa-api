@@ -2,6 +2,15 @@ const Joi = require("joi");
 
 // Register validation
 const registerSchema = Joi.object({
+    // Applicant Information - NEW FIELDS
+    title: Joi.string()
+        .valid("Mr", "Mrs", "Ms", "Dr", "Prof")
+        .required()
+        .messages({
+            "any.only": "Please select a valid title",
+            "any.required": "Title is required",
+        }),
+
     firstName: Joi.string().trim().min(2).max(100).required()
         .messages({
             "string.empty": "First name is required",
@@ -14,6 +23,44 @@ const registerSchema = Joi.object({
             "string.min": "Last name must be at least 2 characters",
         }),
 
+    dateOfBirth: Joi.date()
+        .max("now")
+        .required()
+        .messages({
+            "date.base": "Please provide a valid date of birth",
+            "date.max": "Date of birth cannot be in the future",
+            "any.required": "Date of birth is required",
+        }),
+
+    gender: Joi.string()
+        .valid("MALE", "FEMALE", "OTHER")
+        .required()
+        .messages({
+            "any.only": "Please select a valid gender",
+            "any.required": "Gender is required",
+        }),
+
+    // ID Proof Information - NEW FIELDS
+    uidNumber: Joi.string()
+        .pattern(/^[0-9]{12}$/)
+        .optional()
+        .messages({
+            "string.pattern.base": "UID/Aadhaar must be 12 digits",
+        }),
+
+    idProofType: Joi.string()
+        .valid("AADHAAR", "PAN", "VOTER_ID", "PASSPORT", "DRIVING_LICENSE")
+        .required()
+        .messages({
+            "any.required": "ID proof type is required",
+        }),
+
+    idProofNumber: Joi.string().trim().required()
+        .messages({
+            "string.empty": "ID proof number is required",
+        }),
+
+    // Contact Information
     email: Joi.string().email().lowercase().trim().required()
         .messages({
             "string.email": "Please provide a valid email address",
@@ -24,6 +71,36 @@ const registerSchema = Joi.object({
         .messages({
             "string.pattern.base": "Please provide a valid 10-digit Indian phone number",
             "string.empty": "Phone number is required",
+        }),
+
+    // Communication Address - NEW STRUCTURE
+    communicationAddress: Joi.object({
+        addressLine1: Joi.string().required()
+            .messages({ "string.empty": "Address Line 1 is required" }),
+        addressLine2: Joi.string().allow("").optional(),
+        addressLine3: Joi.string().allow("").optional(),
+        state: Joi.string().required()
+            .messages({ "string.empty": "State is required" }),
+        district: Joi.string().required()
+            .messages({ "string.empty": "District is required" }),
+        subDistrict: Joi.string().allow("").optional(),
+        pincode: Joi.string().pattern(/^[1-9][0-9]{5}$/).required()
+            .messages({
+                "string.empty": "Pincode is required",
+                "string.pattern.base": "Please provide a valid 6-digit pincode",
+            }),
+    }).required(),
+
+    // Login Credentials - NEW FIELDS
+    username: Joi.string()
+        .alphanum()
+        .min(4)
+        .max(30)
+        .lowercase()
+        .optional()
+        .messages({
+            "string.alphanum": "Username must contain only letters and numbers",
+            "string.min": "Username must be at least 4 characters",
         }),
 
     password: Joi.string().min(6).required()
@@ -38,6 +115,14 @@ const registerSchema = Joi.object({
             "string.empty": "Confirm password is required",
         }),
 
+    securityQuestion: Joi.string().optional(),
+    securityAnswer: Joi.string().when("securityQuestion", {
+        is: Joi.exist(),
+        then: Joi.string().required(),
+        otherwise: Joi.optional(),
+    }),
+
+    // Organization (optional - keep for backward compatibility)
     organizationName: Joi.string().trim().max(255).optional(),
 
     organizationType: Joi.string().valid("INDIVIDUAL", "COMPANY", "GOVERNMENT", "NGO").optional(),
@@ -52,6 +137,7 @@ const registerSchema = Joi.object({
             "string.pattern.base": "Please provide a valid GST number",
         }),
 
+    //Legacy address (keeping for backward compatibility)
     address: Joi.object({
         line1: Joi.string().trim().max(255).optional(),
         line2: Joi.string().trim().max(255).optional(),

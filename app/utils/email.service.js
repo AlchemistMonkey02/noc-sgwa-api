@@ -1,253 +1,172 @@
-const nodemailer = require('nodemailer');
-const fs = require('fs');
-const path = require('path');
-const logger = require('./logger');
+const nodemailer = require("nodemailer");
+const logger = require("./logger");
+const fs = require("fs");
+const path = require("path");
+
+// Check if SMTP is configured
+const isSmtpConfigured = () => {
+    return !!(process.env.SMTP_USER && process.env.SMTP_PASS && process.env.SMTP_HOST);
+};
+
+// Create transporter only if SMTP is configured
+let transporter = null;
+if (isSmtpConfigured()) {
+    transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT || 587,
+        secure: process.env.SMTP_PORT == 465,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+} else {
+    logger.warn("SMTP not configured. Email notifications will be disabled.");
+}
 
 class EmailService {
-    constructor() {
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
-            secure: false, // true for 465, false for other ports
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-            }
-        });
-    }
-
-    /**
-     * Load HTML email template
-     */
-    loadTemplate(templateName) {
-        try {
-            const templatePath = path.join(__dirname, '..', 'templates', 'emails', `${templateName}.html`);
-            return fs.readFileSync(templatePath, 'utf-8');
-        } catch (error) {
-            logger.error(`Failed to load email template: ${templateName}`, error);
-            return null;
-        }
-    }
-
-    /**
-     * Replace placeholders in template
-     */
-    replacePlaceholders(template, data) {
-        let result = template;
-        for (const [key, value] of Object.entries(data)) {
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            result = result.replace(regex, value);
-        }
-        return result;
-    }
-
-    /**
-     * Send welcome email on registration
-     */
     async sendWelcomeEmail(user) {
         try {
-            const template = this.loadTemplate('welcome');
-            if (!template) return false;
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Welcome email not sent to ${user.email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
 
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-                username: user.username || user.email,
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
+            const templatePath = path.join(__dirname, "../templates/emails/welcome.html");
+            let htmlContent = fs.readFileSync(templatePath, "utf8");
+
+            // Replace placeholders
+            htmlContent = htmlContent
+                .replace(/{{firstName}}/g, user.firstName)
+                .replace(/{{lastName}}/g, user.lastName)
+                .replace(/{{email}}/g, user.email)
+                .replace(/{{username}}/g, user.username || user.email)
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
             const mailOptions = {
                 from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
                 to: user.email,
-                subject: 'Welcome to SGWA Portal - Registration Successful',
-                html: html
+                subject: "Welcome to SGWA Portal - Registration Successful",
+                html: htmlContent,
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Welcome email sent to ${user.email}`, { messageId: info.messageId });
-            return true;
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Welcome email sent to ${user.email}`, {
+                messageId: info.messageId,
+            });
+
+            return { success: true, messageId: info.messageId };
         } catch (error) {
-            logger.error(`Failed to send welcome email to ${user.email}`, error);
-            return false;
+            logger.error(`Failed to send welcome email to ${user.email}`, error.message);
+            // Don't throw - email failure shouldn't block registration
+            return { success: false, error: error.message };
         }
     }
 
-    /**
-     * Send login notification email
-     */
     async sendLoginNotification(user, loginInfo) {
         try {
-            const template = this.loadTemplate('login-notification');
-            if (!template) return false;
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Login notification not sent to ${user.email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
 
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                loginTime: loginInfo.loginTime || new Date().toLocaleString(),
-                ipAddress: loginInfo.ipAddress || 'Unknown',
-                deviceInfo: loginInfo.deviceInfo || 'Unknown',
-                location: loginInfo.location || 'Unknown',
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
+            const templatePath = path.join(__dirname, "../templates/emails/login-notification.html");
+            let htmlContent = fs.readFileSync(templatePath, "utf8");
 
-            const mailOptions = {
-                from: `"SGWA Security Alert" <${process.env.SMTP_USER}>`,
-                to: user.email,
-                subject: 'SGWA Portal - New Login Detected',
-                html: html
-            };
-
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Login notification sent to ${user.email}`, { messageId: info.messageId });
-            return true;
-        } catch (error) {
-            logger.error(`Failed to send login notification to ${user.email}`, error);
-            return false;
-        }
-    }
-
-    /**
-     * Send application submitted confirmation email
-     */
-    async sendApplicationSubmitted(user, application) {
-        try {
-            const template = this.loadTemplate('application-submitted');
-            if (!template) return false;
-
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                applicationNumber: application.applicationNumber,
-                applicationType: application.applicationType,
-                projectName: application.projectDetails?.projectName || 'N/A',
-                submittedDate: new Date(application.submittedDate).toLocaleDateString(),
-                trackingUrl: `${process.env.PORTAL_URL}/applications/track/${application.applicationId}`,
-                estimatedDays: application.estimatedProcessingDays || 60,
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
+            htmlContent = htmlContent
+                .replace(/{{firstName}}/g, user.firstName)
+                .replace(/{{loginTime}}/g, loginInfo.loginTime || new Date().toLocaleString())
+                .replace(/{{ipAddress}}/g, loginInfo.ipAddress || "Unknown")
+                .replace(/{{deviceInfo}}/g, loginInfo.deviceInfo || "Unknown")
+                .replace(/{{location}}/g, loginInfo.location || "Unknown")
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
             const mailOptions = {
                 from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
                 to: user.email,
-                subject: `Application Submitted - ${application.applicationNumber}`,
-                html: html
+                subject: "New Login to Your SGWA Account",
+                html: htmlContent,
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Application submission email sent to ${user.email}`, {
-                applicationId: application.applicationId,
-                messageId: info.messageId
-            });
-            return true;
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Login notification sent to ${user.email}`);
+
+            return { success: true, messageId: info.messageId };
         } catch (error) {
-            logger.error(`Failed to send application submission email to ${user.email}`, error);
-            return false;
+            logger.error(`Failed to send login notification to ${user.email}`, error.message);
+            return { success: false, error: error.message };
         }
     }
 
-    /**
-     * Send query raised notification
-     */
-    async sendQueryRaised(user, application, query) {
+    async sendApplicationSubmitted(user, applicationData) {
         try {
-            const template = this.loadTemplate('query-raised');
-            if (!template) return false;
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Application email not sent to ${user.email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
 
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                applicationNumber: application.applicationNumber,
-                queryText: query.query,
-                queryDate: new Date(query.raisedDate).toLocaleDateString(),
-                responseDeadline: query.responseDeadline || 'Within 7 days',
-                applicationUrl: `${process.env.PORTAL_URL}/applications/${application.applicationId}`,
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
+            const templatePath = path.join(__dirname, "../templates/emails/application-submitted.html");
+            let htmlContent = fs.readFileSync(templatePath, "utf8");
+
+            htmlContent = htmlContent
+                .replace(/{{firstName}}/g, user.firstName)
+                .replace(/{{applicationNumber}}/g, applicationData.applicationNumber)
+                .replace(/{{applicationType}}/g, applicationData.applicationType)
+                .replace(/{{projectName}}/g, applicationData.projectDetails?.projectName || "N/A")
+                .replace(/{{submittedDate}}/g, new Date(applicationData.submittedDate).toLocaleDateString())
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{applicationId}}/g, applicationData.applicationId)
+                .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
             const mailOptions = {
                 from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
                 to: user.email,
-                subject: `Query Raised - ${application.applicationNumber}`,
-                html: html
+                subject: `Application Submitted - ${applicationData.applicationNumber}`,
+                html: htmlContent,
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Query notification sent to ${user.email}`, { messageId: info.messageId });
-            return true;
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Application submitted email sent to ${user.email}`);
+
+            return { success: true, messageId: info.messageId };
         } catch (error) {
-            logger.error(`Failed to send query notification to ${user.email}`, error);
-            return false;
+            logger.error(`Failed to send application email to ${user.email}`, error.message);
+            return { success: false, error: error.message };
         }
     }
 
-    /**
-     * Send application approved notification
-     */
-    async sendApplicationApproved(user, application, nocCertificate) {
-        try {
-            const template = this.loadTemplate('application-approved');
-            if (!template) return false;
-
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                applicationNumber: application.applicationNumber,
-                nocNumber: nocCertificate.nocNumber,
-                approvedDate: new Date(nocCertificate.issueDate).toLocaleDateString(),
-                validUpto: new Date(nocCertificate.validUpto).toLocaleDateString(),
-                certificateUrl: `${process.env.PORTAL_URL}/noc/${nocCertificate.nocId}/certificate`,
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
-
-            const mailOptions = {
-                from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
-                to: user.email,
-                subject: `Application Approved - NOC ${nocCertificate.nocNumber}`,
-                html: html
-            };
-
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Approval notification sent to ${user.email}`, { messageId: info.messageId });
-            return true;
-        } catch (error) {
-            logger.error(`Failed to send approval notification to ${user.email}`, error);
-            return false;
-        }
-    }
-
-    /**
-     * Send password reset email
-     */
     async sendPasswordReset(user, resetToken) {
         try {
-            const template = this.loadTemplate('password-reset');
-            if (!template) return false;
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Password reset email not sent to ${user.email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
 
-            const resetUrl = `${process.env.PORTAL_URL}/auth/reset-password?token=${resetToken}`;
-
-            const html = this.replacePlaceholders(template, {
-                firstName: user.firstName,
-                resetUrl: resetUrl,
-                expiryTime: '1 hour',
-                portalUrl: process.env.PORTAL_URL || 'http://localhost:5173',
-                supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.rajasthan.gov.in'
-            });
+            const resetUrl = `${process.env.PORTAL_URL}/reset-password?token=${resetToken}`;
 
             const mailOptions = {
                 from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
                 to: user.email,
-                subject: 'SGWA Portal - Password Reset Request',
-                html: html
+                subject: "Password Reset Request - SGWA Portal",
+                html: `
+                    <h2>Password Reset Request</h2>
+                    <p>Hi ${user.firstName},</p>
+                    <p>You requested a password reset. Click the link below to reset your password:</p>
+                    <p><a href="${resetUrl}">${resetUrl}</a></p>
+                    <p>This link will expire in 1 hour.</p>
+                    <p>If you didn't request this, please ignore this email.</p>
+                `,
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            logger.info(`Password reset email sent to ${user.email}`, { messageId: info.messageId });
-            return true;
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Password reset email sent to ${user.email}`);
+
+            return { success: true, messageId: info.messageId };
         } catch (error) {
-            logger.error(`Failed to send password reset email to ${user.email}`, error);
-            return false;
+            logger.error(`Failed to send password reset email to ${user.email}`, error.message);
+            return { success: false, error: error.message };
         }
     }
 }

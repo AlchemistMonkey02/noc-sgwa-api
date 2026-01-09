@@ -23,7 +23,12 @@ const UserSchema = new mongoose.Schema(
             minlength: [6, "Password must be at least 6 characters long"],
         },
 
-        // Personal Information
+        // Personal Information - NEW FIELDS
+        title: {
+            type: String,
+            enum: ["Mr", "Mrs", "Ms", "Dr", "Prof"],
+            required: [true, "Title is required"],
+        },
         firstName: {
             type: String,
             required: [true, "First name is required"],
@@ -34,6 +39,68 @@ const UserSchema = new mongoose.Schema(
             required: [true, "Last name is required"],
             trim: true,
         },
+        dateOfBirth: {
+            type: Date,
+            required: [true, "Date of birth is required"],
+        },
+        gender: {
+            type: String,
+            enum: ["MALE", "FEMALE", "OTHER"],
+            required: [true, "Gender is required"],
+        },
+
+        // ID Proof Information - NEW FIELDS
+        uidNumber: {
+            type: String,
+            trim: true,
+            sparse: true, // Aadhaar/UID is optional but unique
+        },
+        idProofType: {
+            type: String,
+            enum: ["AADHAAR", "PAN", "VOTER_ID", "PASSPORT", "DRIVING_LICENSE"],
+            required: [true, "ID proof type is required"],
+        },
+        idProofNumber: {
+            type: String,
+            required: [true, "ID proof number is required"],
+            trim: true,
+        },
+        idProofDocument: String, // Document ID
+
+        // Communication Address - NEW STRUCTURE
+        communicationAddress: {
+            addressLine1: {
+                type: String,
+                required: [true, "Address Line 1 is required"],
+            },
+            addressLine2: String,
+            addressLine3: String,
+            state: {
+                type: String,
+                required: [true, "State is required"],
+            },
+            district: {
+                type: String,
+                required: [true, "District is required"],
+            },
+            subDistrict: String,
+            pincode: {
+                type: String,
+                required: [true, "Pincode is required"],
+                match: [/^[1-9][0-9]{5}$/, "Invalid pincode"],
+            },
+        },
+
+        // Login Credentials - NEW FIELDS
+        username: {
+            type: String,
+            unique: true,
+            sparse: true,
+            trim: true,
+            lowercase: true,
+        },
+        securityQuestion: String,
+        securityAnswer: String,
 
         // User Type & Role
         userType: {

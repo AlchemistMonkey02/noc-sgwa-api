@@ -13,6 +13,13 @@ const DocumentSchema = new mongoose.Schema(
             ref: "User",
             index: true,
         },
+        // Company reference (documents linked to company)
+        companyId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Company",
+            required: false,  // Optional - some docs may not be company-specific
+            index: true,
+        },
         applicationId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "NOCApplication",
@@ -24,18 +31,59 @@ const DocumentSchema = new mongoose.Schema(
             type: String,
             required: true,
             enum: [
+                // Identity Documents
                 "AADHAR",
                 "PAN",
+
+                // Land/Property Documents
                 "LAND_OWNERSHIP",
                 "KHASRA_KHATAUNI",
+                "REVENUE_RECORDS",
+                "LEASE_DEED",
+                "SALE_DEED",
+
+                // Site/Project Documents
                 "SITE_PLAN",
                 "BUILDING_PLAN",
+                "LAYOUT_PLAN",
+
+                // CGWA Specific Documents
+                "PUMPING_TEST_REPORT",
+                "HYDROGEOLOGICAL_REPORT",
+                "WATER_QUALITY_REPORT",
+                "WATER_ANALYSIS",
+                "CONSERVATION_PLAN",
+                "RAINWATER_HARVESTING_PLAN",
+                "GREEN_BELT_PLAN",
+                "WATER_AUDIT_REPORT",
+                "RECYCLING_PLAN",
+
+                // Clearances & Licenses
+                "EXISTING_NOC",
+                "EC_CERTIFICATE",
+                "CTO_CTE",
                 "POLLUTION_NOC",
+                "FOREST_CLEARANCE",
                 "FACTORY_LICENSE",
                 "TRADE_LICENSE",
+
+                // Company Documents
                 "GST_CERTIFICATE",
+                "MSME_CERTIFICATE",
+                "INCORPORATION_CERTIFICATE",
+                "PARTNERSHIP_DEED",
+
+                // Legal Documents
                 "UNDERTAKING",
-                "WATER_ANALYSIS",
+                "AFFIDAVIT",
+                "INDEMNITY_BOND",
+
+                // Technical Documents
+                "BOREWELL_COMPLETION_REPORT",
+                "SOIL_INVESTIGATION_REPORT",
+                "GEOPHYSICAL_SURVEY",
+
+                // Others
                 "OTHER",
             ],
         },

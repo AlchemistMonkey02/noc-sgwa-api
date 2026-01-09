@@ -9,23 +9,36 @@ router.use(authMiddleware.authenticate);
 // POST /api/documents/upload - Upload documents (multiple files)
 router.post(
     "/upload",
-    upload.fields([
-        { name: "AADHAR", maxCount: 1 },
-        { name: "PAN", maxCount: 1 },
-        { name: "LAND_OWNERSHIP", maxCount: 5 },
-        { name: "KHASRA_KHATAUNI", maxCount: 1 },
-        { name: "SITE_PLAN", maxCount: 1 },
-        { name: "BUILDING_PLAN", maxCount: 1 },
-        { name: "POLLUTION_NOC", maxCount: 1 },
-        { name: "FACTORY_LICENSE", maxCount: 1 },
-        { name: "TRADE_LICENSE", maxCount: 1 },
-        { name: "GST_CERTIFICATE", maxCount: 1 },
-        { name: "UNDERTAKING", maxCount: 1 },
-        { name: "WATER_ANALYSIS", maxCount: 1 },
-        { name: "OTHER", maxCount: 10 },
-    ]),
-    handleMulterError,
-    documentController.uploadDocuments
+    upload.array("files", 10),
+    documentController.uploadDocument
+);
+
+// POST /api/documents/upload/identity - Upload identity documents (Aadhar, PAN)
+router.post(
+    "/upload/identity",
+    upload.array("files", 5),
+    documentController.uploadIdentityDocuments
+);
+
+// POST /api/documents/upload/company - Upload company documents
+router.post(
+    "/upload/company",
+    upload.array("files", 10),
+    documentController.uploadCompanyDocuments
+);
+
+// POST /api/documents/upload/noc - Upload NOC-specific documents
+router.post(
+    "/upload/noc",
+    upload.array("files", 15),
+    documentController.uploadNOCDocuments
+);
+
+// POST /api/documents/upload/clearances - Upload clearance documents
+router.post(
+    "/upload/clearances",
+    upload.array("files", 10),
+    documentController.uploadClearanceDocuments
 );
 
 // GET /api/documents - Get user's documents
