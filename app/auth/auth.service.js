@@ -2,11 +2,105 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("./user.model");
+const OTP = require("./otp.model");
 const jwtConfig = require("../config/jwt.config");
 const emailService = require("../utils/email.service");
 const logger = require("../utils/logger");
 
 class AuthService {
+    /**
+     * Send OTP for verification
+     */
+    async sendOTP(identifier, type) {
+        try {
+            // Generate 6-digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+            // Delete any existing OTPs for this identifier
+            await OTP.deleteMany({ identifier, type });
+
+            // Save new OTP
+            await OTP.create({
+                identifier,
+                type,
+                otp,
+                expiresAt,
+            });
+
+            // Send OTP
+            if (type === "EMAIL") {
+                // Log for now (TODO: integrate with email service)
+                logger.info(`Email OTP for ${identifier}: ${otp}`);
+                console.log(`📧 Email OTP for ${identifier}: ${otp}`);
+            } else if (type === "MOBILE") {
+                // Log for now (TODO: integrate SMS gateway)
+                logger.info(`Mobile OTP for ${identifier}: ${otp}`);
+                console.log(`📱 Mobile OTP for ${identifier}: ${otp}`);
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error("Error sending OTP", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Verify OTP
+     */
+    async verifyOTP(identifier, otp, type) {
+        try {
+            const otpRecord = await OTP.findOne({
+                identifier,
+                type,
+                verified: false,
+            });
+
+            if (!otpRecord) {
+                return false;
+            }
+
+            // Check if expired
+            if (otpRecord.expiresAt < new Date()) {
+                await OTP.deleteOne({ _id: otpRecord._id });
+                return false;
+            }
+
+            // Check attempts
+            if (otpRecord.attempts >= 3) {
+                await OTP.deleteOne({ _id: otpRecord._id });
+                throw {
+                    statusCode: 429,
+                    message: "Too many failed attempts. Please request a new OTP.",
+                };
+            }
+
+            // Verify OTP
+            if (otpRecord.otp !== otp) {
+                otpRecord.attempts += 1;
+                await otpRecord.save();
+                return false;
+            }
+
+            // Mark as verified
+            otpRecord.verified = true;
+            await otpRecord.save();
+
+            // Update user verification status if user exists
+            if (type === "EMAIL") {
+                await User.updateOne({ email: identifier }, { emailVerified: true });
+            } else if (type === "MOBILE") {
+                await User.updateOne({ phone: identifier }, { phoneVerified: true });
+            }
+
+            return true;
+        } catch (error) {
+            logger.error("Error verifying OTP", error);
+            throw error;
+        }
+    }
+
     /**
      * Register new user
      */
@@ -72,6 +166,62 @@ class AuthService {
                     message: `${field.charAt(0).toUpperCase() + field.slice(1)} is already registered`,
                 };
             }
+            throw error;
+        }
+    }
+
+    /**
+     * Register new user with documents
+     */
+    async registerWithDocuments(userData, documents, loginInfo = {}) {
+        try {
+            // First, register the user
+            const result = await this.register(userData, loginInfo);
+            const userId = result.user._id;
+
+            // Save uploaded documents
+            const Document = require("../documents/document.model");
+            const savedDocuments = [];
+
+            for (const [documentType, file] of Object.entries(documents)) {
+                if (file) {
+                    const document = new Document({
+                        userId,
+                        documentType,
+                        fileName: file.filename,
+                        originalName: file.originalname,
+                        filePath: file.path,
+                        mimeType: file.mimetype,
+                        fileSize: file.size,
+                        uploadedAt: new Date(),
+                    });
+
+                    await document.save();
+                    savedDocuments.push({
+                        documentType,
+                        documentId: document._id,
+                        fileName: document.fileName,
+                    });
+
+                    // Update user's idProofDocument field if it's ID proof
+                    if (documentType === "AADHAR" || documentType === "ID_PROOF") {
+                        await User.findByIdAndUpdate(userId, {
+                            idProofDocument: document._id,
+                        });
+                    }
+                }
+            }
+
+            logger.info(`Documents uploaded for user: ${result.user.email}`, {
+                userId,
+                documentCount: savedDocuments.length,
+            });
+
+            return {
+                ...result,
+                documents: savedDocuments,
+            };
+        } catch (error) {
             throw error;
         }
     }

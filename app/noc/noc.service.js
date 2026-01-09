@@ -81,6 +81,35 @@ class NOCService {
                 };
             }
 
+            // VALIDATE DOCUMENT COMPLETENESS
+            const { validateDocumentCompleteness, getDocumentName } = require("./noc-document-validator");
+
+            const docValidation = await validateDocumentCompleteness(
+                application,
+                application.userId,
+                application.companyId
+            );
+
+            if (!docValidation.isComplete) {
+                const missingList = docValidation.missingDocuments
+                    .map(doc => `• ${getDocumentName(doc)}`)
+                    .join("\n");
+
+                throw {
+                    statusCode: 400,
+                    code: "DOCUMENTS_INCOMPLETE",
+                    message: `Cannot submit application. ${docValidation.missingDocuments.length} required document(s) missing.`,
+                    details: {
+                        completionPercentage: docValidation.completionPercentage,
+                        totalRequired: docValidation.totalRequired,
+                        totalUploaded: docValidation.totalUploaded,
+                        missingDocuments: docValidation.missingDocuments,
+                        missingDocumentNames: docValidation.missingDocuments.map(getDocumentName),
+                        uploadedDocuments: docValidation.uploadedDocuments,
+                    },
+                };
+            }
+
             // Calculate fees
             const feeStructure = await FeeStructure.findOne({
                 applicationType: application.applicationType,
@@ -335,6 +364,425 @@ class NOCService {
             throw error;
         }
     }
+
+    // ============================================
+    // SECTION-WISE UPDATE METHODS (CGWA 8-Section Workflow)
+    // ============================================
+
+    /**
+     * Update specific section of an application
+     */
+    async updateSection(applicationId, sectionNumber, sectionData, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            if (application.status !== "DRAFT") {
+                throw {
+                    statusCode: 400,
+                    code: "INVALID_STATUS",
+                    message: "Can only update draft applications",
+                };
+            }
+
+            // Update section based on section number
+            switch (sectionNumber) {
+                case 1: // Basic Details
+                    Object.assign(application, {
+                        applicationType: sectionData.applicationType,
+                        sectorType: sectionData.sectorType,
+                        validityPeriodRequested: sectionData.validityPeriodRequested,
+                        projectDetails: {
+                            ...application.projectDetails,
+                            ...sectionData.projectDetails
+                        },
+                        communicationAddress: sectionData.communicationAddress
+                    });
+                    break;
+
+                case 2: // Location Details
+                    if (sectionData.location) {
+                        // Get block category for the selected block
+                        const block = await Block.findOne({
+                            blockId: sectionData.location.blockId,
+                            districtId: sectionData.location.districtId,
+                        });
+
+                        application.location = {
+                            ...sectionData.location,
+                            blockCategory: block?.category || application.location.blockCategory
+                        };
+                    }
+                    // Update land area details
+                    if (sectionData.projectDetails) {
+                        application.projectDetails = {
+                            ...application.projectDetails,
+                            ...sectionData.projectDetails
+                        };
+                    }
+                    break;
+
+                case 3: // Drinking & Domestic Use
+                    application.drinkingDomesticUse = sectionData.drinkingDomesticUse;
+                    // Auto-calculate totals
+                    const { numberOfWorkers, numberOfResidents, dailyRequirementPerPerson } = sectionData.drinkingDomesticUse;
+                    const totalDailyDomestic = (numberOfWorkers + numberOfResidents) * dailyRequirementPerPerson / 1000 // Convert to KL
+                    application.drinkingDomesticUse.totalDailyDomestic = totalDailyDomestic;
+                    application.drinkingDomesticUse.totalAnnualDomestic = totalDailyDomestic * 365;
+                    break;
+
+                case 4: // Water Requirement Breakup
+                    application.waterRequirementBreakup = sectionData.waterRequirementBreakup || [];
+                    application.stpEtpDetails = sectionData.stpEtpDetails || {};
+                    break;
+
+                case 5: // Ground Water Structures
+                    application.groundWaterStructures = sectionData.groundWaterStructures || [];
+                    break;
+
+                case 6: // Document Attachments
+                    application.documentsReviewed = sectionData.documentsReviewed || false;
+                    break;
+
+                default:
+                    throw {
+                        statusCode: 400,
+                        code: "INVALID_SECTION",
+                        message: "Invalid section number. Must be between 1 and 6.",
+                    };
+            }
+
+            await application.save();
+            logger.info(`Application section ${sectionNumber} updated: ${applicationId}`, { userId });
+            return application;
+        } catch (error) {
+            logger.error(`Error updating section ${sectionNumber}`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate application fees
+     */
+    async calculateApplicationFees(applicationId, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const baseFee = 1000;
+            const waterRequirement = application.waterRequirement?.dailyRequirement || 0;
+            const ratePerCubicMeter = 10;
+            const abstractionCharge = waterRequirement * ratePerCubicMeter * 365;
+            const subtotal = baseFee + abstractionCharge;
+            const gst = subtotal * 0.18;
+
+            return {
+                feeCalculation: {
+                    baseFee,
+                    abstractionCharge,
+                    waterRequirement,
+                    gstRate: 18,
+                    gstAmount: gst,
+                    totalAmount: subtotal + gst
+                }
+            };
+        } catch (error) {
+            logger.error("Error calculating fees", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get application summary
+     */
+    async getApplicationSummary(applicationId, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId })
+                .populate('companyId', 'companyName registrationNumber gstNumber')
+                .populate('userId', 'firstName lastName email phone');
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const fees = await this.calculateApplicationFees(applicationId, userId);
+
+            return {
+                applicationId: application.applicationId,
+                applicationNumber: application.applicationNumber,
+                status: application.status,
+                basicDetails: {
+                    applicationType: application.applicationType,
+                    sectorType: application.sectorType,
+                    projectDetails: application.projectDetails
+                },
+                locationDetails: application.location,
+                drinkingDomesticUse: application.drinkingDomesticUse,
+                waterRequirementBreakup: application.waterRequirementBreakup,
+                groundWaterStructures: application.groundWaterStructures,
+                feeDetails: fees.feeCalculation,
+                companyDetails: application.companyId,
+                timestamps: {
+                    createdAt: application.createdAt,
+                    updatedAt: application.updatedAt
+                }
+            };
+        } catch (error) {
+            logger.error("Error getting application summary", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get section completion status
+     */
+    async getSectionCompletionStatus(applicationId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const sections = {
+                section1: {
+                    name: "Basic Details",
+                    isComplete: !!(application.applicationType && application.sectorType)
+                },
+                section2: {
+                    name: "Location Details",
+                    isComplete: !!(application.location?.blockId)
+                },
+                section3: {
+                    name: "Drinking & Domestic Use",
+                    isComplete: !!(application.drinkingDomesticUse?.numberOfWorkers >= 0)
+                },
+                section4: {
+                    name: "Water Requirement Breakup",
+                    isComplete: !!(application.waterRequirementBreakup?.length > 0)
+                },
+                section5: {
+                    name: "Ground Water Structures",
+                    isComplete: !!(application.groundWaterStructures?.length > 0)
+                },
+                section6: {
+                    name: "Document Attachments",
+                    isComplete: application.documentsReviewed || false
+                }
+            };
+
+            const completedCount = Object.values(sections).filter(s => s.isComplete).length;
+
+            return {
+                sections,
+                overview: {
+                    completedSections: completedCount,
+                    totalSections: 6,
+                    completionPercentage: Math.round((completedCount / 6) * 100)
+                }
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Validate specific section
+     */
+    async validateSection(applicationId, sectionNumber) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const errors = [];
+
+            switch (sectionNumber) {
+                case 1:
+                    if (!application.applicationType) errors.push("Application type is required");
+                    if (!application.sectorType) errors.push("Sector type is required");
+                    break;
+                case 2:
+                    if (!application.location?.blockId) errors.push("Block is required");
+                    break;
+                case 3:
+                    if (application.drinkingDomesticUse?.numberOfWorkers === undefined) errors.push("Number of workers is required");
+                    break;
+                case 4:
+                    if (!application.waterRequirementBreakup || application.waterRequirementBreakup.length === 0) {
+                        errors.push("At least one activity is required");
+                    }
+                    break;
+                case 5:
+                    if (!application.groundWaterStructures || application.groundWaterStructures.length === 0) {
+                        errors.push("At least one structure is required");
+                    }
+                    break;
+                case 6:
+                    if (!application.documentsReviewed) errors.push("Documents must be reviewed");
+                    break;
+            }
+
+            return {
+                sectionNumber,
+                isValid: errors.length === 0,
+                errors
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get application progress
+     */
+    async getApplicationProgress(applicationId, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const sectionStatus = await this.getSectionCompletionStatus(applicationId);
+
+            return {
+                applicationId,
+                currentStatus: application.status,
+                sectionProgress: sectionStatus.overview,
+                sections: sectionStatus.sections,
+                canSubmit: sectionStatus.overview.completionPercentage === 100
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get application timeline
+     */
+    async getApplicationTimeline(applicationId, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const timeline = [
+                {
+                    event: "APPLICATION_CREATED",
+                    timestamp: application.createdAt,
+                    description: "Application draft created"
+                }
+            ];
+
+            if (application.submittedAt) {
+                timeline.push({
+                    event: "APPLICATION_SUBMITTED",
+                    timestamp: application.submittedAt,
+                    description: "Application submitted"
+                });
+            }
+
+            return {
+                applicationId,
+                timeline: timeline.sort((a, b) => b.timestamp - a.timestamp)
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Link documents to application
+     */
+    async linkDocuments(applicationId, documentIds, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            application.documents = documentIds;
+            await application.save();
+
+            logger.info(`Documents linked: ${applicationId}`, { userId, count: documentIds.length });
+            return application;
+        } catch (error) {
+            logger.error("Error linking documents", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get application documents
+     */
+    async getApplicationDocuments(applicationId, userId) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId, userId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const Document = require("../documents/document.model");
+            const documents = await Document.find({
+                applicationId: application._id,
+                userId: application.userId
+            });
+
+            return documents;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 module.exports = new NOCService();
+

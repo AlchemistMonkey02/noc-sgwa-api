@@ -64,6 +64,7 @@ app.get("/", (req, res) => {
   });
 });
 
+
 app.get("/health", (req, res) => {
   res.json({
     success: true,
@@ -83,6 +84,8 @@ app.use("/api/master", require("./app/master-data/master.routes"));
 app.use("/api/documents", require("./app/documents/document.routes"));
 app.use("/api/applications/noc", require("./app/noc/noc.routes"));
 app.use("/api/officer", require("./app/noc/officer.routes"));
+app.use("/api/companies", require("./app/company/company.routes"));
+app.use("/api/notifications", require("./app/notifications/notification.routes"));
 
 // 404 handler
 app.use((req, res) => {

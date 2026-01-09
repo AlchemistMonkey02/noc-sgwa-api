@@ -6,21 +6,35 @@ const logger = require("../utils/logger");
 
 class DocumentService {
     /**
-     * Upload documents
+     * Upload documents with automatic user and company linking
      */
-    async uploadDocuments(files, userId, applicationId = null) {
+    async uploadDocuments(files, userId, companyId, documentTypes = "OTHER") {
         try {
-            const documents = [];
+            const uploadedDocs = [];
 
-            for (const file of files) {
+            // Parse documentTypes (can be single string, array, or comma-separated string)
+            let typesArray = [];
+            if (Array.isArray(documentTypes)) {
+                typesArray = documentTypes;
+            } else if (typeof documentTypes === 'string' && documentTypes.includes(',')) {
+                typesArray = documentTypes.split(',').map(t => t.trim());
+            } else {
+                typesArray = [documentTypes];
+            }
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 const documentId = uuidv4();
+
+                // Use corresponding type or default to OTHER
+                const documentType = typesArray[i] || typesArray[0] || "OTHER";
 
                 const document = new Document({
                     documentId,
                     userId,
-                    applicationId,
-                    documentType: file.fieldname.toUpperCase(),
-                    documentName: file.fieldname,
+                    companyId,  // Automatically linked from token/request
+                    documentType,
+                    documentName: file.originalname,
                     originalFilename: file.originalname,
                     storedFilename: file.filename,
                     filePath: file.path,
@@ -30,16 +44,26 @@ class DocumentService {
                 });
 
                 await document.save();
-                documents.push(document);
+
+                uploadedDocs.push({
+                    documentId: document.documentId,
+                    _id: document._id,
+                    fileName: document.originalFilename,
+                    documentType: document.documentType,
+                    fileSize: document.fileSize,
+                    uploadedAt: document.uploadedAt,
+                    userId: document.userId,
+                    companyId: document.companyId,
+                });
 
                 logger.info(`Document uploaded: ${documentId}`, {
                     userId,
-                    documentType: file.fieldname,
-                    fileSize: file.size,
+                    companyId,
+                    fileName: file.originalname,
                 });
             }
 
-            return documents;
+            return uploadedDocs;
         } catch (error) {
             logger.error("Error uploading documents", error);
             throw error;

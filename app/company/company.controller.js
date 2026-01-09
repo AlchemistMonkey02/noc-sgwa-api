@@ -1,0 +1,192 @@
+const companyService = require("./company.service");
+const logger = require("../utils/logger");
+
+class CompanyController {
+    /**
+     * POST /api/companies/register
+     * Register a new company
+     */
+    async registerCompany(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const company = await companyService.registerCompany(userId, req.body);
+
+            res.status(201).json({
+                success: true,
+                data: company,
+                message: "Company registered successfully! Verification pending.",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/companies
+     * Get all companies for logged-in user
+     */
+    async getUserCompanies(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const filters = {
+                status: req.query.status,
+                verificationStatus: req.query.verificationStatus,
+            };
+
+            const companies = await companyService.getUserCompanies(userId, filters);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    companies,
+                    count: companies.length,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/companies/stats
+     * Get company statistics for user
+     */
+    async getCompanyStats(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const stats = await companyService.getCompanyStats(userId);
+
+            res.status(200).json({
+                success: true,
+                data: stats,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/companies/:id
+     * Get company by ID
+     */
+    async getCompanyById(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const company = await companyService.getCompanyById(req.params.id, userId);
+
+            res.status(200).json({
+                success: true,
+                data: company,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/companies/:id
+     * Update company details
+     */
+    async updateCompany(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const company = await companyService.updateCompany(
+                req.params.id,
+                userId,
+                req.body
+            );
+
+            res.status(200).json({
+                success: true,
+                data: company,
+                message: "Company updated successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * DELETE /api/companies/:id
+     * Delete company
+     */
+    async deleteCompany(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const result = await companyService.deleteCompany(req.params.id, userId);
+
+            res.status(200).json({
+                success: true,
+                message: result.message,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    // ========== Officer Endpoints ==========
+
+    /**
+     * GET /api/companies/officer/all
+     * Get all companies (Officer view)
+     */
+    async getAllCompanies(req, res, next) {
+        try {
+            const filters = {
+                verificationStatus: req.query.verificationStatus,
+                status: req.query.status,
+                companyType: req.query.companyType,
+                search: req.query.search,
+            };
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+
+            const result = await companyService.getAllCompanies(filters, page, limit);
+
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/companies/officer/:id/verify
+     * Verify/Reject company
+     */
+    async verifyCompany(req, res, next) {
+        try {
+            const officerId = req.user.id;
+            const { action, reason } = req.body;
+
+            if (!["approve", "reject"].includes(action)) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "INVALID_ACTION",
+                        message: "Action must be 'approve' or 'reject'",
+                    },
+                });
+            }
+
+            const company = await companyService.verifyCompany(
+                req.params.id,
+                officerId,
+                action,
+                reason
+            );
+
+            res.status(200).json({
+                success: true,
+                data: company,
+                message: `Company ${action}d successfully`,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+}
+
+module.exports = new CompanyController();

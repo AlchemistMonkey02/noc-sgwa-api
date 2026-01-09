@@ -1,0 +1,425 @@
+# CGWA-Style NOC Application Form - Implementation Plan
+
+## Goal
+
+Rebuild the NOC application form to precisely match CGWA BhuNeer system structure, including all 8 sections with proper field organization, validations, progress tracking, and styling as per government portal standards.
+
+## CGWA BhuNeer Application Structure (From Analysis)
+
+### Form Sections (8 Total)
+1. **Basic Details** - Application type, project info, MSME status
+2. **Location Details** - Coordinates, land area, wetland info
+3. **Drinking & Domestic Use** - Worker/resident count, daily requirements
+4. **Water Requirement Breakup** - Activity-wise water usage, STP/ETP details
+5. **Ground Water Structure** - Existing and proposed bore wells/tube wells
+6. **Attachments** - Document uploads (LOA, land ownership, DPR, etc.)
+7. **GW Charges** - Auto-calculated fees based on usage and area category
+8. **Application Summary & Payment** - Review and payment gateway integration
+
+## Proposed Changes
+
+### Section 1: Basic Details
+
+#### [MODIFY] [NOCApplication.jsx](file:///c:/Users/DELL/Desktop/SGWA/src/modules/noc/NOCApplication.jsx)
+
+**Current Step 1 Missing Fields:**
+- Communication Address (with "Same as Project Address" checkbox)
+- Project Status (Existing/New)  
+- Ground Water Utilization specific sub-categories
+- MSME Registration Date
+
+**Fields to Add/Enhance:**
+```javascript
+// Add to formData
+communicationAddress: '',
+sameAsProjectAddress: false,
+projectStatus: '', // 'Existing' or 'New'
+msmeRegistrationDate: '',
+industryNICCode: '',
+contactPersonDesignation: ''
+```
+
+---
+
+### Section 2: Location Details  
+
+Currently in Step 2, but needs enhancement:
+
+**Missing Fields:**
+- Total Land Area (sq. m)
+- Green Belt Area (sq. m)  
+- Wetland Name (conditional)
+- Detailed coordinates validation
+
+**Fields to Add:**
+```javascript
+totalLandArea: '',
+greenBeltArea: '',
+isInWetland: false,
+wetlandName: ''
+```
+
+---
+
+### Section 3: Drinking & Domestic Use
+
+#### [NEW] Create new form section between current Step 2 and 3
+
+**New Fields Required:**
+```javascript
+numberOfWorkers: '',
+numberOfResidents: '',
+dailyRequirementPerPerson: 135, // Default CGWA standard
+domesticTotalDaily: 0, // Auto-calculated
+domesticTotalAnnual: 0 // Auto-calculated
+```
+
+**Auto-calculation Logic:**
+- Total Daily = (Workers + Residents) × Per Person Requirement
+- Total Annual = Total Daily × 365
+
+---
+
+### Section 4: Water Requirement Breakup
+
+#### [MODIFY] Current Step 3 needs major restructuring
+
+**Activity-Wise Breakup Table:**
+Create dynamic table with columns:
+- Activity Type (Industrial, Boiler, Cooling, Domestic, Greenbelt, etc.)
+- Total Requirement (m³/day)
+- Fresh GW (m³/day)
+- Surface Water (m³/day)
+- Recycled Water (m³/day)
+
+**STP/ETP Details:**
+```javascript
+stpCapacity: '',
+etpCapacity: '',
+recycledWaterUsage: '',
+netFreshWaterRequired: 0 // Auto-calculated
+```
+
+**Add Rows Dynamically:**
+- Allow users to add multiple activity breakups
+- Auto-sum all requirements
+- Show net fresh water calculation
+
+---
+
+### Section 5: Ground Water Structure
+
+Current Step 4 is good but needs enhancement:
+
+**Additional Fields per Structure:**
+- GPS Coordinates (Lat/Long) for each structure
+- Water Meter Installation Date
+- Last Meter Reading
+- Aquifer Type
+
+**Proposed Structure Form:**
+```javascript
+structures: [{
+  type: '', // Bore-well, Tube-well, Dug-well
+  category: '', // Existing or Proposed
+  yearOfConstruction: '',
+  depth: '',
+  diameter: '',
+  latitude: '',
+  longitude: '',
+  yield: '',
+  waterMeterInstalled: false,
+  meterInstallationDate: '',
+  lastMeterReading: '',
+  aquiferType: ''
+}]
+```
+
+---
+
+### Section 6: Attachments
+
+#### [MODIFY] Current Step 7 needs CGWA-specific documents
+
+**Mandatory Documents:**
+1. Authorization Letter/Letter of Authority (LOA)
+2. Certificate/Affidavit of Land Ownership
+3. Site Map/Plot Plan
+4. Water Balance Chart/Flow Diagram
+5. Detailed Project Report (DPR)
+6. Consent to Establish (CTE) / Consent to Operate (CTO)
+7. Ground Water Quality Report
+8. Rainwater Harvesting Plan/Affidavit
+9. MSME Certificate (if applicable)
+10. Previous NOC Copy (for renewals)
+
+**Conditional Documents:**
+- Environmental Clearance (for projects > certain threshold)
+- Impact Assessment Report (for mining/dewatering)
+- BIS License Copy (for packaged water industries)
+- Mining Lease Copy (for mining projects)
+
+```javascript
+documents: {
+  loa: null,
+  landOwnership: null,
+  siteMap: null,
+  waterBalanceChart: null,
+  dpr: null,
+  cte: null,
+  cto: null,
+  gwQualityReport: null,
+  rwh: null,
+  msmeCertificate: null,
+  previousNOC: null,
+  environmentalClearance: null,
+  impactAssessment: null,
+  bisLicense: null,
+  miningLease: null
+}
+```
+
+---
+
+### Section 7: GW Charges
+
+#### [NEW] Create fee calculation section
+
+**Fee Components:**
+1. Base Application Fee (Fixed: ₹1,000 or per state rules)
+2. Water Abstraction Charges (Based on daily usage × area category multiplier)
+3. GST (18%)
+4. Total Payable
+
+**Calculation Logic:**
+```javascript
+const calculateFees = (dailyRequirement, blockCategory) => {
+  const baseFee = 1000;
+  const ratePerCubicMeter = blockCategory === 'OVER_EXPLOITED' ? 50 :
+                            blockCategory === 'CRITICAL' ? 30 :
+                            blockCategory === 'SEMI_CRITICAL' ? 15 : 10;
+  
+  const abstractionCharge = dailyRequirement * ratePerCubicMeter * 365;
+  const gst = (baseFee + abstractionCharge) * 0.18;
+  
+  return {
+    baseFee,
+    abstractionCharge,
+    gst,
+    total: base Fee + abstractionCharge + gst
+  };
+};
+```
+
+---
+
+### Section 8: Application Summary & Payment
+
+#### [MODIFY] Current final step needs enhancement
+
+**Summary Display:**
+- All entered data in read-only format
+- Editable sections (click to go back to specific step)
+- Fee breakdown display
+- Declaration checkbox
+- Submit button with payment integration
+
+**Payment Integration:**
+```javascript
+// Bharatkosh or state payment gateway integration
+// After payment success, show:
+// - Application Number
+// - Payment Receipt Number
+// - Estimated processing time
+```
+
+---
+
+## Styling & UX Improvements
+
+### Progress Stepper
+
+#### [MODIFY] [ProgressSteps.jsx](file:///c:/Users/DELL/Desktop/SGWA/src/modules/noc/components/ProgressSteps.jsx)
+
+**Current:** Vertical or basic horizontal stepper
+**CGWA Style:** Horizontal progress bar with numbered circles
+
+```css
+.cgwa-progress-stepper {
+  display: flex;
+  justify-content: space-between;
+  padding: 30px 0;
+  position: relative;
+}
+
+.cgwa-step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+.cgwa-step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.cgwa-step.active .cgwa-step-number {
+  background: #1e3a8a;
+  color: white;
+}
+
+.cgwa-step.completed .cgwa-step-number {
+  background: #28a745;
+  color: white;
+}
+```
+
+### Form Layout
+
+**Grid System:** 2-column for most fields, 3-column for State/District/Block
+
+```css
+.noc-form-row.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.noc-form-row.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+```
+
+### Field Styling
+
+```css
+.noc-form-control {
+  padding: 10px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #f8fafc;
+}
+
+.noc-form-control:focus {
+  border-color: #1e3a8a;
+  background: white;
+  outline: none;
+}
+
+.noc-form-label.required::after {
+  content: ' *';
+  color: #dc2626;
+}
+```
+
+---
+
+## Validation Rules
+
+### Step-by-Step Validation
+
+**Step 1:** All mandatory application type fields
+**Step 2:** Valid coordinates, PIN code format  
+**Step 3:** Numbers > 0 for worker/resident counts
+**Step 4:** Water breakup must balance (total = sum of sources)
+**Step 5:** At least one structure must be added
+**Step 6:** All mandatory documents uploaded (PDF < 5MB)
+**Step 7:** Fees calculated and displayed
+**Step 8:** Declaration accepted
+
+### Real-time Validation
+
+```javascript
+// Coordinate validation
+const validateLatitude = (lat) => {
+  const num = parseFloat(lat);
+  return num >= -90 && num <= 90;
+};
+
+const validateLongitude = (long) => {
+  const num = parseFloat(long);
+  return num >= -180 && num <= 180;
+};
+
+// PIN code validation
+const validatePIN = (pin) => /^\d{6}$/.test(pin);
+```
+
+---
+
+## Data Files to Update
+
+### [MODIFY] [formData.js](file:///c:/Users/DELL/Desktop/SGWA/src/modules/noc/utils/formData.js)
+
+Update `initialFormData` and `formSteps` arrays to match 8-section structure.
+
+### [NEW] Create water activity master data
+
+```javascript
+export const waterActivityTypes = [
+  'Industrial Process',
+  'Boiler Feed',
+  'Cooling Tower',
+  'Domestic/Drinking',
+  'Greenbelt/Horticulture',
+  ' Firefighting',
+  'Construction',
+  'Other'
+];
+
+export const waterSourceTypes = [
+  'Fresh Ground Water',
+  'Surface Water',
+  'Recycled Water (STP)',
+  'Recycled Water (ETP)',
+  'Municipal Supply'
+];
+```
+
+---
+
+## Implementation Sequence
+
+1. **Phase 1:** Update formData structure (Steps 1-2)
+2. **Phase 2:** Add new Drinking & Domestic section (Step 3)
+3. **Phase 3:** Rebuild Water Requirement Breakup (Step 4)
+4. **Phase 4:** Enhance GW Structure section (Step 5)
+5. **Phase 5:** Update document requirements (Step 6)
+6. **Phase 6:** Add fee calculation (Step 7)
+7. **Phase 7:** Build summary & payment (Step 8)
+8. **Phase 8:** Update progress stepper styling
+9. **Phase 9:** Add comprehensive validations
+10. **Phase 10:** Testing and refinement
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Run existing validation functions
+- Test auto-calculation logic
+- Verify fee computation
+
+### Manual Verification
+1. Fill complete application with test data
+2. Verify all 8 sections save data correctly
+3. Test navigation between sections
+4. Verify document upload functionality
+5. Test fee calculation accuracy
+6. Check responsive design on mobile/tablet
+7. Verify form submission creates proper application object
+
+### Browser Testing
+- Chrome, Firefox, Edge compatibility
+- Mobile responsive design
+- File upload in different browsers

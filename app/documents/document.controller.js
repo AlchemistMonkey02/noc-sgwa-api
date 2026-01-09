@@ -5,40 +5,282 @@ const logger = require("../utils/logger");
 class DocumentController {
     /**
      * POST /api/documents/upload
-     * Upload documents
+     * Upload documents with automatic user and company linking
      */
-    async uploadDocuments(req, res, next) {
+    async uploadDocument(req, res, next) {
         try {
             if (!req.files || req.files.length === 0) {
                 return res.status(400).json({
                     success: false,
                     error: {
                         code: "NO_FILES",
-                        message: "No files provided",
+                        message: "No files uploaded",
                     },
                 });
             }
 
-            const { applicationId } = req.body;
+            const userId = req.user.id;  // From auth token
+
+            // CompanyId is optional - from req.body or req.company (if middleware used)
+            const companyId = req.body.companyId || req.company?._id || null;
+
             const documents = await documentService.uploadDocuments(
                 req.files,
-                req.user.id,
-                applicationId
+                userId,
+                companyId,
+                req.body.documentType || "OTHER"
             );
 
             res.status(201).json({
                 success: true,
-                count: documents.length,
-                data: documents.map((doc) => ({
-                    documentId: doc.documentId,
-                    documentType: doc.documentType,
-                    documentName: doc.documentName,
-                    originalFilename: doc.originalFilename,
-                    fileSize: doc.fileSize,
-                    fileSizeMB: doc.fileSizeMB,
-                    uploadedAt: doc.uploadedAt,
-                })),
+                data: documents,
                 message: `${documents.length} document(s) uploaded successfully`,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/upload/identity
+     * Upload identity documents (Aadhar, PAN)
+     */
+    async uploadIdentityDocuments(req, res, next) {
+        try {
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILES",
+                        message: "No files uploaded",
+                    },
+                });
+            }
+
+            const allowedTypes = ["AADHAR", "PAN", "AFFIDAVIT", "INDEMNITY_BOND"];
+            const documentTypes = req.body.documentTypes || req.body.documentType || "AADHAR";
+
+            // Validate document types
+            const types = Array.isArray(documentTypes)
+                ? documentTypes
+                : documentTypes.split(',').map(t => t.trim());
+
+            for (const type of types) {
+                if (!allowedTypes.includes(type)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_DOCUMENT_TYPE",
+                            message: `Document type '${type}' not allowed for identity uploads.`,
+                            allowedTypes,
+                        },
+                    });
+                }
+            }
+
+            const userId = req.user.id;
+            const companyId = req.body.companyId || req.company?._id || null;
+
+            const documents = await documentService.uploadDocuments(
+                req.files,
+                userId,
+                companyId,
+                documentTypes
+            );
+
+            res.status(201).json({
+                success: true,
+                data: documents,
+                message: `${documents.length} identity document(s) uploaded successfully`,
+                category: "IDENTITY"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/upload/company
+     * Upload company documents
+     */
+    async uploadCompanyDocuments(req, res, next) {
+        try {
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILES",
+                        message: "No files uploaded",
+                    },
+                });
+            }
+
+            const allowedTypes = [
+                "GST_CERTIFICATE", "MSME_CERTIFICATE", "INCORPORATION_CERTIFICATE",
+                "PARTNERSHIP_DEED", "PAN", "TRADE_LICENSE", "FACTORY_LICENSE"
+            ];
+            const documentTypes = req.body.documentTypes || req.body.documentType || "OTHER";
+
+            // Validate document types
+            const types = Array.isArray(documentTypes)
+                ? documentTypes
+                : documentTypes.split(',').map(t => t.trim());
+
+            for (const type of types) {
+                if (!allowedTypes.includes(type)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_DOCUMENT_TYPE",
+                            message: `Document type '${type}' not allowed for company uploads.`,
+                            allowedTypes,
+                        },
+                    });
+                }
+            }
+
+            const userId = req.user.id;
+            const companyId = req.body.companyId || req.company?._id || null;
+
+            const documents = await documentService.uploadDocuments(
+                req.files,
+                userId,
+                companyId,
+                documentTypes
+            );
+
+            res.status(201).json({
+                success: true,
+                data: documents,
+                message: `${documents.length} company document(s) uploaded successfully`,
+                category: "COMPANY"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/upload/noc
+     * Upload NOC-specific documents
+     */
+    async uploadNOCDocuments(req, res, next) {
+        try {
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILES",
+                        message: "No files uploaded",
+                    },
+                });
+            }
+
+            const allowedTypes = [
+                "PUMPING_TEST_REPORT", "HYDROGEOLOGICAL_REPORT", "WATER_QUALITY_REPORT",
+                "WATER_ANALYSIS", "CONSERVATION_PLAN", "RAINWATER_HARVESTING_PLAN",
+                "GREEN_BELT_PLAN", "WATER_AUDIT_REPORT", "RECYCLING_PLAN",
+                "LAND_OWNERSHIP", "KHASRA_KHATAUNI", "REVENUE_RECORDS",
+                "LEASE_DEED", "SALE_DEED", "SITE_PLAN", "BUILDING_PLAN",
+                "LAYOUT_PLAN", "UNDERTAKING", "BOREWELL_COMPLETION_REPORT",
+                "SOIL_INVESTIGATION_REPORT", "GEOPHYSICAL_SURVEY"
+            ];
+            const documentTypes = req.body.documentTypes || req.body.documentType || "OTHER";
+
+            // Validate document types
+            const types = Array.isArray(documentTypes)
+                ? documentTypes
+                : documentTypes.split(',').map(t => t.trim());
+
+            for (const type of types) {
+                if (!allowedTypes.includes(type)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_DOCUMENT_TYPE",
+                            message: `Document type '${type}' not allowed for NOC uploads.`,
+                            allowedTypes,
+                        },
+                    });
+                }
+            }
+
+            const userId = req.user.id;
+            const companyId = req.body.companyId || req.company?._id || null;
+
+            const documents = await documentService.uploadDocuments(
+                req.files,
+                userId,
+                companyId,
+                documentTypes
+            );
+
+            res.status(201).json({
+                success: true,
+                data: documents,
+                message: `${documents.length} NOC document(s) uploaded successfully`,
+                category: "NOC"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/upload/clearances
+     * Upload clearance/license documents
+     */
+    async uploadClearanceDocuments(req, res, next) {
+        try {
+            if (!req.files || req.files.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILES",
+                        message: "No files uploaded",
+                    },
+                });
+            }
+
+            const allowedTypes = [
+                "EXISTING_NOC", "EC_CERTIFICATE", "CTO_CTE",
+                "POLLUTION_NOC", "FOREST_CLEARANCE"
+            ];
+            const documentTypes = req.body.documentTypes || req.body.documentType || "OTHER";
+
+            // Validate document types
+            const types = Array.isArray(documentTypes)
+                ? documentTypes
+                : documentTypes.split(',').map(t => t.trim());
+
+            for (const type of types) {
+                if (!allowedTypes.includes(type)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_DOCUMENT_TYPE",
+                            message: `Document type '${type}' not allowed for clearance uploads.`,
+                            allowedTypes,
+                        },
+                    });
+                }
+            }
+
+            const userId = req.user.id;
+            const companyId = req.body.companyId || req.company?._id || null;
+
+            const documents = await documentService.uploadDocuments(
+                req.files,
+                userId,
+                companyId,
+                documentTypes
+            );
+
+            res.status(201).json({
+                success: true,
+                data: documents,
+                message: `${documents.length} clearance document(s) uploaded successfully`,
+                category: "CLEARANCE"
             });
         } catch (error) {
             next(error);
