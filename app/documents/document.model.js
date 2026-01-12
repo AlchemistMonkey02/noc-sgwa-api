@@ -72,6 +72,7 @@ const DocumentSchema = new mongoose.Schema(
                 "MSME_CERTIFICATE",
                 "INCORPORATION_CERTIFICATE",
                 "PARTNERSHIP_DEED",
+                "AUTHORIZATION_LETTER",
 
                 // Legal Documents
                 "UNDERTAKING",

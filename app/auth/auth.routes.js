@@ -23,6 +23,23 @@ router.post(
     authController.register
 );
 
+// NEW: Validate individual registration steps
+router.post(
+    "/register/validate-step",
+    (req, res, next) => {
+        const step = req.body.step;
+        if (step === 1 || step === "1") {
+            return authValidator.validateStep1(req, res, next);
+        } else if (step === 2 || step === "2") {
+            return authValidator.validateStep2(req, res, next);
+        } else if (step === 3 || step === "3") {
+            return authValidator.validateStep3(req, res, next);
+        }
+        next();
+    },
+    authController.validateRegistrationStep
+);
+
 // Login
 router.post("/login", authValidator.validateLogin, authController.login);
 
@@ -30,12 +47,29 @@ router.post("/login", authValidator.validateLogin, authController.login);
 router.use(authMiddleware.authenticate);
 
 router.post("/logout", authController.logout);
+router.post("/change-password", authController.changePassword);
 router.post("/refresh", authController.refreshToken);
 router.get("/profile", authController.getProfile);
 router.put("/profile", authController.updateProfile);
+router.post(
+    "/profile-picture",
+    registrationUpload.single("profilePicture"),
+    authController.uploadProfilePicture
+);
+
+// Contact Update (Email/Phone) with OTP
+router.post("/profile/contact/otp", authController.requestContactUpdateOTP);
+router.post("/profile/contact/verify", authController.verifyContactUpdate);
 
 // Password management
 router.post("/forgot-password", authValidator.validateForgotPassword, authController.forgotPassword);
 router.post("/reset-password", authValidator.validateResetPassword, authController.resetPassword);
+
+// Officer Routes
+router.put(
+    "/officer/users/:id/verify",
+    authMiddleware.authorize(["DGO", "RSGWA", "ENFORCEMENT"]),
+    authController.verifyUser
+);
 
 module.exports = router;

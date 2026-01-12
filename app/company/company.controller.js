@@ -9,12 +9,40 @@ class CompanyController {
     async registerCompany(req, res, next) {
         try {
             const userId = req.user.id;
-            const company = await companyService.registerCompany(userId, req.body);
+            const company = await companyService.registerCompany(userId, req.body, req.files);
 
             res.status(201).json({
                 success: true,
                 data: company,
                 message: "Company registered successfully! Verification pending.",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/companies/types
+     * Get valid company types
+     */
+    async getCompanyTypes(req, res, next) {
+        try {
+            const types = [
+                "PRIVATE_LIMITED",
+                "PUBLIC_LIMITED",
+                "PARTNERSHIP",
+                "PROPRIETORSHIP",
+                "LLP",
+                "GOVERNMENT",
+                "NGO",
+                "TRUST",
+                "SOCIETY",
+                "COOPERATIVE"
+            ];
+
+            res.status(200).json({
+                success: true,
+                data: types,
             });
         } catch (error) {
             next(error);
@@ -59,6 +87,24 @@ class CompanyController {
             res.status(200).json({
                 success: true,
                 data: stats,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/companies/profile
+     * Get company profile for logged-in user
+     */
+    async getCompanyProfile(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const company = await companyService.getCompanyProfile(userId);
+
+            res.status(200).json({
+                success: true,
+                data: company,
             });
         } catch (error) {
             next(error);

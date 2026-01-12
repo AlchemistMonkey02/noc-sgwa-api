@@ -1,0 +1,5 @@
+❌ *Application Rejected by SGWA*
+
+NOC Application: {{applicationNumber}}
+
+Check portal for detailed technical remarks.

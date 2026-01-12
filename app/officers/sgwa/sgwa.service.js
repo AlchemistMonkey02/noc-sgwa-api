@@ -3,6 +3,35 @@ const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
 
 class SGWAService {
+    async assignApplication(applicationId, currentOfficerId, data) {
+        try {
+            const application = await NOCApplication.findOne({ applicationId });
+            const { officerId, remarks } = data; // officerId is the target assignee
+
+            if (!application) throw { statusCode: 404, message: "Application not found" };
+
+            // Initialize sgwa object if missing
+            if (!application.approvalFlow.sgwa) application.approvalFlow.sgwa = {};
+
+            application.approvalFlow.sgwa.assignedOfficer = officerId;
+            application.approvalFlow.sgwa.assignedAt = new Date();
+            application.approvalFlow.sgwa.assignedBy = currentOfficerId;
+            application.approvalFlow.sgwa.assignmentRemarks = remarks;
+
+            // Optionally update status to UNDER_REVIEW if it was pending
+            if (application.status === 'PENDING_SGWA_REVIEW') {
+                application.status = 'UNDER_REVIEW_SGWA';
+            }
+
+            await application.save();
+            logger.info(`Application ${applicationId} assigned to officer ${officerId}`);
+            return application;
+        } catch (error) {
+            logger.error("Error assigning application", error);
+            throw error;
+        }
+    }
+
     /**
      * Get applications for SGWA review (DGO approved)
      */
@@ -205,13 +234,10 @@ class SGWAService {
 
     async sendNotifications(application, event) {
         try {
-            await notificationService.createNotification(application.userId, {
-                type: event,
-                title: this.getNotificationTitle(event),
-                message: this.getNotificationMessage(event, application),
-                relatedId: application.applicationId,
-                relatedType: "APPLICATION",
-                priority: "HIGH"
+            // Use centralized notification service
+            await notificationService.send(application.userId, event, {
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName || 'Project',
             });
         } catch (error) {
             logger.error("Error sending notifications", error);

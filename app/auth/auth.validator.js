@@ -127,15 +127,9 @@ const registerSchema = Joi.object({
 
     organizationType: Joi.string().valid("INDIVIDUAL", "COMPANY", "GOVERNMENT", "NGO").optional(),
 
-    panNumber: Joi.string().pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/).uppercase().optional()
-        .messages({
-            "string.pattern.base": "Please provide a valid PAN number (e.g., ABCDE1234F)",
-        }),
+    panNumber: Joi.string().uppercase().optional(),
 
-    gstNumber: Joi.string().pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/).uppercase().optional()
-        .messages({
-            "string.pattern.base": "Please provide a valid GST number",
-        }),
+    gstNumber: Joi.string().uppercase().optional(),
 
     //Legacy address (keeping for backward compatibility)
     address: Joi.object({
@@ -150,6 +144,124 @@ const registerSchema = Joi.object({
     }).optional(),
 
     captcha: Joi.string().optional(), // For future captcha implementation
+});
+
+// Step 1: Applicant Information validation
+const registerStep1Schema = Joi.object({
+    title: Joi.string()
+        .valid("Mr", "Mrs", "Ms", "Dr", "Prof")
+        .required()
+        .messages({
+            "any.only": "Please select a valid title",
+            "any.required": "Title is required",
+        }),
+
+    applicantName: Joi.string().trim().min(2).max(200).required()
+        .messages({
+            "string.empty": "Applicant name is required",
+            "string.min": "Name must be at least 2 characters",
+        }),
+
+    dateOfBirth: Joi.date()
+        .max("now")
+        .required()
+        .messages({
+            "date.base": "Please provide a valid date of birth",
+            "date.max": "Date of birth cannot be in the future",
+            "any.required": "Date of birth is required",
+        }),
+
+    gender: Joi.string()
+        .valid("MALE", "FEMALE", "OTHER")
+        .required()
+        .messages({
+            "any.only": "Please select a valid gender",
+            "any.required": "Gender is required",
+        }),
+
+    uidNumber: Joi.string()
+        .pattern(/^[0-9]{12}$/)
+        .allow("", null)
+        .optional()
+        .messages({
+            "string.pattern.base": "UID/Aadhaar must be 12 digits",
+        }),
+
+    idProofType: Joi.string()
+        .valid("AADHAAR", "PAN", "VOTER_ID", "PASSPORT", "DRIVING_LICENSE")
+        .required()
+        .messages({
+            "any.required": "ID proof type is required",
+        }),
+
+    idProofNumber: Joi.string().trim().required()
+        .messages({
+            "string.empty": "ID proof number is required",
+        }),
+
+    mobileNumber: Joi.string().pattern(/^[6-9]\d{9}$/).required()
+        .messages({
+            "string.pattern.base": "Please provide a valid 10-digit Indian mobile number",
+            "string.empty": "Mobile number is required",
+        }),
+
+    emailId: Joi.string().email().lowercase().trim().required()
+        .messages({
+            "string.email": "Please provide a valid email address",
+            "string.empty": "Email is required",
+        }),
+});
+
+// Step 2: Communication Address validation
+const registerStep2Schema = Joi.object({
+    addressLine1: Joi.string().required()
+        .messages({ "string.empty": "Address Line 1 is required" }),
+    addressLine2: Joi.string().allow("").optional(),
+    addressLine3: Joi.string().allow("").optional(),
+    state: Joi.string().required()
+        .messages({ "string.empty": "State is required" }),
+    district: Joi.string().required()
+        .messages({ "string.empty": "District is required" }),
+    subDistrict: Joi.string().allow("").optional(),
+    pincode: Joi.string().pattern(/^[1-9][0-9]{5}$/).required()
+        .messages({
+            "string.empty": "Pincode is required",
+            "string.pattern.base": "Please provide a valid 6-digit pincode",
+        }),
+});
+
+// Step 3: Login Credentials validation
+const registerStep3Schema = Joi.object({
+    preferredUsername: Joi.string()
+        .alphanum()
+        .min(4)
+        .max(30)
+        .lowercase()
+        .required()
+        .messages({
+            "string.alphanum": "Username must contain only letters and numbers",
+            "string.min": "Username must be at least 4 characters",
+            "string.empty": "Username is required",
+        }),
+
+    password: Joi.string().min(6).required()
+        .messages({
+            "string.min": "Password must be at least 6 characters long",
+            "string.empty": "Password is required",
+        }),
+
+    confirmPassword: Joi.string().valid(Joi.ref("password")).required()
+        .messages({
+            "any.only": "Passwords do not match",
+            "string.empty": "Confirm password is required",
+        }),
+
+    securityQuestion: Joi.string().optional(),
+    securityAnswer: Joi.string().when("securityQuestion", {
+        is: Joi.exist(),
+        then: Joi.string().required(),
+        otherwise: Joi.optional(),
+    }),
 });
 
 // Login validation
@@ -241,10 +353,41 @@ const validate = (schema) => {
     };
 };
 
+// Middleware to validate step data (nested in req.body.data)
+const validateStepData = (schema) => {
+    return (req, res, next) => {
+        // req.body.data contains the actual fields to validate
+        const dataToValidate = req.body.data || {};
+
+        const { error, value } = schema.validate(dataToValidate, {
+            abortEarly: false,
+            stripUnknown: true,
+        });
+
+        if (error) {
+            const errors = error.details.map((detail) => detail.message);
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_ERROR",
+                    message: "Validation failed",
+                    details: errors,
+                },
+            });
+        }
+
+        // Replace req.body.data with validated value
+        req.body.data = value;
+        next();
+    };
+};
+
 module.exports = {
     validateRegister: validate(registerSchema),
     validateLogin: validate(loginSchema),
     validateForgotPassword: validate(forgotPasswordSchema),
     validateResetPassword: validate(resetPasswordSchema),
-    validateUpdateProfile: validate(updateProfileSchema),
+    validateStep1: validateStepData(registerStep1Schema),
+    validateStep2: validateStepData(registerStep2Schema),
+    validateStep3: validateStepData(registerStep3Schema),
 };

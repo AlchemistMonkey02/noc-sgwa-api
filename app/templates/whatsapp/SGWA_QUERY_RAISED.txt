@@ -1,0 +1,5 @@
+❓ *SGWA Query*
+
+Application No: {{applicationNumber}}
+
+SGWA has raised a technical query. Please respond on the portal.

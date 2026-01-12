@@ -110,6 +110,116 @@ class EnforcementController {
         }
     }
 
+    async getActiveNOCs(req, res, next) {
+        try {
+            const results = await enforcementService.getActiveNOCs(req.query);
+            res.json({ success: true, data: results });
+        } catch (err) { next(err); }
+    }
+
+    async scheduleComplianceInspection(req, res, next) {
+        try {
+            const result = await enforcementService.scheduleComplianceInspection(req.user.id, req.body);
+            res.json({ success: true, message: "Inspection scheduled", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async submitComplianceReport(req, res, next) {
+        try {
+            const result = await enforcementService.submitComplianceReport(req.params.id, req.user.id, req.body);
+            res.json({ success: true, message: "Compliance report submitted", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async issueWarning(req, res, next) {
+        try {
+            const result = await enforcementService.issueWarning(req.user.id, req.body);
+            res.json({ success: true, message: "Warning issued", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async imposePenalty(req, res, next) {
+        try {
+            const result = await enforcementService.imposePenalty(req.user.id, req.body);
+            res.json({ success: true, message: "Penalty imposed", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async initiateCancellation(req, res, next) {
+        try {
+            const result = await enforcementService.initiateCancellation(req.params.id, req.user.id, req.body);
+            res.json({ success: true, message: "Cancellation initiated", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async registerComplaint(req, res, next) {
+        try {
+            const result = await enforcementService.registerComplaint(req.user.id, req.body);
+            res.json({ success: true, message: "Complaint registered", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async getComplaint(req, res, next) {
+        try {
+            const result = await enforcementService.getComplaint(req.params.id);
+            res.json({ success: true, data: result });
+        } catch (err) { next(err); }
+    }
+
+    async updateComplaintStatus(req, res, next) {
+        try {
+            const result = await enforcementService.updateComplaintStatus(req.params.id, req.user.id, req.body);
+            res.json({ success: true, message: "Complaint status updated", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async getApprovalQueue(req, res, next) {
+        try {
+            const results = await enforcementService.getApprovalQueue(req.user.id, req.query);
+            res.json({ success: true, data: results });
+        } catch (err) { next(err); }
+    }
+
+    async issueNOC(req, res, next) {
+        try {
+            const result = await enforcementService.issueNOC(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "NOC issued successfully"
+            });
+        } catch (err) { next(err); }
+    }
+
+    async returnToSGWA(req, res, next) {
+        try {
+            const result = await enforcementService.returnToSGWA(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.status(200).json({ success: true, message: "Application returned to SGWA", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async getComplianceStats(req, res, next) {
+        try {
+            const stats = await enforcementService.getComplianceStats(req.user.id);
+            res.status(200).json({ success: true, data: stats });
+        } catch (err) { next(err); }
+    }
+
+    async revokeNOC(req, res, next) {
+        try {
+            const result = await enforcementService.revokeNOC(req.params.id, req.user.id, req.body);
+            res.status(200).json({ success: true, message: "NOC revoked", data: result });
+        } catch (err) { next(err); }
+    }
+
     async getDashboardStats(req, res, next) {
         try {
             const stats = await enforcementService.getDashboardStats(req.user.id);

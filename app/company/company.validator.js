@@ -24,22 +24,12 @@ const registerCompanySchema = Joi.object({
     cinNumber: Joi.string().trim().uppercase().optional(),
 
     gstNumber: Joi.string()
-        .pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/)
         .uppercase()
-        .required()
-        .messages({
-            "string.pattern.base": "Please provide a valid GST number",
-            "any.required": "GST number is required",
-        }),
+        .optional(),
 
     panNumber: Joi.string()
-        .pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)
         .uppercase()
-        .required()
-        .messages({
-            "string.pattern.base": "Please provide a valid PAN number (e.g., ABCDE1234F)",
-            "any.required": "PAN number is required",
-        }),
+        .optional(),
 
     tanNumber: Joi.string().trim().uppercase().optional(),
 
@@ -53,6 +43,11 @@ const registerCompanySchema = Joi.object({
         .messages({
             "string.pattern.base": "Please provide a valid 10-digit Indian phone number",
             "any.required": "Company phone number is required",
+        }),
+
+    landline: Joi.string().pattern(/^[0-9]\d{9,11}$/).optional()
+        .messages({
+            "string.pattern.base": "Please provide a valid landline number (STD code + number)",
         }),
 
     alternatePhone: Joi.string().pattern(/^[6-9]\d{9}$/).optional()

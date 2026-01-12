@@ -4,6 +4,16 @@ const authMiddleware = require("../middleware/auth.middleware");
 const companyMiddleware = require("../middleware/company.middleware");
 const nocValidator = require("./noc.validator");
 
+// Public Routes
+// Track Application - Uses RegExp to capture everything including slashes (Express 5 compatible)
+router.get(/^\/track\/(.*)/, nocController.trackApplication);
+
+// Approve Timeline Step (Public - No Auth)
+router.post("/approve-step", nocController.updateTimelineStep);
+
+// Processing Estimates (Public)
+router.get("/processing-estimates", nocController.getProcessingEstimates);
+
 // All routes require authentication
 router.use(authMiddleware.authenticate);
 
@@ -14,6 +24,10 @@ router.post(
     nocValidator.validateNOCApplication,
     nocController.createOrUpdateApplication
 );
+
+// GET /api/applications/noc/dashboard - Get dashboard stats
+const dashboardController = require("./dashboard.controller");
+router.get("/dashboard", dashboardController.getDashboardData);
 
 // GET /api/applications/noc - List user applications
 router.get("/", nocController.getUserApplications);
@@ -40,8 +54,11 @@ router.post(
     nocController.respondToQuery
 );
 
-// GET /api/applications/noc/:id/certificate - Get certificate
+// GET /api/applications/noc/:id/certificate - Get certificate details (View)
 router.get("/:id/certificate", nocController.getCertificate);
+
+// GET /api/applications/noc/:id/certificate/download - Download certificate (PDF)
+router.get("/:id/certificate/download", nocController.downloadCertificate);
 
 // GET /api/applications/noc/:id/documents/status - Check document upload status
 const nocDocController = require("./noc-document-status.controller");
@@ -62,6 +79,7 @@ router.put("/:id/section3", nocController.updateSection3); // Drinking & Domesti
 router.put("/:id/section4", nocController.updateSection4); // Water Requirement Breakup
 router.put("/:id/section5", nocController.updateSection5); // Ground Water Structures
 router.put("/:id/section6", nocController.updateSection6); // Document Attachments
+router.put("/:id/flow-meter", nocController.updateDigitalFlowMeter); // Digital Flow Meter (New Section)
 
 // NEW: Fee calculation (Section 7)
 // Section 7 - Fee Calculation (supports both GET auto-fetch and POST manual-input)
@@ -81,5 +99,7 @@ router.post("/:id/validate-section/:sectionNumber", nocController.validateSectio
 // NEW: Progress tracking
 router.get("/:id/progress", nocController.getApplicationProgress);
 router.get("/:id/timeline", nocController.getApplicationTimeline);
+
+
 
 module.exports = router;

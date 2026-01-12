@@ -1,0 +1,5 @@
+❓ *Query Raised by DGO*
+
+Application No: {{applicationNumber}}
+
+⏰ Please respond to the query on the portal within the deadline.

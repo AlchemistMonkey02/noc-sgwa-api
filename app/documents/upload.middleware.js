@@ -18,7 +18,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         // Create upload path: uploads/{userId}/{documentType}/
-        const userId = req.user.id;
+        const userId = (req.user.id || req.user._id).toString();
         const documentType = file.fieldname || "OTHER";
         const uploadPath = path.join("uploads", userId, documentType);
 

@@ -12,7 +12,7 @@ const FeeStructureSchema = new mongoose.Schema(
         applicationType: {
             type: String,
             required: true,
-            enum: ["NEW_NOC", "RENEWAL", "AMENDMENT", "RIG_REGISTRATION", "RIG_OPERATION"],
+            enum: ["NEW", "NEW_NOC", "RENEWAL", "AMENDMENT", "RIG_REGISTRATION", "RIG_OPERATION"],
         },
         blockCategory: {
             type: String,

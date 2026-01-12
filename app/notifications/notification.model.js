@@ -24,7 +24,11 @@ const NotificationSchema = new mongoose.Schema({
             'NOC_ISSUED',
             'NOC_EXPIRING',
             'DOCUMENT_VERIFIED',
-            'DOCUMENT_REJECTED'
+            'DOCUMENT_REJECTED',
+            'USER_REGISTERED',
+            'LOGIN',
+            'SYSTEM',
+            'PASSWORD_RESET'
         ],
         required: true
     },

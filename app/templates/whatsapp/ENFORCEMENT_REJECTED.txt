@@ -1,0 +1,5 @@
+❌ *Application Rejected*
+
+NOC Application: {{applicationNumber}}
+
+Final rejection by Enforcement Wing. Check portal for appeal process.

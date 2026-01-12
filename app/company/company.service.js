@@ -1,12 +1,15 @@
 const Company = require("./company.model");
 const User = require("../auth/user.model");
 const logger = require("../utils/logger");
+const documentService = require("../documents/document.service");
+const mongoose = require("mongoose");
 
 class CompanyService {
     /**
      * Register a new company
      */
-    async registerCompany(userId, companyData) {
+    async registerCompany(userId, companyData, files = null) {
+        let uploadedDocIds = [];
         try {
             // Check if GST number already exists
             const existingCompany = await Company.findOne({
@@ -26,21 +29,86 @@ class CompanyService {
                 companyData.communicationAddress = { ...companyData.registeredAddress };
             }
 
-            // Create company
+            // Create company instance
             const company = new Company({
                 userId,
                 ...companyData,
             });
+
+            // Handle file uploads if present
+            if (files && Object.keys(files).length > 0) {
+                const docsToUpload = [];
+                const docTypes = [];
+
+                if (files.companyPan && files.companyPan[0]) {
+                    docsToUpload.push(files.companyPan[0]);
+                    docTypes.push("PAN");
+                }
+
+                if (files.gstCertificate && files.gstCertificate[0]) {
+                    docsToUpload.push(files.gstCertificate[0]);
+                    docTypes.push("GST_CERTIFICATE");
+                }
+
+                if (files.incorporationCertificate && files.incorporationCertificate[0]) {
+                    docsToUpload.push(files.incorporationCertificate[0]);
+                    docTypes.push("INCORPORATION_CERTIFICATE");
+                }
+
+                if (files.authorizationLetter && files.authorizationLetter[0]) {
+                    docsToUpload.push(files.authorizationLetter[0]);
+                    docTypes.push("AUTHORIZATION_LETTER");
+                }
+
+                if (docsToUpload.length > 0) {
+                    const uploadedDocs = await documentService.uploadDocuments(
+                        docsToUpload,
+                        userId,
+                        company._id, // Link to the new company ID
+                        docTypes
+                    );
+
+                    // Map to company documents format
+                    company.documents = uploadedDocs.map(doc => ({
+                        documentType: doc.documentType,
+                        documentId: doc._id,
+                        uploadedAt: doc.uploadedAt
+                    }));
+
+                    // Link authorization letter to authorized person
+                    const authLetter = uploadedDocs.find(d => d.documentType === "AUTHORIZATION_LETTER");
+                    if (authLetter) {
+                        if (!company.authorizedPerson) {
+                            company.authorizedPerson = {};
+                        }
+                        company.authorizedPerson.authorizationLetter = authLetter._id;
+                    }
+
+                    uploadedDocIds = uploadedDocs.map(d => d.documentId);
+                }
+            }
 
             await company.save();
 
             logger.info(`New company registered: ${company.companyName}`, {
                 companyId: company._id,
                 userId,
+                documentsCount: company.documents ? company.documents.length : 0
             });
 
             return company;
         } catch (error) {
+            // Cleanup uploaded documents if company creation fails
+            if (uploadedDocIds.length > 0) {
+                uploadedDocIds.forEach(async (docId) => {
+                    try {
+                        await documentService.deleteDocument(docId, userId);
+                    } catch (cleanupError) {
+                        logger.error(`Failed to cleanup document ${docId} after failed registration`, cleanupError);
+                    }
+                });
+            }
+
             if (error.code === 11000) {
                 const field = Object.keys(error.keyPattern)[0];
                 throw {
@@ -73,6 +141,29 @@ class CompanyService {
                 .select("-__v");
 
             return companies;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get company profile (single/primary company for user)
+     */
+    async getCompanyProfile(userId) {
+        try {
+            const company = await Company.findOne({ userId })
+                .populate("userId", "firstName lastName email")
+                .sort({ createdAt: -1 });
+
+            if (!company) {
+                throw {
+                    statusCode: 404,
+                    code: "COMPANY_NOT_FOUND",
+                    message: "Company profile not found",
+                };
+            }
+
+            return company;
         } catch (error) {
             throw error;
         }

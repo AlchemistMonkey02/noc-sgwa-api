@@ -29,6 +29,10 @@ const UserSchema = new mongoose.Schema(
             enum: ["Mr", "Mrs", "Ms", "Dr", "Prof"],
             required: [true, "Title is required"],
         },
+        profilePicture: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Document",
+        },
         firstName: {
             type: String,
             required: [true, "First name is required"],
@@ -41,7 +45,7 @@ const UserSchema = new mongoose.Schema(
         },
         dateOfBirth: {
             type: Date,
-            required: [true, "Date of birth is required"],
+            // Made optional for registration flow
         },
         gender: {
             type: String,

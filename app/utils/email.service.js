@@ -169,6 +169,79 @@ class EmailService {
             return { success: false, error: error.message };
         }
     }
+    async sendNotification(event, user, data) {
+        const TEMPLATES = require('../notifications/notification.templates');
+
+        switch (event) {
+            case 'USER_REGISTERED':
+                return this.sendWelcomeEmail({ ...user, username: user.email });
+            case 'LOGIN':
+                return this.sendLoginNotification(user, data);
+            case 'APPLICATION_SUBMITTED':
+                return this.sendApplicationSubmitted(user, data);
+            case 'PASSWORD_RESET':
+                return { success: true, message: "Handled by specific auth flow" };
+            default:
+                // Use centralized template configuration
+                const config = TEMPLATES[event] ? TEMPLATES[event].email : TEMPLATES.DEFAULT.email;
+                const subject = config.subject || `Notification: ${event}`;
+                // Merge extra template data (like authorityName)
+                const enrichedData = { ...data, ...config.extraData, event };
+
+                return this.sendGenericEmail(user, subject, enrichedData, config.templateFile);
+        }
+    }
+
+    async sendGenericEmail(user, subject, data, templateName = "generic-notification.html") {
+        try {
+            if (!transporter) return { success: false, message: "SMTP not configured" };
+
+            // Resolve message body from data or helper
+            // For templates using {{message}}, we often want the remarks or description
+            const messageBody = data.message || data.remarks || this.formatGenericMessage(data.event || 'Notification', data);
+
+            const templatePath = path.join(__dirname, `../templates/emails/${templateName}`);
+
+            // Fallback to simple HTML if file not found
+            let htmlContent;
+            if (fs.existsSync(templatePath)) {
+                htmlContent = fs.readFileSync(templatePath, "utf8");
+                htmlContent = htmlContent
+                    .replace(/{{firstName}}/g, user.firstName)
+                    .replace(/{{message}}/g, messageBody)
+                    .replace(/{{applicationNumber}}/g, data.applicationNumber || 'N/A')
+                    .replace(/{{projectName}}/g, data.projectName || 'N/A')
+                    .replace(/{{date}}/g, new Date().toLocaleDateString())
+                    .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                    .replace(/{{authorityName}}/g, data.authorityName || 'Authority')
+                    .replace(/{{otp}}/g, data.otp || '')
+                    .replace(/{{inspectionDate}}/g, data.inspectionDate ? new Date(data.inspectionDate).toLocaleDateString() : 'TBD')
+                    .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
+            } else {
+                htmlContent = `<p>Dear ${user.firstName},</p><p>${messageBody}</p><p>Visit portal for details.</p>`;
+            }
+
+            const mailOptions = {
+                from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
+                to: user.email,
+                subject: subject,
+                html: htmlContent,
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Generic email sent to ${user.email} for ${subject}`);
+            return { success: true, messageId: info.messageId };
+        } catch (error) {
+            logger.error(`Failed to send generic email to ${user.email}`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    formatGenericMessage(event, data) {
+        // Use the SMS formatter since we externalized the templates
+        const smsService = require('../notifications/sms.service');
+        return smsService.formatMessage(event, data);
+    }
 }
 
 module.exports = new EmailService();
