@@ -59,6 +59,47 @@ class MasterController {
     }
 
     /**
+     * GET /api/master/assessment-units?districtId=JAIPUR
+     * Get assessment units (aliased blocks)
+     */
+    async getAssessmentUnits(req, res, next) {
+        try {
+            const { districtId } = req.query;
+            const units = await masterService.getAssessmentUnits(districtId);
+
+            res.status(200).json({
+                success: true,
+                count: units.length,
+                data: units,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/master/tehsils?districtId=JAIPUR
+     * Get tehsils
+     */
+    async getTehsils(req, res, next) {
+        try {
+            const { districtId } = req.query;
+            const tehsils = await masterService.getTehsils(districtId);
+
+            res.status(200).json({
+                success: true,
+                count: tehsils.length,
+                data: tehsils,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/master/blocks/:districtId/:blockId/category
+
+    /**
      * GET /api/master/blocks/:districtId/:blockId/category
      * Get block category details
      */
@@ -120,6 +161,7 @@ class MasterController {
      */
     async getFeeStructure(req, res, next) {
         try {
+            console.log("🔍 getFeeStructure hit:", req.query);
             const { applicationType, blockCategory, waterRequirement } = req.query;
             const waterRequirementMLD = waterRequirement ? parseFloat(waterRequirement) : 0;
 
@@ -132,6 +174,65 @@ class MasterController {
             res.status(200).json({
                 success: true,
                 data: fees,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * GET /api/master/id-proof-types
+     * Get valid ID proof types
+     */
+    async getIdProofTypes(req, res, next) {
+        try {
+            const idProofTypes = [
+                { type: "AADHAAR", label: "Aadhaar Card", pattern: "^[0-9]{12}$", description: "12-digit number" },
+                { type: "PAN", label: "PAN Card", pattern: "^[A-Z]{5}[0-9]{4}[A-Z]{1}$", description: "ABCDE1234F" },
+                { type: "VOTER_ID", label: "Voter ID", pattern: "^[A-Z0-9]{10}$", description: "Alpha-numeric ID" },
+                { type: "PASSPORT", label: "Passport", pattern: "^[A-Z][0-9]{7}$", description: "Letter followed by 7 digits" },
+                { type: "DRIVING_LICENSE", label: "Driving License", pattern: "^[A-Z0-9]{15}$", description: "15-character alpha-numeric" },
+            ];
+
+            res.status(200).json({
+                success: true,
+                count: idProofTypes.length,
+                data: idProofTypes,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/master/titles
+     * Get user honorific titles
+     */
+    async getUserTitles(req, res, next) {
+        try {
+            const titles = ["Mr", "Mrs", "Ms", "Dr", "Prof"];
+
+            res.status(200).json({
+                success: true,
+                count: titles.length,
+                data: titles,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/master/genders
+     * Get user genders
+     */
+    async getGenders(req, res, next) {
+        try {
+            const genders = ["MALE", "FEMALE", "OTHER"];
+
+            res.status(200).json({
+                success: true,
+                count: genders.length,
+                data: genders,
             });
         } catch (error) {
             next(error);

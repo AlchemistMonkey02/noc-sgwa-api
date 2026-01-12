@@ -54,6 +54,8 @@ class DocumentService {
                     uploadedAt: document.uploadedAt,
                     userId: document.userId,
                     companyId: document.companyId,
+                    filePath: document.filePath,
+                    mimeType: document.mimeType,
                 });
 
                 logger.info(`Document uploaded: ${documentId}`, {

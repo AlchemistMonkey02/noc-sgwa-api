@@ -1,0 +1,5 @@
+❌ *Application Rejected by DGO*
+
+NOC Application: {{applicationNumber}}
+
+Please check the portal for detailed remarks and next steps.

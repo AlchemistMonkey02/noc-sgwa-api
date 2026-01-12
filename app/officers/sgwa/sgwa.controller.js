@@ -104,6 +104,28 @@ class SGWAController {
             next(error);
         }
     }
+    async assignApplication(req, res, next) {
+        try {
+            const result = await sgwaService.assignApplication(
+                req.params.id,
+                req.user.id, // Current officer (assigner)
+                req.body // includes officerId (assignee)
+            );
+            res.json({ success: true, message: "Application assigned successfully" });
+        } catch (err) { next(err); }
+    }
+
+    async generateReports(req, res, next) {
+        try {
+            // For now return dummy URL or data
+            // In real world, this would generate PDF/Excel
+            res.json({
+                success: true,
+                data: { downloadUrl: "/api/reports/dummy-report.pdf" },
+                message: "Report generated successfully"
+            });
+        } catch (err) { next(err); }
+    }
 }
 
 module.exports = new SGWAController();

@@ -82,13 +82,13 @@ NOCCertificateSchema.index({ userId: 1, status: 1 });
 NOCCertificateSchema.index({ validUpto: 1 });
 
 // Auto-generate NOC number
-NOCCertificateSchema.pre("save", async function (next) {
+// Auto-generate NOC number
+NOCCertificateSchema.pre("save", async function () {
     if (this.isNew && !this.nocNumber) {
         const count = await this.constructor.countDocuments();
         const year = new Date().getFullYear();
         this.nocNumber = `NOC/CERT/${year}/${String(count + 1).padStart(5, "0")}`;
     }
-    next();
 });
 
 // Virtual for checking if expired

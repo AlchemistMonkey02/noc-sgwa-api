@@ -1,0 +1,1 @@
+NOC Application {{applicationNumber}} submitted successfully. Track status at sgwa.raj.in

@@ -1,0 +1,6 @@
+✅ *NOC Application Submitted*
+
+Application No: {{applicationNumber}}
+Project: {{projectName}}
+
+Track your application at sgwa.raj.in

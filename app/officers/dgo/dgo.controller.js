@@ -112,6 +112,39 @@ class DGOController {
         }
     }
 
+    async scheduleInspection(req, res, next) {
+        try {
+            const result = await dgoService.scheduleInspection(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.json({ success: true, message: "Inspection scheduled", data: result });
+        } catch (err) { next(err); }
+    }
+
+    async submitInspectionReport(req, res, next) {
+        try {
+            const result = await dgoService.submitInspectionReport(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.json({ success: true, message: "Inspection report submitted", data: result });
+        } catch (err) { next(err); }
+    }
+
+    /**
+     * GET /api/officers/dgo/inspections/:id/report
+     * Get inspection report
+     */
+    async getInspectionReport(req, res, next) {
+        try {
+            const report = await dgoService.getInspectionReport(req.params.id);
+            res.status(200).json({ success: true, data: report });
+        } catch (err) { next(err); }
+    }
+
     /**
      * GET /api/officers/dgo/stats
      * Get DGO dashboard statistics

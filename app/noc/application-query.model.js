@@ -29,8 +29,19 @@ const ApplicationQuerySchema = new mongoose.Schema(
             default: Date.now,
         },
 
+        // Subject/Title of the query
+        subject: {
+            type: String,
+            required: true,
+        },
+
         // Response
         response: String,
+        responseDocument: {
+            fileName: String,
+            filePath: String,
+            uploadedAt: Date,
+        },
         respondedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

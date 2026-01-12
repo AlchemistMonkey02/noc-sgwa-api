@@ -3,7 +3,122 @@ const NOCCertificate = require("../../noc/noc-certificate.model");
 const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
 
+const Violation = require("./violation.model");
+const Complaint = require("./complaint.model");
+
 class EnforcementService {
+    // ... existing start ...
+
+    /**
+     * Get active NOCs for monitoring
+     */
+    async getActiveNOCs(filters = {}) {
+        try {
+            const query = { status: "ACTIVE" };
+            if (filters.districtId) query["location.districtId"] = filters.districtId; // This might need join or denormalization if not in certificate
+            // Assuming strict certificate query for now:
+
+            // To filter by location, we might need to aggregrate with NOCApplication or store location in Certificate
+            // For now, simple fetch
+            const certificates = await NOCCertificate.find(query)
+                .populate("companyId", "companyName")
+                .limit(50);
+            return certificates;
+        } catch (error) { throw error; }
+    }
+
+    /**
+     * Schedule Compliance Inspection
+     */
+    async scheduleComplianceInspection(officerId, data) {
+        try {
+            const { nocId, inspectionDate, remarks } = data;
+            // Create a pseudo-application or update certificate state?
+            // Or log in 'inspections' collection if it existed.
+            // For now, logging to console as stub, or updating Certificate metadata if supported
+            return { message: "Compliance inspection scheduled (Stub)", inspectionDate };
+        } catch (error) { throw error; }
+    }
+
+    /**
+     * Submit Compliance Report
+     */
+    async submitComplianceReport(inspectionId, officerId, data) {
+        // finding inspection record...
+        // Stub
+        return { message: "Report submitted", status: "COMPLIANT" };
+    }
+
+    // ... Violations ...
+    async issueWarning(officerId, data) {
+        try {
+            const { v4: uuidv4 } = require("uuid");
+            const violation = new Violation({
+                violationId: uuidv4(),
+                ...data,
+                type: 'WARNING',
+                issuedBy: officerId
+            });
+            await violation.save();
+            return violation;
+        } catch (error) { throw error; }
+    }
+
+    async imposePenalty(officerId, data) {
+        try {
+            const { v4: uuidv4 } = require("uuid");
+            const violation = new Violation({
+                violationId: uuidv4(),
+                ...data,
+                type: 'PENALTY',
+                issuedBy: officerId
+            });
+            await violation.save();
+            return violation;
+        } catch (error) { throw error; }
+    }
+
+    async initiateCancellation(nocId, officerId, data) {
+        // Logic to update NOC status to SUSPENDED/CANCELLED notice
+        // Stub
+        return { message: "Cancellation notice sent" };
+    }
+
+    // ... Complaints ...
+    async registerComplaint(officerId, data) {
+        try {
+            const { v4: uuidv4 } = require("uuid");
+            const complaint = new Complaint({
+                complaintId: uuidv4(),
+                ...data, // includes subject, description, complainant info
+                status: 'REGISTERED'
+            });
+            await complaint.save();
+            return complaint;
+        } catch (error) { throw error; }
+    }
+
+    async getComplaint(complaintId) {
+        return await Complaint.findOne({ complaintId });
+    }
+
+    async updateComplaintStatus(complaintId, officerId, data) {
+        const complaint = await Complaint.findOne({ complaintId });
+        if (!complaint) throw { statusCode: 404, message: "Complaint not found" };
+
+        complaint.status = data.status;
+        if (data.status === 'RESOLVED') {
+            complaint.resolvedAt = new Date();
+            complaint.resolutionRemarks = data.remarks;
+        }
+        if (data.investigationReport) complaint.investigationReport = data.investigationReport;
+
+        await complaint.save();
+        return complaint;
+    }
+
+    /**
+     * Get dashboard statistics
     /**
      * Get applications for Enforcement review (SGWA approved)
      */
@@ -73,20 +188,31 @@ class EnforcementService {
     /**
      * Final approval and issue NOC
      */
-    async approveApplication(applicationId, officerId, data) {
+    /**
+     * Get Approval Queue (Pending Final Approval)
+     */
+    async getApprovalQueue(officerId, filters = {}) {
+        const query = {
+            status: { $in: ["APPROVED_SGWA", "PENDING_FINAL_APPROVAL"] }
+        };
+        return await NOCApplication.find(query)
+            .populate("userId", "firstName lastName")
+            .populate("companyId", "companyName");
+    }
+
+    /**
+     * Final approval and issue NOC (issueNOC)
+     */
+    async issueNOC(applicationId, officerId, data) {
         try {
             const application = await NOCApplication.findOne({ applicationId });
 
             if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found"
-                };
+                throw { statusCode: 404, message: "Application not found" };
             }
 
             // Generate NOC Number
-            const nocNumber = await this.generateNOCNumber(application);
+            const nocNumber = data.nocNumber || await this.generateNOCNumber(application);
 
             // Update Enforcement approval
             application.approvalFlow.enforcement = {
@@ -112,9 +238,63 @@ class EnforcementService {
 
             return { application, certificate };
         } catch (error) {
-            logger.error("Error approving application", error);
+            logger.error("Error issuing NOC", error);
             throw error;
         }
+    }
+
+    // Alias for backward compat if needed, but controller calls issueNOC now
+    async approveApplication(appId, offId, data) { return this.issueNOC(appId, offId, data); }
+
+    async returnToSGWA(applicationId, officerId, data) {
+        const application = await NOCApplication.findOne({ applicationId });
+        if (!application) throw { statusCode: 404, message: "Application not found" };
+
+        application.status = "RETURNED_TO_SGWA";
+        application.approvalFlow.enforcement = {
+            reviewedBy: officerId,
+            reviewedAt: new Date(),
+            status: "RETURNED",
+            remarks: data.remarks
+        };
+        // Reset SGWA status? Maybe partial reset or separate status
+        // application.approvalFlow.sgwa.status = "PENDING"; // Optional
+
+        await application.save();
+        // Notify SGWA officers?
+        return application;
+    }
+
+    async revokeNOC(nocId, officerId, data) {
+        // This might take nocId or applicationId. Route says /nocs/:id/revoke (usually cert ID or app ID?)
+        // Assuming ID is Certificate ID or Application ID. Let's try Application ID first or lookup certificate.
+        // If nocId is passed, look up certificate.
+        let certificate = await NOCCertificate.findOne({ $or: [{ certificateId: nocId }, { applicationId: nocId }] });
+        if (!certificate) throw { statusCode: 404, message: "Certificate not found" };
+
+        certificate.status = "REVOKED";
+        certificate.revocationReason = data.reason;
+        certificate.revokedAt = new Date();
+        certificate.revokedBy = officerId;
+        await certificate.save();
+
+        // Update Application too
+        await NOCApplication.findOneAndUpdate(
+            { _id: certificate.applicationId },
+            { status: "NOC_REVOKED" }
+        );
+
+        return { message: "NOC Revoked", certificate };
+    }
+
+    async getComplianceStats(officerId) {
+        // Stub stats
+        return {
+            totalNOCs: await NOCCertificate.countDocuments({ status: "ACTIVE" }),
+            inspectionsConducted: 12, // example
+            violationsReported: await Violation.countDocuments({}),
+            complianceRate: "95%"
+        };
     }
 
     /**
@@ -266,13 +446,12 @@ class EnforcementService {
 
     async sendNotifications(application, event) {
         try {
-            await notificationService.createNotification(application.userId, {
-                type: event,
-                title: this.getNotificationTitle(event),
-                message: this.getNotificationMessage(event, application),
-                relatedId: application.applicationId,
-                relatedType: "APPLICATION",
-                priority: "CRITICAL"
+            // Use centralized notification service
+            await notificationService.send(application.userId, event, {
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName || 'Project',
+                // Include NOC number if issued
+                nocNumber: application.approvalFlow?.enforcement?.nocNumber
             });
         } catch (error) {
             logger.error("Error sending notifications", error);

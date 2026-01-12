@@ -4,7 +4,84 @@ const logger = require('../utils/logger');
 
 class NotificationService {
     /**
-     * Create a new notification for a user
+     * Send notification via all channels and save to DB
+     */
+    async send(userId, event, data) {
+        try {
+            const User = require('../auth/user.model');
+            const emailService = require('../utils/email.service');
+            const smsService = require('./sms.service');
+            const whatsappService = require('./whatsapp.service');
+
+            // 1. Get User
+            let user;
+            if (typeof userId === 'object' && userId.constructor.name !== 'ObjectId') {
+                user = userId;
+            } else {
+                user = await User.findById(userId);
+            }
+
+            if (!user) {
+                logger.error(`Notification failed: User ${userId} not found`);
+                return;
+            }
+
+            // 2. Create In-App Notification
+            // We map the system 'event' to the 'type' and 'message' fields expected by the model
+            const notificationData = {
+                type: this.getNotificationType(event),
+                title: this.getNotificationTitle(event),
+                message: this.getNotificationMessage(event, data),
+                metadata: data
+            };
+
+            await this.createNotification(userId, notificationData);
+
+            // Dispatch to all channels in parallel
+            const results = await Promise.allSettled([
+                emailService.sendNotification(event, user, data).then(res => ({ channel: 'email', ...res })),
+                smsService.sendNotification({ event, user, ...data }).then(res => ({ channel: 'sms', ...res })),
+                whatsappService.sendNotification({ event, user, ...data }).then(res => ({ channel: 'whatsapp', ...res }))
+            ]);
+
+            results.forEach(result => {
+                if (result.status === 'rejected') {
+                    logger.error(`Notification failed`, result.reason);
+                } else if (!result.value.success) {
+                    logger.warn(`Notification channel failed`, result.value);
+                }
+            });
+
+            return { success: true };
+
+        } catch (error) {
+            logger.error('Error in notification dispatch', error);
+            // Don't throw, notifications shouldn't break the main flow
+            return { success: false, error: error.message };
+        }
+    }
+
+    getNotificationTitle(event) {
+        return event.replace(/_/g, ' '); // Simple formatting
+    }
+
+    getNotificationType(event) {
+        const allowedTypes = [
+            'APPLICATION_SUBMITTED', 'STATUS_UPDATE', 'QUERY_RAISED', 'QUERY_RESPONDED',
+            'INSPECTION_SCHEDULED', 'PAYMENT_RECEIVED', 'NOC_ISSUED', 'NOC_EXPIRING',
+            'DOCUMENT_VERIFIED', 'DOCUMENT_REJECTED', 'USER_REGISTERED', 'LOGIN', 'SYSTEM', 'PASSWORD_RESET'
+        ];
+        return allowedTypes.includes(event) ? event : 'SYSTEM';
+    }
+
+    getNotificationMessage(event, data) {
+        // Reuse format logic from SMS/WhatsApp or have a centralized one
+        const smsService = require('./sms.service');
+        return smsService.formatMessage(event, data);
+    }
+
+    /**
+     * Create a new notification for a user (DB only)
      */
     async createNotification(userId, data) {
         try {
@@ -13,13 +90,7 @@ class NotificationService {
                 userId,
                 ...data
             });
-
             await notification.save();
-            logger.info(`Notification created for user ${userId}`, { type: data.type });
-
-            // TODO: Emit real-time event via Socket.IO when implemented
-            // io.to(userId).emit('notification', notification);
-
             return notification;
         } catch (error) {
             logger.error('Error creating notification', error);

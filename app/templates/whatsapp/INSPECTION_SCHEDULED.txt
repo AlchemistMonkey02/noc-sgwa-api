@@ -1,0 +1,7 @@
+📅 *Site Inspection Scheduled*
+
+Application No: {{applicationNumber}}
+
+Our field team will conduct a site inspection soon. Please ensure accessibility to the site.
+
+Details available on portal.

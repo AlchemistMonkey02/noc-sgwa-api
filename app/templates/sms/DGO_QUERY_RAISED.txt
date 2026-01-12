@@ -1,0 +1,1 @@
+Query raised on NOC application {{applicationNumber}}. Please respond on portal.

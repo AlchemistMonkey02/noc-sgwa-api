@@ -1,6 +1,7 @@
 const State = require("./state.model");
 const District = require("./district.model");
 const Block = require("./block.model");
+const Tehsil = require("./tehsil.model");
 const IndustryType = require("./industry-type.model");
 const DocumentRequirement = require("./document-requirement.model");
 const FeeStructure = require("./fee-structure.model");
@@ -61,6 +62,55 @@ class MasterService {
             return blocks;
         } catch (error) {
             logger.error("Error fetching blocks", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get assessment units (aliased blocks)
+     */
+    async getAssessmentUnits(districtId) {
+        try {
+            const query = { isActive: true };
+            if (districtId) {
+                query.districtId = districtId.toUpperCase();
+            }
+
+            const blocks = await Block.find(query)
+                .select("blockId blockName blockCode districtId category categoryCriteria")
+                .sort({ blockName: 1 });
+
+            // Map to assessment unit format
+            return blocks.map(block => ({
+                id: block.blockId,
+                name: block.blockName,
+                districtId: block.districtId,
+                category: block.category,
+                type: "BLOCK" // In future could be TALUKA, MANDAL etc.
+            }));
+        } catch (error) {
+            logger.error("Error fetching assessment units", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get tehsils by district
+     */
+    async getTehsils(districtId) {
+        try {
+            const query = { isActive: true };
+            if (districtId) {
+                query.districtId = districtId.toUpperCase();
+            }
+
+            const tehsils = await Tehsil.find(query)
+                .select("tehsilId tehsilName districtId")
+                .sort({ tehsilName: 1 });
+
+            return tehsils;
+        } catch (error) {
+            logger.error("Error fetching tehsils", error);
             throw error;
         }
     }

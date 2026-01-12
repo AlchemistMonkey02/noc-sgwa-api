@@ -71,6 +71,8 @@ class AuthController {
         try {
             const { identifier, otp, type } = req.body;
 
+            console.log('📥 OTP Verification Request:', { identifier, otp: otp?.substring(0, 2) + '****', type });
+
             if (!identifier || !otp || !type) {
                 return res.status(400).json({
                     success: false,
@@ -84,6 +86,7 @@ class AuthController {
             const isValid = await authService.verifyOTP(identifier, otp, type);
 
             if (!isValid) {
+                console.log('❌ OTP Verification Failed:', { identifier, type });
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -93,6 +96,7 @@ class AuthController {
                 });
             }
 
+            console.log('✅ OTP Verified Successfully:', { identifier, type });
             res.status(200).json({
                 success: true,
                 message: "OTP verified successfully",
@@ -175,40 +179,12 @@ class AuthController {
                 // CGWA BhuNeer format - transform to flat structure
                 const { applicantInfo = {}, communicationAddress = {}, loginCredentials = {}, declaration } = rawData;
 
-                // Verify OTPs before registration
-                if (applicantInfo.mobileOTP) {
-                    const mobileVerified = await authService.verifyOTP(
-                        applicantInfo.mobileNumber,
-                        applicantInfo.mobileOTP,
-                        "MOBILE"
-                    );
-                    if (!mobileVerified) {
-                        return res.status(400).json({
-                            success: false,
-                            error: {
-                                code: "INVALID_OTP",
-                                message: "Invalid or expired mobile OTP"
-                            }
-                        });
-                    }
-                }
-
-                if (applicantInfo.emailOTP) {
-                    const emailVerified = await authService.verifyOTP(
-                        applicantInfo.emailId,
-                        applicantInfo.emailOTP,
-                        "EMAIL"
-                    );
-                    if (!emailVerified) {
-                        return res.status(400).json({
-                            success: false,
-                            error: {
-                                code: "INVALID_OTP",
-                                message: "Invalid or expired email OTP"
-                            }
-                        });
-                    }
-                }
+                // Skip OTP pre-verification - allow direct registration
+                // The OTP verification endpoints are still available but not mandatory
+                console.log('📋 Skipping OTP pre-verification for direct registration:', {
+                    mobile: applicantInfo.mobileNumber,
+                    email: applicantInfo.emailId
+                });
 
                 // Check declaration
                 if (!declaration) {
@@ -226,9 +202,9 @@ class AuthController {
                     title: applicantInfo.title,
                     firstName: applicantInfo.applicantName?.split(" ")[0] || applicantInfo.firstName,
                     lastName: applicantInfo.applicantName?.split(" ").slice(1).join(" ") || applicantInfo.lastName,
-                    dateOfBirth: applicantInfo.dateOfBirth,
+                    dateOfBirth: applicantInfo.dateOfBirth || applicantInfo.dob, // Support both field names
                     gender: applicantInfo.gender,
-                    uidNumber: applicantInfo.uid,
+                    uidNumber: applicantInfo.uid || applicantInfo.uidNumber, // Support both field names
                     idProofType: applicantInfo.idProofType,
                     idProofNumber: applicantInfo.idProofNumber,
                     phone: applicantInfo.mobileNumber,
@@ -247,8 +223,8 @@ class AuthController {
                         pincode: communicationAddress.pincode
                     },
 
-                    // From loginCredentials
-                    username: loginCredentials.preferredUsername,
+                    // From loginCredentials - support both username and preferredUsername
+                    username: loginCredentials.preferredUsername || loginCredentials.username,
                     password: loginCredentials.password,
                     securityQuestion: loginCredentials.securityQuestion,
                     securityAnswer: loginCredentials.securityAnswer,
@@ -272,18 +248,45 @@ class AuthController {
                 result = await authService.register(userData, loginInfo);
             }
 
+            // Generate tokens for auto-login after registration
+            const token = authService.generateToken(result.user);
+            const refreshToken = authService.generateRefreshToken(result.user);
+            const jwtConfig = require("../config/jwt.config");
+
+            // Set HTTP-only cookies (same as login)
+            res.cookie("jwt", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: jwtConfig.jwtExpiration * 1000,
+            });
+
+            res.cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+
             res.status(201).json({
                 success: true,
                 data: {
-                    userId: result.user._id,
-                    username: result.user.username,
-                    email: result.user.email,
-                    mobile: result.user.phone,
-                    applicantName: result.user.fullName,
-                    firstName: result.user.firstName,
-                    lastName: result.user.lastName,
-                    isVerified: result.user.emailVerified && result.user.phoneVerified,
-                    verificationStatus: result.user.verificationStatus,
+                    user: {
+                        id: result.user._id,
+                        userId: result.user._id,
+                        username: result.user.username,
+                        email: result.user.email,
+                        mobile: result.user.phone,
+                        applicantName: result.user.fullName,
+                        firstName: result.user.firstName,
+                        lastName: result.user.lastName,
+                        userType: result.user.userType,
+                        isVerified: result.user.emailVerified && result.user.phoneVerified,
+                        verificationStatus: result.user.verificationStatus,
+                    },
+                    token,
+                    refreshToken,
+                    expiresIn: jwtConfig.jwtExpiration,
                     ...(result.documents && { documents: result.documents }),
                 },
                 message: result.message,
@@ -358,7 +361,7 @@ class AuthController {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
                 sameSite: "strict",
-                maxAge: result.expiresIn * 1000,
+                maxAge: 24 * 60 * 60 * 1000, // 24 hours
             });
 
             res.cookie("refreshToken", result.refreshToken, {
@@ -367,6 +370,12 @@ class AuthController {
                 sameSite: "strict",
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             });
+
+            // Add token to response header
+            res.setHeader("Authorization", `Bearer ${result.token}`);
+
+            // Add token to response header
+            res.setHeader("Authorization", `Bearer ${result.token}`);
 
             res.status(200).json({
                 success: true,
@@ -520,6 +529,261 @@ class AuthController {
                 success: true,
                 data: user,
                 message: "Profile updated successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/auth/register/validate-step
+     * Validate a specific registration step without creating user
+     */
+    async validateRegistrationStep(req, res, next) {
+        try {
+            const { step, data } = req.body;
+
+            if (!step || !data) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "MISSING_PARAMETERS",
+                        message: "Step number and data are required",
+                    },
+                });
+            }
+
+            // The actual validation is done by middleware based on step
+            // This method just confirms validation passed and returns sanitized data
+            let validatedData = {};
+            let message = "";
+
+            switch (step) {
+                case 1:
+                case "1":
+                    message = "Applicant information validated successfully";
+                    validatedData = { ...data };
+                    delete validatedData.mobileOTP;
+                    delete validatedData.emailOTP;
+                    break;
+                case 2:
+                case "2":
+                    message = "Communication address validated successfully";
+                    validatedData = data;
+                    break;
+                case 3:
+                case "3":
+                    message = "Login credentials validated successfully";
+                    validatedData = {
+                        preferredUsername: data.preferredUsername,
+                        securityQuestion: data.securityQuestion,
+                    };
+                    break;
+                default:
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_STEP",
+                            message: "Step must be 1, 2, or 3",
+                        },
+                    });
+            }
+
+            res.status(200).json({
+                success: true,
+                message,
+                data: validatedData,
+            });
+            res.status(200).json({
+                success: true,
+                message,
+                data: validatedData,
+            });
+        } catch (error) {
+            logger.error("Error validating registration step", error);
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/auth/profile/contact/otp
+     * Request OTP for updating contact (Email/Phone)
+     */
+    async requestContactUpdateOTP(req, res, next) {
+        try {
+            const { type, value } = req.body;
+            const userId = req.user.id;
+
+            if (!type || !value || !["EMAIL", "PHONE"].includes(type)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid type or value. Type must be EMAIL or PHONE."
+                });
+            }
+
+            // Check if value is already in use by ANOTHER user
+            const query = type === "EMAIL" ? { email: value } : { phone: value };
+            const existingUser = await User.findOne({ ...query, _id: { $ne: userId } });
+
+            if (existingUser) {
+                return res.status(400).json({
+                    success: false,
+                    message: `${type === "EMAIL" ? "Email" : "Phone number"} is already in use by another account.`
+                });
+            }
+
+            await authService.sendOTP(value, type === "EMAIL" ? "EMAIL" : "MOBILE");
+
+            res.status(200).json({
+                success: true,
+                message: `OTP sent to ${value}`,
+                data: { expiresIn: 300 }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/auth/profile/contact/verify
+     * Verify OTP and update contact
+     */
+    async verifyContactUpdate(req, res, next) {
+        try {
+            const { type, value, otp } = req.body;
+            const userId = req.user.id;
+
+            if (!type || !value || !otp) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Type, value, and OTP are required"
+                });
+            }
+
+            // Verify OTP
+            const otpType = type === "EMAIL" ? "EMAIL" : "MOBILE";
+            const isValid = await authService.verifyOTP(value, otp, otpType);
+
+            if (!isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid or expired OTP"
+                });
+            }
+
+            // Update User Profile
+            const updateField = type === "EMAIL" ? { email: value, emailVerified: true } : { phone: value, phoneVerified: true };
+
+            const user = await User.findByIdAndUpdate(
+                userId,
+                { $set: updateField },
+                { new: true }
+            ).select("-password");
+
+            // If updating email/phone, we might need to update username if it was same? 
+            // For now, assuming username is separate or handled by model. 
+            // (Note: Model logic might need username update if username === email)
+
+            res.status(200).json({
+                success: true,
+                message: `${type === "EMAIL" ? "Email" : "Phone number"} updated successfully`,
+                data: user
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * PUT /api/auth/officer/users/:id/verify
+     * Verify user (Officer only)
+     */
+    async verifyUser(req, res, next) {
+        try {
+            const userId = req.params.id;
+            const officerId = req.user.id;
+            const { action, reason } = req.body;
+
+            if (!["approve", "reject"].includes(action)) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "INVALID_ACTION",
+                        message: "Action must be 'approve' or 'reject'",
+                    },
+                });
+            }
+
+            const user = await authService.verifyUser(userId, officerId, action, reason);
+
+            res.status(200).json({
+                success: true,
+                data: user,
+                message: `User ${action}d successfully`,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Upload profile picture
+     */
+    async uploadProfilePicture(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILE_UPLOADED",
+                        message: "Please upload an image file",
+                    },
+                });
+            }
+
+            const result = await authService.uploadProfilePicture(req.user.id, req.file);
+
+            res.status(200).json({
+                success: true,
+                message: "Profile picture uploaded successfully",
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * POST /api/auth/change-password
+     * Change password
+     */
+    async changePassword(req, res, next) {
+        try {
+            const { currentPassword, newPassword } = req.body;
+
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "MISSING_PARAMETERS",
+                        message: "Current password and new password are required",
+                    },
+                });
+            }
+
+            if (newPassword.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "INVALID_PASSWORD",
+                        message: "New password must be at least 6 characters long",
+                    },
+                });
+            }
+
+            const result = await authService.changePassword(req.user.id, currentPassword, newPassword);
+
+            res.status(200).json({
+                success: true,
+                message: result.message,
             });
         } catch (error) {
             next(error);

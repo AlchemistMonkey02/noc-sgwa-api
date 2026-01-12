@@ -5,6 +5,7 @@ const User = require("./user.model");
 const OTP = require("./otp.model");
 const jwtConfig = require("../config/jwt.config");
 const emailService = require("../utils/email.service");
+const notificationService = require("../notifications/notification.service");
 const logger = require("../utils/logger");
 
 class AuthService {
@@ -102,6 +103,35 @@ class AuthService {
     }
 
     /**
+     * Check if identifier was pre-verified (for registration)
+     * Checks for verified OTP within last 30 minutes
+     */
+    async checkPreVerified(identifier, type) {
+        try {
+            const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+            const verifiedOTP = await OTP.findOne({
+                identifier,
+                type,
+                verified: true,
+                updatedAt: { $gte: thirtyMinutesAgo }
+            });
+
+            console.log('📊 checkPreVerified result:', {
+                identifier,
+                type,
+                found: !!verifiedOTP,
+                otpData: verifiedOTP ? { verified: verifiedOTP.verified, updatedAt: verifiedOTP.updatedAt } : null
+            });
+
+            return !!verifiedOTP;
+        } catch (error) {
+            logger.error("Error checking pre-verified status", error);
+            return false;
+        }
+    }
+
+    /**
      * Register new user
      */
     async register(userData, loginInfo = {}) {
@@ -141,12 +171,11 @@ class AuthService {
             logger.info(`New user registered: ${user.email}`, { userId: user._id });
 
             // Send welcome email (async, don't wait)
-            emailService.sendWelcomeEmail({
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email,
-                username: user.email,
-            }).catch((err) => logger.error("Welcome email failed", err));
+            // Send welcome notification (email + sms + whatsapp)
+            notificationService.send(user._id, 'USER_REGISTERED', {
+                applicationNumber: 'N/A', // No app yet
+                message: 'Welcome to SGWA Portal!'
+            });
 
             // Return user without password
             const userObject = user.toObject();
@@ -231,9 +260,13 @@ class AuthService {
      */
     async login(username, password, userType, loginInfo = {}) {
         try {
-            // Find user by email or phone
+            // Find user by email, phone, or username
             const user = await User.findOne({
-                $or: [{ email: username }, { phone: username }],
+                $or: [
+                    { email: username },
+                    { phone: username },
+                    { username: username.toLowerCase() },
+                ],
             });
 
             if (!user) {
@@ -287,13 +320,8 @@ class AuthService {
             });
 
             // Send login notification email (async, don't wait)
-            emailService.sendLoginNotification(
-                {
-                    firstName: user.firstName,
-                    email: user.email,
-                },
-                loginInfo
-            ).catch((err) => logger.error("Login notification failed", err));
+            // Send login notification
+            notificationService.send(user._id, 'LOGIN', loginInfo);
 
             // Return user without password
             const userObject = user.toObject();
@@ -472,7 +500,14 @@ class AuthService {
                 };
             }
 
-            return user;
+            // Fetch Company Details
+            const Company = require("../company/company.model");
+            const company = await Company.findOne({ userId });
+
+            return {
+                ...user.toObject(),
+                company: company || null
+            };
         } catch (error) {
             throw error;
         }
@@ -507,6 +542,141 @@ class AuthService {
             logger.info(`Profile updated: ${user.email}`, { userId: user._id });
 
             return user;
+        } catch (error) {
+            throw error;
+        }
+    }
+    /**
+     * Verify user (Officer only)
+     */
+    async verifyUser(userId, officerId, action, reason = null) {
+        try {
+            const update = {
+                verificationStatus: action === "approve" ? "VERIFIED" : "REJECTED",
+                // Optionally update account status based on verification
+                accountStatus: action === "approve" ? "ACTIVE" : "INACTIVE",
+            };
+
+            const user = await User.findByIdAndUpdate(
+                userId,
+                { $set: update },
+                { new: true }
+            ).select("-password");
+
+            if (!user) {
+                throw {
+                    statusCode: 404,
+                    code: "USER_NOT_FOUND",
+                    message: "User not found",
+                };
+            }
+
+            logger.info(`User ${action}d: ${user.email}`, {
+                userId: user._id,
+                officerId,
+                action
+            });
+
+            // Send notification email
+            // emailService.sendVerificationStatus(user, action, reason).catch(...)
+
+            return user;
+        } catch (error) {
+            throw error;
+        }
+    }
+    async uploadProfilePicture(userId, file) {
+        try {
+            // Upload using document service
+            // Note: We use existing document service but might want to add PROFILE_PICTURE to enum later if strict
+            // For now, we can use "OTHER" or check if document service supports generic uploads
+            // The document model has "OTHER", let's use that or update enum if needed.
+            // Actually, let's look at document.service.js usage.
+            // But wait, the user model references ProfilePicture as a Document.
+
+            const documentService = require("../documents/document.service");
+
+            // Upload as a document
+            // We need to wrap single file in array as per documentService.uploadDocuments expectation
+            const uploadedDocs = await documentService.uploadDocuments(
+                [file],
+                userId,
+                null, // No company ID linked directly here, checking if optional
+                "OTHER" // Using OTHER for now or we could add PROFILE_PICTURE to enum
+            );
+
+            if (!uploadedDocs || uploadedDocs.length === 0) {
+                throw {
+                    statusCode: 500,
+                    message: "Failed to upload profile picture"
+                };
+            }
+
+            const docId = uploadedDocs[0].documentId; // Use Public UUID
+            const mongoId = uploadedDocs[0]._id;
+            const filePath = uploadedDocs[0].filePath; // Get file path from document service response
+
+            // Update user profile
+            await User.findByIdAndUpdate(userId, {
+                profilePicture: mongoId
+            });
+
+            // Read file and convert to base64
+            const fs = require('fs');
+            const fileBuffer = fs.readFileSync(filePath);
+            const mimeType = uploadedDocs[0].mimeType;
+            const base64Image = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+
+            return {
+                profilePicture: docId,
+                base64: base64Image,
+                url: `/api/documents/${docId}/view`,
+                downloadUrl: `/api/documents/${docId}/download`
+            };
+        } catch (error) {
+            logger.error("Error uploading profile picture", error);
+            throw error;
+        }
+    }
+    /**
+     * Change password
+     */
+    async changePassword(userId, currentPassword, newPassword) {
+        try {
+            const user = await User.findById(userId);
+
+            if (!user) {
+                throw {
+                    statusCode: 404,
+                    code: "USER_NOT_FOUND",
+                    message: "User not found",
+                };
+            }
+
+            // Verify current password
+            const isMatch = await bcrypt.compare(currentPassword, user.password);
+            if (!isMatch) {
+                throw {
+                    statusCode: 400,
+                    code: "INVALID_PASSWORD",
+                    message: "Current password is incorrect",
+                };
+            }
+
+            // Hash new password
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            user.password = hashedPassword;
+            await user.save();
+
+            logger.info(`Password changed for user: ${user.email}`, { userId: user._id });
+
+            // Send notification email (async)
+            /* emailService.sendPasswordChangeNotification({
+                firstName: user.firstName,
+                email: user.email 
+            }).catch(err => logger.error("Password change notification failed", err)); */
+
+            return { message: "Password changed successfully" };
         } catch (error) {
             throw error;
         }

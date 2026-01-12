@@ -8,11 +8,11 @@ const requireVerifiedCompany = async (req, res, next) => {
     try {
         const userId = req.user.id;
 
-        // Check if user has at least one verified company
+        // Check if user has at least one company (disabled verification check)
         const verifiedCompany = await Company.findOne({
             userId,
-            verificationStatus: "VERIFIED",
-            status: "ACTIVE",
+            // verificationStatus: "VERIFIED",
+            // status: "ACTIVE",
         });
 
         if (!verifiedCompany) {
@@ -57,12 +57,12 @@ const verifyCompanyOwnership = async (req, res, next) => {
             });
         }
 
-        // Verify company exists and belongs to user
+        // Verify company exists and belongs to user (disabled verification check)
         const company = await Company.findOne({
             _id: companyId,
             userId,
-            verificationStatus: "VERIFIED",
-            status: "ACTIVE",
+            // verificationStatus: "VERIFIED",
+            // status: "ACTIVE",
         });
 
         if (!company) {

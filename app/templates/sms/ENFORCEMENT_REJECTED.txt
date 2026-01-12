@@ -1,0 +1,1 @@
+NOC application {{applicationNumber}} rejected by Enforcement Wing.

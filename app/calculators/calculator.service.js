@@ -183,7 +183,9 @@ class CalculatorService {
         applicationType,
         blockCategory,
         waterRequirement,
-        industryType = "GENERAL"
+        industryType = "GENERAL",
+        gstRate = 18,
+        customBaseAmount = null
     ) {
         try {
             // Base fees by application type
@@ -208,8 +210,10 @@ class CalculatorService {
                 },
             };
 
-            const baseAmount =
-                baseFees[applicationType]?.[blockCategory] || baseFees.NEW.SAFE;
+            // Use custom base amount if provided, otherwise fallback to standard rates
+            const baseAmount = customBaseAmount
+                ? parseFloat(customBaseAmount)
+                : baseFees[applicationType]?.[blockCategory] || baseFees.NEW.SAFE;
 
             // EC charges
             const ecResult = this.calculateECCharges(
@@ -223,24 +227,32 @@ class CalculatorService {
             const waterBudgetCharges = blockCategory === "OVER_EXPLOITED" ? 1000 : 500;
             const inspectionFee = applicationType === "NEW" ? 1000 : 0;
 
-            const totalAmount =
+            const subTotal =
                 baseAmount +
                 ecResult.ecCharges +
                 processingFee +
                 waterBudgetCharges +
                 inspectionFee;
 
+            // Calculate GST based on custom rate or default 18%
+            const gstPercent = parseFloat(gstRate) / 100;
+            const gst = Math.round(subTotal * gstPercent);
+            const totalAmount = subTotal + gst;
+
             return {
                 applicationType,
                 blockCategory,
                 waterRequirement,
                 industryType,
+                gstRate: `${gstRate}%`,
                 breakdown: {
                     baseAmount,
                     ecCharges: ecResult.ecCharges,
                     processingFee,
                     waterBudgetCharges,
                     inspectionFee,
+                    subTotal,
+                    gst,
                 },
                 totalAmount,
             };

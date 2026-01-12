@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Inspection Scheduled</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f4f4f4;
+        }
+
+        .email-container {
+            background-color: #ffffff;
+            margin: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .info-box {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .details {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .footer {
+            background-color: #f9fafb;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <div class="header">
+            <h1>📅 Inspection Scheduled</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{firstName}},</p>
+
+            <p>A site inspection has been scheduled for your NOC application.</p>
+
+            <div class="info-box">
+                Please ensure you or an authorized representative is present at the site with all original documents.
+            </div>
+
+            <div class="details">
+                <p><strong>Application No:</strong> {{applicationNumber}}</p>
+                <p><strong>Project:</strong> {{projectName}}</p>
+                <p><strong>Scheduled Date:</strong> {{inspectionDate}}</p> <!-- Need to pass this var -->
+            </div>
+
+            <p>You can view more details on your dashboard.</p>
+        </div>
+        <div class="footer">
+            <p><strong>State Ground Water Authority</strong><br>Government of Rajasthan</p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -141,6 +141,64 @@ class DGOService {
     }
 
     /**
+     * Schedule Inspection
+     */
+    async scheduleInspection(applicationId, officerId, data) {
+        const application = await NOCApplication.findOne({ applicationId });
+        if (!application) throw { statusCode: 404, message: "Application not found" };
+
+        // Update application state
+        application.status = "INSPECTION_SCHEDULED";
+        // Assuming DGO flow for now, can be adjusted for 3-tier
+        if (!application.approvalFlow.dgo) application.approvalFlow.dgo = {};
+        // We can store inspection details in approvalFlow.dgo or move to a separate Inspection model
+        // For simplicity, reusing enforcement structure or adding here
+        // The model schema has 'inspectionReport' string, but we might want structured data
+        // For now, let's assume we create a notification and update status
+
+        await application.save();
+        await this.sendNotifications(application, "INSPECTION_SCHEDULED");
+        return application;
+    }
+
+    async submitInspectionReport(applicationId, officerId, data) {
+        const application = await NOCApplication.findOne({ applicationId });
+        if (!application) throw { statusCode: 404, message: "Application not found" };
+
+        // Store structured report if needed, for now putting in approvalFlow
+        // If the doc specifies JSON payload like findings, photos, etc.
+        const report = {
+            officerId,
+            submittedAt: new Date(),
+            findings: data.findings,
+            coordinates: data.coordinates,
+            photos: data.photos
+        };
+
+        // We could store this in a separate collection 'InspectionReport' 
+        // OR embed in approvalFlow.dgo.inspectionDetails
+        // Since schema might be rigid, I'll store in a dynamic field or flexible 'inspectionReport' string
+        if (!application.approvalFlow.dgo) application.approvalFlow.dgo = {};
+        application.approvalFlow.dgo.inspectionDetails = report; // Ensure schema supports this or use mixed
+
+        // Also update status
+        application.status = "INSPECTION_COMPLETED";
+
+        await application.save();
+        return application;
+    }
+
+    async getInspectionReport(applicationId) {
+        const application = await NOCApplication.findOne({ applicationId });
+        if (!application) throw { statusCode: 404, message: "Application not found" };
+
+        const details = application.approvalFlow?.dgo?.inspectionDetails;
+        if (!details) throw { statusCode: 404, message: "Inspection report not found" };
+
+        return details;
+    }
+
+    /**
      * Raise query to applicant
      */
     async raiseQuery(applicationId, officerId, data) {
@@ -224,24 +282,14 @@ class DGOService {
      */
     async sendNotifications(application, event) {
         try {
-            // Create in-app notification
-            await notificationService.createNotification(application.userId, {
-                type: event,
-                title: this.getNotificationTitle(event),
-                message: this.getNotificationMessage(event, application),
-                relatedId: application.applicationId,
-                relatedType: "APPLICATION",
-                priority: "HIGH"
+            // Use centralized notification service to dispatch Email, SMS, WhatsApp, and DB
+            await notificationService.send(application.userId, event, {
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName || 'Project',
+                // Add any other details needed for templates
             });
-
-            // TODO: Send Email
-            // TODO: Send SMS to user phone and company phone
-            // TODO: Send WhatsApp
-
-            logger.info(`Notifications sent for ${event}`, { applicationId: application.applicationId });
         } catch (error) {
             logger.error("Error sending notifications", error);
-            // Don't throw - notifications are non-blocking
         }
     }
 

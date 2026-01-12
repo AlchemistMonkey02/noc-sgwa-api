@@ -42,18 +42,16 @@ const CompanySchema = new mongoose.Schema(
         },
         gstNumber: {
             type: String,
-            required: [true, "GST number is required"],
             trim: true,
             uppercase: true,
             unique: true,
-            match: [/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, "Invalid GST number format"],
+            sparse: true
         },
         panNumber: {
             type: String,
-            required: [true, "PAN number is required"],
             trim: true,
             uppercase: true,
-            match: [/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number format"],
+            sparse: true
         },
         tanNumber: {
             type: String,
@@ -73,6 +71,10 @@ const CompanySchema = new mongoose.Schema(
             type: String,
             required: [true, "Company phone is required"],
             match: [/^[6-9]\d{9}$/, "Please provide a valid 10-digit Indian phone number"],
+        },
+        landline: {
+            type: String,
+            trim: true,
         },
         alternatePhone: {
             type: String,
@@ -138,6 +140,10 @@ const CompanySchema = new mongoose.Schema(
             email: String,
             phone: String,
             aadhaarNumber: String,
+            authorizationLetter: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Document",
+            }
         },
 
         // Employment & Financial

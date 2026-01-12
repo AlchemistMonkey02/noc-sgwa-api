@@ -106,7 +106,14 @@ class CalculatorController {
      */
     async calculateTotalFees(req, res, next) {
         try {
-            const { applicationType, blockCategory, waterRequirement, industryType } = req.body;
+            const {
+                applicationType,
+                blockCategory,
+                waterRequirement,
+                industryType,
+                gstRate,
+                baseAmount,
+            } = req.body;
 
             if (!applicationType || !blockCategory || !waterRequirement) {
                 return res.status(400).json({
@@ -118,11 +125,27 @@ class CalculatorController {
                 });
             }
 
+            // Validate custom base amount if provided
+            if (baseAmount) {
+                const amount = parseFloat(baseAmount);
+                if (isNaN(amount) || amount < 5000 || amount > 100000) {
+                    return res.status(400).json({
+                        success: false,
+                        error: {
+                            code: "INVALID_BASE_AMOUNT",
+                            message: "Base amount must be between 5,000 and 1,00,000",
+                        },
+                    });
+                }
+            }
+
             const result = calculatorService.calculateTotalFees(
                 applicationType,
                 blockCategory,
                 waterRequirement,
-                industryType
+                industryType,
+                gstRate,
+                baseAmount
             );
 
             res.status(200).json({

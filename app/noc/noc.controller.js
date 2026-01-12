@@ -1,4 +1,6 @@
 const nocService = require("./noc.service");
+const NOCApplication = require("./noc-application.model");
+const notificationService = require("../notifications/notification.service");
 
 class NOCController {
     /**
@@ -188,31 +190,58 @@ class NOCController {
 
     /**
      * GET /api/applications/noc/:id/certificate
-     * Download NOC certificate
+     * View NOC certificate details
      */
     async getCertificate(req, res, next) {
         try {
-            const application = await nocService.getApplicationById(
+            const certificate = await nocService.getCertificate(
                 req.params.id,
-                req.user.id,
-                req.user.userType
+                req.user.id
             );
 
-            if (!application.nocCertificateId) {
+            res.status(200).json({
+                success: true,
+                data: certificate,
+                message: "Certificate details fetched successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/:id/certificate/download
+     * Download NOC certificate (PDF)
+     */
+    async downloadCertificate(req, res, next) {
+        try {
+            const filePath = await nocService.getCertificateFilePath(
+                req.params.id,
+                req.user.id
+            );
+
+            const fs = require('fs');
+            const path = require('path');
+
+            // Check if file exists
+            if (!fs.existsSync(filePath)) {
                 return res.status(404).json({
                     success: false,
                     error: {
-                        code: "CERTIFICATE_NOT_FOUND",
-                        message: "NOC certificate not yet issued",
-                    },
+                        code: "FILE_NOT_FOUND_ON_DISK",
+                        message: "Certificate file missing from storage"
+                    }
                 });
             }
 
-            // TODO: Generate and serve PDF
-            res.status(200).json({
-                success: true,
-                data: application.nocCertificateId,
-                message: "Certificate found (PDF generation pending)",
+            // Set filename for download
+            const fileName = `NOC_${req.params.id}.pdf`;
+            res.download(filePath, fileName, (err) => {
+                if (err) {
+                    if (!res.headersSent) {
+                        next(err);
+                    }
+                }
             });
         } catch (error) {
             next(error);
@@ -679,6 +708,256 @@ class NOCController {
                 success: true,
                 data: application,
                 message: "Section 6 (Document Attachments) updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/applications/noc/:id/flow-meter
+     * Update Digital Flow Meter (Section 9)
+     */
+    async updateDigitalFlowMeter(req, res, next) {
+        try {
+            const application = await nocService.updateSection(
+                req.params.id,
+                9,
+                req.body,
+                req.user.id
+            );
+
+            res.status(200).json({
+                success: true,
+                data: application,
+                message: "Digital Flow Meter details updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/track/:applicationId
+     * Track application status and timeline
+     */
+    async trackApplication(req, res, next) {
+        try {
+            // Handle wildcard route: applicationId might be in params.applicationId or params[0]
+            const applicationId = req.params.applicationId || req.params[0];
+
+            // Fetch application by applicationId (UUID) OR applicationNumber OR trackingId
+            const application = await NOCApplication.findOne({
+                $or: [
+                    { applicationId: applicationId },
+                    { applicationNumber: applicationId },
+                    { trackingId: applicationId }
+                ]
+            })
+                .select("applicationId applicationNumber trackingId projectType applicationType submittedAt status workflowHistory applicationCategory");
+
+            if (!application) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Application not found"
+                });
+            }
+
+            // Status Hierarchy/Rank
+            const statusRank = {
+                "DRAFT": 0,
+                "SUBMITTED": 1,
+
+                // DGO (Level 2)
+                "PENDING_DGO_REVIEW": 2, "UNDER_REVIEW_DGO": 2, "QUERY_RAISED_DGO": 2, "REJECTED_DGO": 2,
+                "APPROVED_DGO": 3,
+
+                // SGWA (Level 4)
+                "PENDING_SGWA_REVIEW": 4, "UNDER_REVIEW_SGWA": 4, "QUERY_RAISED_SGWA": 4, "REJECTED_SGWA": 4,
+                "APPROVED_SGWA": 5,
+
+                // Enforcement (Level 6)
+                "PENDING_ENFORCEMENT_REVIEW": 6, "INSPECTION_SCHEDULED": 6, "INSPECTED": 6, "UNDER_REVIEW_ENFORCEMENT": 6, "QUERY_RAISED_ENFORCEMENT": 6, "REJECTED_ENFORCEMENT": 6,
+                "APPROVED_ENFORCEMENT": 7,
+
+                // Final (Level 8)
+                "NOC_ISSUED": 8, "WITHDRAWN": 8
+            };
+
+            const currentRank = statusRank[application.status] || 0;
+            let currentLocation = "Applicant";
+            if (currentRank === 1) currentLocation = "System Processing";
+            else if (currentRank >= 2 && currentRank < 4) currentLocation = "District Groundwater Office (DGO)";
+            else if (currentRank >= 4 && currentRank < 6) currentLocation = "State Groundwater Authority (SGWA)";
+            else if (currentRank >= 6 && currentRank < 8) currentLocation = "Enforcement Wing";
+            else if (currentRank === 8) currentLocation = "Issued";
+
+            // Map Status to Timeline Steps
+            const timeline = [
+                {
+                    step: 1,
+                    title: "Application Submitted",
+                    description: "Application received by system.",
+                    status: "COMPLETED",
+                    date: application.submittedAt
+                },
+                {
+                    step: 2,
+                    title: "Document Verification",
+                    description: "Initial scrutiny of uploaded documents (DGO).",
+                    status: currentRank >= 3 ? "COMPLETED" : "PENDING",
+                },
+                {
+                    step: 3,
+                    title: "SGWA Review",
+                    description: "Verification by State Ground Water Authority.",
+                    status: currentRank >= 5 ? "COMPLETED" : "PENDING",
+                },
+                {
+                    step: 4,
+                    title: "Enforcement Wing",
+                    description: "Final verification by Enforcement Wing.",
+                    status: currentRank >= 7 ? "COMPLETED" : "PENDING",
+                },
+                {
+                    step: 5,
+                    title: "Final Approval",
+                    description: "NOC generated and ready for download.",
+                    status: currentRank >= 8 ? "COMPLETED" : "PENDING",
+                }
+            ];
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    applicationId: application.applicationId,
+                    applicationNumber: application.applicationNumber,
+                    trackingId: application.trackingId,
+                    status: application.status,
+                    projectName: application.projectType,
+                    applicationType: application.applicationType,
+                    category: application.applicationCategory,
+                    submittedDate: application.submittedAt,
+                    currentLocation: currentLocation,
+                    timeline: timeline
+                }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/applications/noc/approve-step
+     * Manually approve timeline steps (No Auth)
+     */
+    async updateTimelineStep(req, res, next) {
+        try {
+            const { applicationId, step } = req.body;
+
+            if (!applicationId || !step) {
+                return res.status(400).json({ success: false, message: "applicationId and step are required" });
+            }
+
+            let newStatus = "";
+            switch (parseInt(step)) {
+                case 2: newStatus = "APPROVED_DGO"; break;
+                case 3: newStatus = "APPROVED_SGWA"; break;
+                case 4: newStatus = "APPROVED_ENFORCEMENT"; break;
+                case 5: newStatus = "NOC_ISSUED"; break;
+                default:
+                    return res.status(400).json({ success: false, message: "Invalid step (2-5)" });
+            }
+
+            // Find by any ID
+            const application = await NOCApplication.findOne({
+                $or: [
+                    { applicationId: applicationId },
+                    { applicationNumber: applicationId },
+                    { trackingId: applicationId }
+                ]
+            });
+
+            if (!application) {
+                return res.status(404).json({ success: false, message: "Application not found" });
+            }
+
+            application.status = newStatus;
+            await application.save({ validateBeforeSave: false }); // Skip other validation
+
+            // Send notification
+            notificationService.send(application.userId, newStatus, {
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName || 'Project',
+            }).catch(err => console.error("Failed to send notification", err));
+
+            // Determine flags for UI
+            const allApproved = newStatus === "NOC_ISSUED";
+            const almostApproved = ["APPROVED_SGWA", "APPROVED_ENFORCEMENT"].includes(newStatus);
+            const maybeApproved = !allApproved && !almostApproved;
+
+            res.status(200).json({
+                success: true,
+                message: `Application moved to step ${step} (Status: ${newStatus})`,
+                data: {
+                    applicationId: application.applicationId,
+                    status: application.status,
+                    allApproved,
+                    almostApproved,
+                    maybeApproved
+                }
+            });
+
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/processing-estimates
+     * Get estimated processing timelines (Best/Normal/Delayed)
+     */
+    async getProcessingEstimates(req, res, next) {
+        try {
+            const { allApproved, almostApproved, maybeApproved } = req.query;
+
+            const estimates = {
+                bestCase: {
+                    label: "Best Case",
+                    conditions: ["Documents correct", "Inspection completed in first visit", "Area category already mapped"],
+                    duration: "~30–45 days",
+                    color: "green"
+                },
+                normalCase: {
+                    label: "Normal Case",
+                    conditions: ["Standard verification & inspection"],
+                    duration: "~45–60 days",
+                    color: "yellow"
+                },
+                delayedCase: {
+                    label: "Delayed Case",
+                    conditions: ["Clarification required", "Re-inspection", "Incomplete hydro data"],
+                    duration: "60–90+ days",
+                    color: "red"
+                }
+            };
+
+            let data = estimates;
+
+            // Filter logic based on input flags
+            if (allApproved === 'true') {
+                data = { selectedEstimate: estimates.bestCase };
+            } else if (almostApproved === 'true') {
+                data = { selectedEstimate: estimates.normalCase };
+            } else if (maybeApproved === 'true') { // Or 'delayed'
+                data = { selectedEstimate: estimates.delayedCase };
+            }
+
+            res.status(200).json({
+                success: true,
+                data: data,
+                message: "Processing estimates retrieved successfully"
             });
         } catch (error) {
             next(error);

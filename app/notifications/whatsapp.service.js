@@ -55,59 +55,108 @@ class WhatsAppService {
     /**
      * Send via Twilio WhatsApp
      */
-    async sendViaTwilio(phone, message) {
+    /**
+     * Send via Twilio WhatsApp
+     */
+    async sendViaTwilio(phone, messageOrData) {
         try {
+            // Use provided credentials or env vars
             const accountSid = process.env.TWILIO_ACCOUNT_SID;
             const authToken = process.env.TWILIO_AUTH_TOKEN;
-            const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER; // e.g., 'whatsapp:+14155238886'
+            const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
 
-            if (!accountSid || !authToken || !whatsappNumber) {
-                throw new Error("Twilio WhatsApp credentials not configured");
+            if (!authToken) {
+                logger.warn("Twilio AUTH_TOKEN missing. WhatsApp sending skipped.", { accountSid });
+                return { success: false, reason: "MISSING_CREDENTIALS" };
             }
 
-            // In production, use actual Twilio SDK
-            // const client = require('twilio')(accountSid, authToken);
-            // await client.messages.create({
-            //     body: message,
-            //     from: whatsappNumber,
-            //     to: `whatsapp:${phone}`
-            // });
+            const client = require('twilio')(accountSid, authToken);
 
-            logger.info(`WhatsApp sent via Twilio to ${phone}`);
-            return { success: true };
+            // Check if we have template data (contentSid) or just plain text
+            let msgOptions = {
+                from: whatsappNumber,
+                to: `whatsapp:${phone}`
+            };
+
+            // If messageOrData is an object with template info, use Content API
+            if (typeof messageOrData === 'object' && messageOrData.contentSid) {
+                msgOptions.contentSid = messageOrData.contentSid;
+                msgOptions.contentVariables = JSON.stringify(messageOrData.contentVariables || {});
+            } else {
+                // Legacy/Fallback: Send plain text body
+                msgOptions.body = typeof messageOrData === 'string' ? messageOrData : messageOrData.body || "Notification from SGWA";
+                logger.debug(`Sending WhatsApp Body: ${msgOptions.body}`);
+            }
+
+            const message = await client.messages.create(msgOptions);
+
+            logger.info(`WhatsApp sent via Twilio to ${phone}`, { sid: message.sid });
+            return { success: true, sid: message.sid };
         } catch (error) {
             logger.error("Twilio WhatsApp error", error);
-            throw error;
+            // Don't throw to prevent blocking main flow, but return failure
+            return { success: false, error: error.message };
         }
     }
 
     /**
      * Format WhatsApp message
      */
+    /**
+     * Format WhatsApp message
+     */
     formatMessage(event, data) {
-        const messages = {
-            APPLICATION_SUBMITTED: `✅ *NOC Application Submitted*\n\nApplication No: ${data.applicationNumber}\nProject: ${data.projectName}\n\nTrack your application at sgwa.raj.in`,
+        const fs = require('fs');
+        const path = require('path');
 
-            DGO_APPROVED: `✅ *DGO Approval Received*\n\nYour NOC application ${data.applicationNumber} has been approved by the District Groundwater Officer.\n\n✨ Next Step: SGWA Technical Review\n\nCheck sgwa.raj.in for updates.`,
+        const jsonPath = path.join(__dirname, `../templates/whatsapp/${event}.json`);
+        const txtPath = path.join(__dirname, `../templates/whatsapp/${event}.txt`);
+        const defaultPath = path.join(__dirname, `../templates/whatsapp/DEFAULT.txt`);
 
-            DGO_REJECTED: `❌ *Application Rejected by DGO*\n\nNOC Application: ${data.applicationNumber}\n\nPlease check the portal for detailed remarks and next steps.`,
+        // 1. Check for JSON Config (Content API)
+        if (fs.existsSync(jsonPath)) {
+            try {
+                const templateConfig = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+                if (templateConfig.contentSid) {
+                    const processedVariables = {};
+                    if (templateConfig.variables) {
+                        for (const [key, val] of Object.entries(templateConfig.variables)) {
+                            processedVariables[key] = this.replacePlaceholders(val, data);
+                        }
+                    }
+                    return {
+                        contentSid: templateConfig.contentSid,
+                        contentVariables: processedVariables
+                    };
+                }
+            } catch (e) {
+                logger.error(`Error parsing WhatsApp template JSON for ${event}`, e);
+            }
+        }
 
-            DGO_QUERY_RAISED: `❓ *Query Raised by DGO*\n\nApplication No: ${data.applicationNumber}\n\n⏰ Please respond to the query on the portal within the deadline.`,
+        // 2. Check for Text File
+        let templateContent = "";
+        if (fs.existsSync(txtPath)) {
+            templateContent = fs.readFileSync(txtPath, 'utf8');
+        } else if (fs.existsSync(defaultPath)) {
+            templateContent = fs.readFileSync(defaultPath, 'utf8');
+        } else {
+            // Fallback to SMS template if WhatsApp template missing?
+            // For now, return default string
+            return "Notification from SGWA";
+        }
 
-            SGWA_APPROVED: `✅ *SGWA Approval Received*\n\nYour NOC application ${data.applicationNumber} has been approved by SGWA.\n\n✨ Next Step: Enforcement Wing Final Review\n\nCheck sgwa.raj.in for updates.`,
+        return this.replacePlaceholders(templateContent, data);
+    }
 
-            SGWA_REJECTED: `❌ *Application Rejected by SGWA*\n\nNOC Application: ${data.applicationNumber}\n\nCheck portal for detailed technical remarks.`,
-
-            SGWA_QUERY_RAISED: `❓ *SGWA Query*\n\nApplication No: ${data.applicationNumber}\n\nSGWA has raised a technical query. Please respond on the portal.`,
-
-            INSPECTION_SCHEDULED: `📅 *Site Inspection Scheduled*\n\nApplication No: ${data.applicationNumber}\n\nOur field team will conduct a site inspection soon. Please ensure accessibility to the site.\n\nDetails available on portal.`,
-
-            NOC_ISSUED: `🎉 *NOC Certificate Issued!*\n\nCongratulations! Your NOC has been issued.\n\nNOC Number: ${data.applicationNumber}\nProject: ${data.projectName}\n\n📥 Download your certificate from sgwa.raj.in`,
-
-            ENFORCEMENT_REJECTED: `❌ *Application Rejected*\n\nNOC Application: ${data.applicationNumber}\n\nFinal rejection by Enforcement Wing. Check portal for appeal process.`
-        };
-
-        return messages[event] || `Update on your NOC application ${data.applicationNumber}. Check sgwa.raj.in for details.`;
+    replacePlaceholders(template, data) {
+        if (!template) return "";
+        return template
+            .replace(/{{applicationNumber}}/g, data.applicationNumber || 'N/A')
+            .replace(/{{projectName}}/g, data.projectName || '')
+            .replace(/{{otp}}/g, data.otp || '')
+            .replace(/{{deadline}}/g, data.deadline || '')
+            .replace(/{{validity}}/g, data.validity || '');
     }
 
     /**

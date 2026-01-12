@@ -75,15 +75,24 @@ app.get("/health", (req, res) => {
 });
 
 // Public routes (no authentication)
-app.use("/api/public/track", require("./app/public/public.routes"));
+app.use("/api/public", require("./app/public/public.routes"));
 app.use("/api/tools", require("./app/calculators/calculator.routes"));
+app.use("/api/tools", require("./app/eligibility/eligibility.routes"));
 
 // API Routes
 app.use("/api/auth", require("./app/auth/auth.routes"));
 app.use("/api/master", require("./app/master-data/master.routes"));
+app.use("/api/master-data", require("./app/master-data/master-data.routes"));
 app.use("/api/documents", require("./app/documents/document.routes"));
 app.use("/api/applications/noc", require("./app/noc/noc.routes"));
-app.use("/api/officer", require("./app/noc/officer.routes"));
+app.use("/api/noc", require("./app/noc/compliance.routes")); // Compliance routes
+app.use("/api/self-compliance", require("./app/noc/self-compliance.routes")); // AI Auto-Compliance
+app.use("/api/queries", require("./app/noc/query.routes")); // Query Management
+app.use("/api/officer/common", require("./app/officers/common/common.routes"));
+app.use("/api/officer/sgwa", require("./app/officers/sgwa/sgwa.routes"));
+app.use("/api/officer/dgo", require("./app/officers/dgo/dgo.routes"));
+app.use("/api/officer/enforcement", require("./app/officers/enforcement/enforcement.routes"));
+// app.use("/api/officer", require("./app/noc/officer.routes")); // Deprecated generic route
 app.use("/api/companies", require("./app/company/company.routes"));
 app.use("/api/notifications", require("./app/notifications/notification.routes"));
 
@@ -109,6 +118,7 @@ app.listen(PORT, () => {
   console.log(`📱 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`📧 Email configured: ${process.env.SMTP_USER ? "Yes" : "No"}`);
   console.log(`\n✅ API Ready!\n`);
+  console.log(`🔄 Server reloaded at ${new Date().toISOString()}`);
 });
 
 // Handle unhandled promise rejections

@@ -156,20 +156,32 @@ class SMSService {
      * Format notification message
      */
     formatMessage(event, data) {
-        const messages = {
-            APPLICATION_SUBMITTED: `NOC Application ${data.applicationNumber} submitted successfully. Track status at sgwa.raj.in`,
-            DGO_APPROVED: `Your NOC application ${data.applicationNumber} approved by District Officer. Forwarded to SGWA.`,
-            DGO_REJECTED: `NOC application ${data.applicationNumber} rejected by District Officer. Check portal for details.`,
-            DGO_QUERY_RAISED: `Query raised on NOC application ${data.applicationNumber}. Please respond on portal.`,
-            SGWA_APPROVED: `NOC application ${data.applicationNumber} approved by SGWA. Forwarded to Enforcement Wing.`,
-            SGWA_REJECTED: `NOC application ${data.applicationNumber} rejected by SGWA.`,
-            SGWA_QUERY_RAISED: `SGWA query on application ${data.applicationNumber}. Respond on portal.`,
-            INSPECTION_SCHEDULED: `Site inspection scheduled for NOC application ${data.applicationNumber}.`,
-            NOC_ISSUED: `NOC Certificate issued! Number: ${data.applicationNumber}. Download from sgwa.raj.in`,
-            ENFORCEMENT_REJECTED: `NOC application ${data.applicationNumber} rejected by Enforcement Wing.`
-        };
+        const fs = require('fs');
+        const path = require('path');
 
-        return messages[event] || `Update on NOC application ${data.applicationNumber}. Check portal.`;
+        let templateContent = "";
+        const templatePath = path.join(__dirname, `../templates/sms/${event}.txt`);
+        const defaultPath = path.join(__dirname, `../templates/sms/DEFAULT.txt`);
+
+        if (fs.existsSync(templatePath)) {
+            templateContent = fs.readFileSync(templatePath, 'utf8');
+        } else if (fs.existsSync(defaultPath)) {
+            templateContent = fs.readFileSync(defaultPath, 'utf8');
+        } else {
+            return "Notification from SGWA";
+        }
+
+        return this.replacePlaceholders(templateContent, data);
+    }
+
+    replacePlaceholders(template, data) {
+        if (!template) return "";
+        return template
+            .replace(/{{applicationNumber}}/g, data.applicationNumber || 'N/A')
+            .replace(/{{projectName}}/g, data.projectName || '')
+            .replace(/{{otp}}/g, data.otp || '')
+            .replace(/{{deadline}}/g, data.deadline || '')
+            .replace(/{{validity}}/g, data.validity || '');
     }
 
     /**
