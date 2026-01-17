@@ -193,9 +193,20 @@ const NOCApplicationSchema = new mongoose.Schema(
             projectName: { type: String, required: true },
             industryType: String,
             projectDescription: String,
-            landArea: Number, // total sq meters
-            builtUpArea: Number, // sq meters
-            openLandArea: Number, // sq meters (CGWA requirement)
+
+            // Land Use Details (Enhanced)
+            landUseDetails: {
+                totalArea: Number, // sq meters
+                rooftopArea: Number,
+                pavedArea: Number,
+                greenBeltArea: Number,
+                openArea: Number,
+            },
+
+            // Legacy fields mapped or kept for backward compatibility if needed
+            landArea: Number,
+            builtUpArea: Number,
+            openLandArea: Number,
 
             // Applicant/Org Details
             applicantName: String,
@@ -231,8 +242,8 @@ const NOCApplicationSchema = new mongoose.Schema(
             contactPersonDesignation: String,
 
             // NEW: Enhanced land details
-            totalLandArea: Number, // sq meters
-            greenBeltArea: Number, // sq meters
+            // totalLandArea: Number, // Replaced by landUseDetails.totalArea
+            // greenBeltArea: Number, // Replaced by landUseDetails.greenBeltArea
             greenBeltPercentage: Number, // auto-calculated
 
             // NEW: Wetland proximity
@@ -243,8 +254,8 @@ const NOCApplicationSchema = new mongoose.Schema(
             // Green Belt (CGWA requirement)
             greenBelt: {
                 implemented: { type: Boolean, default: false },
-                area: Number, // sq meters
-                percentage: Number, // % of total land
+                area: Number,
+                percentage: Number,
                 plantationDetails: {
                     numberOfTrees: Number,
                     species: [String],
@@ -328,18 +339,9 @@ const NOCApplicationSchema = new mongoose.Schema(
             remarks: String
         }],
 
-        // NEW: STP/ETP Details
-        stpEtpDetails: {
-            stpInstalled: { type: Boolean, default: false },
-            stpCapacity: Number, // KLD
-            stpUtilization: Number, // percentage
-            etpInstalled: { type: Boolean, default: false },
-            etpCapacity: Number, // KLD
-            etpUtilization: Number, // percentage
-            totalRecycledWater: Number, // KLD
-            recyclingPercentage: Number // auto-calculated
-        },
 
+
+        // NEW: Section 5 - Ground Water Structures (Enhanced)
         // NEW: Section 5 - Ground Water Structures (Enhanced)
         groundWaterStructures: [{
             structureType: {
@@ -350,18 +352,69 @@ const NOCApplicationSchema = new mongoose.Schema(
                 type: String,
                 enum: ['EXISTING', 'PROPOSED']
             },
+            // Technical Details
+            yearOfConstruction: Number, // YYYY
+            depth: Number, // meters
+            diameter: Number, // mm
+            depthToWaterLevel: Number, // mbgl
+            discharge: Number, // m3/hour
+
+            // Compliance
+            waterMeterFitted: {
+                type: Boolean,
+                default: false
+            },
+
+            // Pump Details
+            pumpDetails: {
+                pumpType: {
+                    type: String,
+                    enum: ["SUBMERSIBLE", "CENTRIFUGAL", "OTHER"],
+                    default: "SUBMERSIBLE"
+                },
+                capacityHP: Number, // Horsepower
+            },
+
+            // Legacy/Geo fields
             latitude: Number,
             longitude: Number,
-            depth: Number,
-            diameter: Number,
-            dischargeCapacity: Number,
             status: String, // Operational/Non-Operational
-            horsepower: Number,
+            horsepower: Number, // kept for legacy or redundancy
         }],
 
         // Enhanced Water Requirements (CGWA Compliant)
         waterRequirement: {
             purpose: { type: String, required: true },
+
+            // Total Water Requirement Logic
+            totalRequirement: Number, // Total Requirement (Fresh + Recycled)
+            freshWaterRequirement: Number, // Total Fresh
+            recycledWaterUsage: Number, // Total Recycled
+
+            // Detailed Breakup
+            breakup: {
+                domestic: {
+                    total: Number,
+                    fresh: Number,
+                    recycled: Number
+                },
+                industrial: {
+                    total: Number,
+                    fresh: Number,
+                    recycled: Number
+                },
+                greenBelt: {
+                    total: Number,
+                    fresh: Number,
+                    recycled: Number
+                },
+                other: {
+                    total: Number,
+                    fresh: Number,
+                    recycled: Number,
+                    description: String
+                }
+            },
 
             // Proposed extraction details
             proposedExtraction: {
@@ -377,7 +430,18 @@ const NOCApplicationSchema = new mongoose.Schema(
                 totalAnnualExtraction: Number, // KL per year
             },
 
-            // Purpose-wise breakup (CGWA requirement)
+            // Pumping Equipment Details
+            pumpingDetails: {
+                pumpType: {
+                    type: String,
+                    enum: ["SUBMERSIBLE", "CENTRIFUGAL", "OTHER"],
+                    default: "SUBMERSIBLE"
+                },
+                capacityHP: Number, // Horsepower
+                dischargeRate: Number // Optional if different from borewell capacity
+            },
+
+            // Purpose-wise breakup (Legacy/Simplified)
             purposeWiseBreakup: {
                 drinking: { type: Number, default: 0 },
                 industrial: { type: Number, default: 0 },
@@ -394,7 +458,7 @@ const NOCApplicationSchema = new mongoose.Schema(
                 enum: ["BOREWELL", "TUBE_WELL", "OPEN_WELL"],
             },
             depth: Number, // meters
-            pumpCapacity: Number, // HP
+            pumpCapacity: Number, // HP (Legacy)
         },
 
         // Hydrogeological Information (CGWA MANDATORY)

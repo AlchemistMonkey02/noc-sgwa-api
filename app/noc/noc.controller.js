@@ -189,6 +189,60 @@ class NOCController {
     }
 
     /**
+     * GET /api/applications/noc/ref/:trackingId/document
+     * Get NOC Document by Tracking ID (Public)
+     */
+    async getNocDocumentByTrackingId(req, res, next) {
+        try {
+            const filePath = await nocService.getCertificateByTrackingId(req.params.trackingId);
+
+            const fs = require('fs');
+            // Check if file exists
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        code: "FILE_NOT_FOUND_ON_DISK",
+                        message: "Certificate file missing from storage"
+                    }
+                });
+            }
+
+            const fileName = `NOC_${req.params.trackingId}.pdf`;
+            res.download(filePath, fileName, (err) => {
+                if (err) {
+                    if (!res.headersSent) {
+                        next(err);
+                    }
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/ref/:trackingId/documents
+     * Get Application Documents by Tracking ID (Public)
+     */
+    async getDocumentsByTrackingId(req, res, next) {
+        try {
+            const documents = await nocService.getDocumentsByTrackingId(
+                req.params.trackingId,
+                req.user
+            );
+
+            res.status(200).json({
+                success: true,
+                count: documents.length,
+                data: documents,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/applications/noc/:id/certificate
      * View NOC certificate details
      */

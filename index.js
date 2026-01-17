@@ -92,6 +92,7 @@ app.use("/api/officer/common", require("./app/officers/common/common.routes"));
 app.use("/api/officer/sgwa", require("./app/officers/sgwa/sgwa.routes"));
 app.use("/api/officer/dgo", require("./app/officers/dgo/dgo.routes"));
 app.use("/api/officer/enforcement", require("./app/officers/enforcement/enforcement.routes"));
+app.use("/api/officer/inspection", require("./app/officers/inspection/inspection.routes"));
 // app.use("/api/officer", require("./app/noc/officer.routes")); // Deprecated generic route
 app.use("/api/companies", require("./app/company/company.routes"));
 app.use("/api/notifications", require("./app/notifications/notification.routes"));

@@ -101,7 +101,6 @@ class DGOController {
                 req.user.id,
                 req.body
             );
-
             res.status(200).json({
                 success: true,
                 data: result,
@@ -143,6 +142,126 @@ class DGOController {
             const report = await dgoService.getInspectionReport(req.params.id);
             res.status(200).json({ success: true, data: report });
         } catch (err) { next(err); }
+    }
+
+    /**
+     * POST /api/officers/dgo/applications/:id/verify-documents
+     * Verify documents
+     */
+    async verifyDocuments(req, res, next) {
+        try {
+            const result = await dgoService.verifyDocuments(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.status(200).json({
+                success: true,
+                message: "Documents verified successfully",
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/officers/dgo/queries
+     * Get all queries
+     */
+    async getQueries(req, res, next) {
+        try {
+            const result = await dgoService.getQueries(req.user.id, req.query);
+            res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/officers/dgo/queries/:id
+     * Get query details
+     */
+    async getQueryById(req, res, next) {
+        try {
+            const result = await dgoService.getQueryById(req.params.id);
+            res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/officers/dgo/queries/:id/accept
+     * Accept query response
+     */
+    async acceptQueryResponse(req, res, next) {
+        try {
+            const result = await dgoService.acceptQueryResponse(req.params.id, req.user.id);
+            res.status(200).json({
+                success: true,
+                message: "Query response accepted",
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/officers/dgo/queries/:id/reject
+     * Reject query response
+     */
+    async rejectQueryResponse(req, res, next) {
+        try {
+            const result = await dgoService.rejectQueryResponse(req.params.id, req.user.id, req.body);
+            res.status(200).json({
+                success: true,
+                message: "Query response rejected",
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/officers/dgo/compliance-report
+     * Get compliance report
+     */
+    async getComplianceReport(req, res, next) {
+        try {
+            const result = await dgoService.getComplianceReport(req.user.id, req.query);
+            res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/officers/dgo/reports/generate
+     * Generate PDF report
+     */
+    async generateReport(req, res, next) {
+        try {
+            const result = await dgoService.generateReport(req.user.id, req.body);
+            res.status(200).json({
+                success: true,
+                message: "Report generated successfully",
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
     }
 
     /**

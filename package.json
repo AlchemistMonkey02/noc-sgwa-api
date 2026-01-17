@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js",
+    "start": "nodemon index.js",
     "dev": "nodemon index.js",
     "seed": "node seeders/run-all-seeders.js",
     "seed:master": "node seeders/01-master-data.seeder.js",

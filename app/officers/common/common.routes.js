@@ -24,6 +24,8 @@ router.post("/documents/upload", upload.single('file'), commonController.uploadD
 router.get("/documents/:id/download", commonController.downloadDocument);
 router.get("/documents/:id/view", commonController.viewDocument);
 // Access by Application ID and Document Type
+router.get("/documents/pending-verifications", commonController.getPendencyBasedDocuments); // NEW: Worklist based on Role flow
+router.get("/applications/:appId/documents", commonController.getApplicationDocuments); // List all
 router.get("/applications/:appId/documents/:docType/view", commonController.viewApplicationDocument);
 router.get("/applications/:appId/documents/:docType/download", commonController.downloadApplicationDocument);
 
