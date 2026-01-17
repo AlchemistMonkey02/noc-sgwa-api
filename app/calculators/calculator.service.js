@@ -261,6 +261,35 @@ class CalculatorService {
             throw error;
         }
     }
+    /**
+     * Calculate Pump Discharge Rate
+     * Estimation based on HP and Head (Depth)
+     */
+    calculatePumpDischarge(hp, depth, efficiency = 0.6) {
+        try {
+            // Formula: HP = (Q * H) / (75 * efficiency) where Q is L/s
+            // Rearranged: Q (L/s) = (HP * 75 * efficiency) / H
+
+            if (!depth || depth <= 0) {
+                throw { message: "Depth must be greater than 0" };
+            }
+
+            const dischargeLPS = (hp * 75 * efficiency) / depth;
+            const dischargeM3Hr = dischargeLPS * 3.6; // Convert L/s to m3/hr
+
+            return {
+                hp,
+                depth,
+                efficiency: `${efficiency * 100}%`,
+                estimatedDischargeLPS: Math.round(dischargeLPS * 100) / 100,
+                estimatedDischargeM3Hr: Math.round(dischargeM3Hr * 100) / 100,
+                formulaUsed: "Q (m³/hr) = ((HP × 75 × Efficiency) / Depth) × 3.6"
+            };
+        } catch (error) {
+            logger.error("Error calculating pump discharge", error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new CalculatorService();

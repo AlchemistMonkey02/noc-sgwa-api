@@ -156,6 +156,38 @@ class CalculatorController {
             next(error);
         }
     }
+    /**
+     * POST /api/tools/pump-discharge
+     * Calculate pump discharge rate
+     */
+    async calculatePumpDischarge(req, res, next) {
+        try {
+            const { hp, depth, efficiency } = req.body;
+
+            if (!hp || !depth) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "MISSING_PARAMETERS",
+                        message: "hp and depth are required",
+                    },
+                });
+            }
+
+            const result = calculatorService.calculatePumpDischarge(
+                parseFloat(hp),
+                parseFloat(depth),
+                efficiency ? parseFloat(efficiency) : undefined
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new CalculatorController();

@@ -243,7 +243,17 @@ class NOCService {
      */
     async getApplicationById(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId }).populate(
+            // Check if applicationId is a valid MongoDB ObjectId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+
+            const query = {};
+            if (isObjectId) {
+                query._id = applicationId;
+            } else {
+                query.applicationId = applicationId;
+            }
+
+            const application = await NOCApplication.findOne(query).populate(
                 "nocCertificateId"
             );
 
@@ -807,7 +817,17 @@ class NOCService {
      */
     async getApplicationDocuments(applicationId, userId) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            // Check if applicationId is a valid MongoDB ObjectId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+
+            const query = { userId };
+            if (isObjectId) {
+                query._id = applicationId;
+            } else {
+                query.applicationId = applicationId;
+            }
+
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -817,13 +837,8 @@ class NOCService {
                 };
             }
 
-            const Document = require("../documents/document.model");
-            const documents = await Document.find({
-                applicationId: application._id,
-                userId: application.userId
-            });
-
-            return documents;
+            // Return the embedded documents array which contains application-specific statuses
+            return application.documents || [];
         } catch (error) {
             throw error;
         }
@@ -879,6 +894,127 @@ class NOCService {
             }
 
             return certificate.certificatePDF;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get Certificate File Path by Tracking ID (Public)
+     */
+    async getCertificateByTrackingId(trackingId) {
+        try {
+            const application = await NOCApplication.findOne({ trackingId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found with this tracking ID",
+                };
+            }
+
+            if (!application.nocCertificateId) {
+                throw {
+                    statusCode: 404,
+                    code: "CERTIFICATE_NOT_FOUND",
+                    message: "NOC Certificate has not been issued yet",
+                };
+            }
+
+            const certificate = await NOCCertificate.findById(application.nocCertificateId);
+
+            if (!certificate || !certificate.certificatePDF) {
+                throw {
+                    statusCode: 404,
+                    code: "FILE_NOT_FOUND",
+                    message: "Certificate file not generated",
+                };
+            }
+
+            return certificate.certificatePDF;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Get Application Documents by Tracking ID
+     */
+    async getDocumentsByTrackingId(trackingId, user) {
+        try {
+            const application = await NOCApplication.findOne({ trackingId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found with this tracking ID",
+                };
+            }
+
+            // Access Control Logic
+            const userType = user.userType; // APPLICANT, DGO, RSGWA, ENFORCEMENT
+
+            // 1. Applicant/Owner Access
+            if (userType === 'APPLICANT' || userType === 'USER') {
+                if (application.userId.toString() !== user.id) {
+                    throw {
+                        statusCode: 403,
+                        code: "UNAUTHORIZED_ACCESS",
+                        message: "You are not authorized to view documents for this application",
+                    };
+                }
+            }
+            // 2. DGO Access (Can always view if it reached their stage or beyond)
+            else if (userType === 'DGO') {
+                // DGO can generally see everything submitted
+            }
+            // 3. SGWA Access (Only after DGO Approval)
+            else if (userType === 'RSGWA') { // RSGWA is the system role for SGWA
+                // Check if application has passed DGO stage
+                const dgoPendingStatuses = [
+                    "DRAFT", "SUBMITTED",
+                    "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO",
+                    "QUERY_RAISED_DGO", "REJECTED_DGO"
+                ];
+
+                if (dgoPendingStatuses.includes(application.status)) {
+                    throw {
+                        statusCode: 403,
+                        code: "ACCESS_DENIED_PENDING_DGO",
+                        message: "Application documents are not visible to SGWA until DGO approval.",
+                    };
+                }
+            }
+            // 4. Enforcement Access (Only after SGWA Approval)
+            else if (userType === 'ENFORCEMENT') {
+                // Check if application has passed SGWA stage
+                // Basically must be APPROVED_SGWA or Enforcement stages
+                const preEnforcementStatuses = [
+                    "DRAFT", "SUBMITTED",
+                    "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO", "QUERY_RAISED_DGO", "REJECTED_DGO", "APPROVED_DGO",
+                    "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA", "QUERY_RAISED_SGWA", "REJECTED_SGWA"
+                ];
+
+                if (preEnforcementStatuses.includes(application.status)) {
+                    throw {
+                        statusCode: 403,
+                        code: "ACCESS_DENIED_PENDING_SGWA",
+                        message: "Application documents are not visible to Enforcement until SGWA approval.",
+                    };
+                }
+            }
+
+            // Return formatted documents
+            return (application.documents || []).map(doc => ({
+                documentId: doc.documentId,
+                documentName: doc.fileName,
+                documentType: doc.documentType,
+                uploadedAt: doc.uploadedAt,
+                isVerified: doc.isVerified,
+                remarks: doc.remarks
+            }));
         } catch (error) {
             throw error;
         }

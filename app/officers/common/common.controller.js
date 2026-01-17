@@ -108,6 +108,93 @@ class CommonOfficerController {
         } catch (err) { next(err); }
     }
 
+    // List all documents for an application
+    async getApplicationDocuments(req, res, next) {
+        try {
+            const { appId } = req.params;
+            const query = mongoose.isValidObjectId(appId) ? { _id: appId } : { applicationNumber: appId };
+
+            const application = await NOCApplication.findOne(query).select("documents userId applicationNumber");
+
+            if (!application) {
+                return res.status(404).json({ success: false, message: "Application not found" });
+            }
+
+            // Map documents to include convenient access URLs
+            const mappedDocuments = application.documents.map(doc => ({
+                documentId: doc.documentId,
+                documentType: doc.documentType,
+                fileName: doc.fileName,
+                originalName: doc.originalName,
+                uploadedAt: doc.uploadedAt,
+                viewUrl: `/api/officer/common/applications/${appId}/documents/${doc.documentType}/view`,
+                downloadUrl: `/api/officer/common/applications/${appId}/documents/${doc.documentType}/download`
+            }));
+
+            res.json({
+                success: true,
+                data: {
+                    applicationNumber: application.applicationNumber,
+                    count: mappedDocuments.length,
+                    documents: mappedDocuments
+                }
+            });
+        } catch (err) { next(err); }
+    }
+
+    // Get documents for applications pending verification by this officer's role
+    async getPendencyBasedDocuments(req, res, next) {
+        try {
+            const role = req.user.userType; // DGO, RSGWA, ENFORCEMENT
+            let statusFilters = [];
+
+            // Define statuses based on flow hierarchy
+            if (role === 'DGO') {
+                statusFilters = ["SUBMITTED", "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO", "QUERY_RESPONDED"];
+            } else if (role === 'RSGWA') {
+                statusFilters = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"];
+            } else if (role === 'ENFORCEMENT') {
+                statusFilters = ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "INSPECTION_SCHEDULED", "UNDER_REVIEW_ENFORCEMENT"];
+            } else {
+                // Fallback for generic officers or admins
+                statusFilters = ["SUBMITTED", "PENDING_DGO_REVIEW", "APPROVED_DGO", "APPROVED_SGWA"];
+            }
+
+            // Fetch pending applications
+            const applications = await NOCApplication.find({ status: { $in: statusFilters } })
+                .select("applicationNumber projectDetails.projectName status submittedAt documents")
+                .sort({ submittedAt: 1 }); // Oldest first
+
+            // Map results
+            const results = applications.map(app => {
+                const mappedDocs = app.documents.map(doc => ({
+                    documentId: doc.documentId,
+                    documentType: doc.documentType,
+                    fileName: doc.fileName,
+                    status: doc.isVerified ? "VERIFIED" : "PENDING",
+                    viewUrl: `/api/officer/common/applications/${app._id}/documents/${doc.documentType}/view`,
+                    downloadUrl: `/api/officer/common/applications/${app._id}/documents/${doc.documentType}/download`
+                }));
+
+                return {
+                    applicationId: app._id,
+                    applicationNumber: app.applicationNumber,
+                    projectName: app.projectDetails.projectName,
+                    status: app.status,
+                    submittedDate: app.submittedAt,
+                    documentsToVerify: mappedDocs
+                };
+            });
+
+            res.json({
+                success: true,
+                count: results.length,
+                role: role,
+                data: results
+            });
+        } catch (err) { next(err); }
+    }
+
     async viewDocument(req, res, next) {
         try {
             await this.serveFile(req, res, true);

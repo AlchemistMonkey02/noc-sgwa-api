@@ -1,97 +1,120 @@
-# DGO Officer API - cURL Requests
+# DGO Portal API - cURL Requests
 
-**Base URL**: `http://localhost:3000/api`
-
-## 1. Login (Get Token)
-Run this first to get your Authentication Token.
+## 1. Authentication
+### Login
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "dgo.officer@rajasthan.gov.in",
-    "password": "password123",
-    "role": "DGO"
-  }'
+  -d '{"username": "dgo_admin", "password": "password123"}'
 ```
-*Copy the `token` from the response for subsequent requests.*
+*Save the `token` from response for subsequent requests.*
 
-## 2. Dashboard Stats
+## 2. Dashboard
+### Get Dashboard Stats
 ```bash
-curl -X GET http://localhost:3000/api/officer/dgo/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+curl -X GET "http://localhost:3000/api/officer/dgo/dashboard" \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
-## 3. List Pending Applications
+## 3. Application Management
+### List Applications
 ```bash
-curl -X GET "http://localhost:3000/api/officer/dgo/applications?status=PENDING_DGO_REVIEW&page=1&limit=10" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+curl -X GET "http://localhost:3000/api/officer/dgo/applications?status=SUBMITTED&limit=10" \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
-## 4. Get Application Details
-Replace `:id` with the actual Application ID (e.g., `NOC-2026-001` or MongoDB `_id`).
+### Get Application Details
 ```bash
-curl -X GET http://localhost:3000/api/officer/dgo/applications/:id \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+curl -X GET "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID>" \
+  -H "Authorization: Bearer <TOKEN>"
 ```
 
-## 5. View Document
-Replace `:docId` with the `documentId`.
+### Verify Documents
 ```bash
-curl -X GET http://localhost:3000/api/officer/common/documents/:docId/view \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
-## 6. Schedule Inspection
-```bash
-curl -X POST http://localhost:3000/api/officer/dgo/applications/:id/schedule-inspection \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID_OR_TRACKING_ID>/verify-documents" \
+  -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
-    "inspectionDate": "2026-02-15T10:00:00Z"
+    "documents": [
+        { "documentId": "doc_123", "status": "ACCEPTED", "remarks": "Verified" }
+    ]
   }'
 ```
 
-## 7. Submit Inspection Report
+### Verify Documents (by Tracking ID) - Windows
 ```bash
-curl -X POST http://localhost:3000/api/officer/dgo/applications/:id/inspection-report \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-6106/verify-documents" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{
+    \"documents\": [
+        { \"documentId\": \"doc_123\", \"status\": \"ACCEPTED\", \"remarks\": \"Verified\" }
+    ]
+  }"
+```
+
+## 4. Workflow Actions
+### Schedule Inspection
+```bash
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID_OR_TRACKING_ID>/schedule-inspection" \
+  -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
-    "findings": "Site Verified. Coordinates match. Land usage is consistent.",
-    "coordinates": { "lat": 26.9124, "lng": 75.7873 },
-    "recommendation": "APPROVE"
+    "inspectionDate": "2026-03-01",
+    "officerId": "<OFFICER_ID>"
   }'
 ```
 
-## 8. Forward to SGWA (Approve)
+### Schedule Inspection (Tracking ID) - Windows
 ```bash
-curl -X POST http://localhost:3000/api/officer/dgo/applications/:id/forward \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-6106/schedule-inspection" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{ \"inspectionDate\": \"2026-03-01\" }"
+```
+
+### Raise Query
+```bash
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID_OR_TRACKING_ID>/query" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "queryTitle": "Clarification on Land Use",
+    "description": "Please provide more details on land use.",
+    "responseDeadline": "2026-03-10"
+  }'
+```
+
+### Raise Query (Tracking ID) - Windows
+```bash
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-6106/query" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{ \"queryTitle\": \"Correction Needed\", \"description\": \"Please upload clear map\", \"responseDeadline\": \"2026-03-15\" }"
+```
+
+### Forward to SGWA (Approve)
+```bash
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID_OR_TRACKING_ID>/forward" \
+  -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "recommendation": "RECOMMEND_APPROVAL",
-    "remarks": "Recommended for approval based on satisfactory site inspection."
+    "remarks": "All documents verified and inspection passed."
   }'
 ```
 
-## 9. Reject Application
+### Forward (Approve) using Tracking ID (Windows)
 ```bash
-curl -X POST http://localhost:3000/api/officer/dgo/applications/:id/reject \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "remarks": "Rejected due to mismatch in land ownership documents."
-  }'
+curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-6106/forward" ^
+  -H "Authorization: Bearer <TOKEN>" ^
+  -H "Content-Type: application/json" ^
+  -d "{ \"recommendation\": \"RECOMMEND_APPROVAL\", \"remarks\": \"Approved via Tracking ID\" }"
 ```
 
-## 10. Raise Query
+## 5. Reports
+### Get Compliance Report
 ```bash
-curl -X POST http://localhost:3000/api/officer/dgo/applications/:id/query \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "subject": "Document Clarification",
-    "query": "Please upload the latest Revenue Record (Jamabandi).",
-    "responseDeadline": "2026-02-28T00:00:00Z"
-  }'
+curl -X GET "http://localhost:3000/api/officer/dgo/compliance-report" \
+  -H "Authorization: Bearer <TOKEN>"
 ```

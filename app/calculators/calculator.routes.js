@@ -15,4 +15,7 @@ router.post("/water-budget", calculatorController.calculateWaterBudget);
 // POST /api/tools/fee-calculator
 router.post("/fee-calculator", calculatorController.calculateTotalFees);
 
+// POST /api/tools/pump-discharge
+router.post("/pump-discharge", calculatorController.calculatePumpDischarge);
+
 module.exports = router;

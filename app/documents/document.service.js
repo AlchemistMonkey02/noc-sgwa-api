@@ -8,7 +8,7 @@ class DocumentService {
     /**
      * Upload documents with automatic user and company linking
      */
-    async uploadDocuments(files, userId, companyId, documentTypes = "OTHER") {
+    async uploadDocuments(files, userId, companyId, documentTypes = "OTHER", options = {}) {
         try {
             const uploadedDocs = [];
 
@@ -33,8 +33,10 @@ class DocumentService {
                     documentId,
                     userId,
                     companyId,  // Automatically linked from token/request
+                    applicationId: options.applicationId,
                     documentType,
-                    documentName: file.originalname,
+                    documentName: options.description || file.originalname, // Use description if provided as name
+                    description: options.description, // If schema supports it
                     originalFilename: file.originalname,
                     storedFilename: file.filename,
                     filePath: file.path,

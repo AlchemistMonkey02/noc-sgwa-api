@@ -2,10 +2,22 @@ const router = require("express").Router();
 const dgoController = require("./dgo.controller");
 const authMiddleware = require("../../middleware/auth.middleware");
 
+console.log("================================================");
+console.log(">>> DGO ROUTES LOADING...");
+console.log(">>> verifyDocuments handler type:", typeof dgoController.verifyDocuments);
+console.log("================================================");
+
 // All routes require authentication and DGO role
 router.use(authMiddleware.authenticate);
 router.use(authMiddleware.authorize("DGO"));
 
+
+// Debug Ping (Updated)
+router.get("/ping", (req, res) => res.json({ message: "DGO Routes Active", version: "v_probe_1", timestamp: new Date() }));
+
+// POST /api/officer/dgo/applications/:id/verify-documents
+// Moved to top to ensure priority
+router.post("/applications/:id/verify-documents", dgoController.verifyDocuments);
 
 // GET /api/officers/dgo/applications - Get applications for review
 router.get("/applications", dgoController.getApplications);
@@ -15,7 +27,6 @@ router.get("/applications/:id", dgoController.getApplicationById);
 
 // POST /api/officers/dgo/applications/:id/approve - Approve and forward to SGWA
 router.post("/applications/:id/approve", dgoController.approveApplication);
-router.post("/applications/:id/forward", dgoController.approveApplication); // Alias for doc compliance
 
 // POST /api/officers/dgo/applications/:id/reject - Reject application
 router.post("/applications/:id/reject", dgoController.rejectApplication);
@@ -34,6 +45,21 @@ router.post("/applications/:id/query", dgoController.raiseQuery);
 
 // GET /api/officers/dgo/stats - Dashboard statistics
 router.get("/stats", dgoController.getDashboardStats);
-router.get("/dashboard", dgoController.getDashboardStats); // Alias for doc compliance
+
+// POST /api/officers/dgo/applications/:id/forward - Recommend/Forward to SGWA
+router.post("/applications/:id/forward", dgoController.approveApplication);
+
+// Query Management Routes
+router.get("/queries", dgoController.getQueries);
+router.get("/queries/:id", dgoController.getQueryById);
+router.post("/queries/:id/accept", dgoController.acceptQueryResponse);
+router.post("/queries/:id/reject", dgoController.rejectQueryResponse);
+
+// Report Routes
+router.get("/compliance-report", dgoController.getComplianceReport); // New Endpoint
+router.post("/reports/generate", dgoController.generateReport); // New Endpoint
+
+// GET /api/officers/dgo/stats - Dashboard statistics
+router.get("/dashboard", dgoController.getDashboardStats); // Primary endpoint logic updated
 
 module.exports = router;
