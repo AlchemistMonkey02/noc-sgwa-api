@@ -410,6 +410,74 @@ class DocumentController {
             next(error);
         }
     }
+
+    /**
+     * GET /api/documents/tracking/:trackingId
+     * Get documents by tracking ID
+     * Query params: ?documentsOnly=true (returns only documents array)
+     */
+    async getDocumentsByTrackingId(req, res, next) {
+        try {
+            const { trackingId } = req.params;
+            const documentsOnly = req.query.documentsOnly === 'true';
+
+            const result = await documentService.getDocumentsByTrackingId(trackingId, documentsOnly);
+
+            res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/documents/application/:applicationId
+     * Get documents by application ID
+     */
+    async getDocumentsByApplicationId(req, res, next) {
+        try {
+            const { applicationId } = req.params;
+
+            const documents = await documentService.getDocumentsByApplicationId(applicationId);
+
+            res.status(200).json({
+                success: true,
+                data: documents
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/officer/[role]/documents/:documentId/verify
+     * Three-way document verification
+     */
+    async verifyDocumentThreeWay(req, res, next) {
+        try {
+            const { documentId } = req.params;
+            const { status, remarks } = req.body;
+            const officerId = req.user.id;
+            const officerRole = req.user.role;
+
+            const document = await documentService.verifyDocumentThreeWay(
+                documentId,
+                officerId,
+                officerRole,
+                { status, remarks }
+            );
+
+            res.status(200).json({
+                success: true,
+                data: document,
+                message: "Document verified successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new DocumentController();

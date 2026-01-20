@@ -7,3 +7,5 @@ Dockerfile
 README.md
 **/*.log
 .env.example
+.env
+

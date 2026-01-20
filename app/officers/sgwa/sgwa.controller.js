@@ -15,6 +15,39 @@ class SGWAController {
         }
     }
 
+    async getTechnicalReviewApplications(req, res, next) {
+        try {
+            // Filter: PENDING_SGWA_REVIEW assumes technical review is next step
+            req.query.status = "PENDING_SGWA_REVIEW";
+            const result = await sgwaService.getApplications(req.user.id, req.query);
+
+            res.status(200).json({
+                success: true,
+                data: result.applications,
+                pagination: result.pagination
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    async getPendingApplications(req, res, next) {
+        try {
+            // Ensure no specific status overrides the default "Pending" set
+            delete req.query.status;
+            const result = await sgwaService.getApplications(req.user.id, req.query);
+
+            res.status(200).json({
+                success: true,
+                data: result.applications,
+                pagination: result.pagination,
+                message: "Pending applications retrieved successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
     async getApplicationById(req, res, next) {
         try {
             const result = await sgwaService.getApplicationById(req.params.id);

@@ -60,4 +60,10 @@ router.put(
     documentController.verifyDocument
 );
 
+// GET /api/documents/tracking/:trackingId - Get documents by tracking ID
+router.get("/tracking/:trackingId", documentController.getDocumentsByTrackingId);
+
+// GET /api/documents/application/:applicationId - Get documents by application ID
+router.get("/application/:applicationId", documentController.getDocumentsByApplicationId);
+
 module.exports = router;

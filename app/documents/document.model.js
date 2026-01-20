@@ -113,7 +113,32 @@ const DocumentSchema = new mongoose.Schema(
             required: true,
         },
 
-        // Verification
+        // Three-Way Verification (DGO → SGWA → Enforcement)
+        verification: {
+            dgo: {
+                verified: { type: Boolean, default: false },
+                verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                verifiedAt: Date,
+                remarks: String,
+                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+            },
+            sgwa: {
+                verified: { type: Boolean, default: false },
+                verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                verifiedAt: Date,
+                remarks: String,
+                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+            },
+            enforcement: {
+                verified: { type: Boolean, default: false },
+                verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+                verifiedAt: Date,
+                remarks: String,
+                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+            }
+        },
+
+        // Legacy Verification (kept for backward compatibility)
         isVerified: {
             type: Boolean,
             default: false,

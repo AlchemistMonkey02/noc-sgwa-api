@@ -151,11 +151,12 @@ class SGWAService {
                 };
             }
 
-            if (application.status !== "APPROVED_DGO") {
+            const allowedStatuses = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"];
+            if (!allowedStatuses.includes(application.status)) {
                 throw {
                     statusCode: 400,
                     code: "INVALID_STATUS",
-                    message: "Only DGO-approved applications can be reviewed by SGWA"
+                    message: "Application status must be DGO Approved or Under SGWA Review"
                 };
             }
 
@@ -172,8 +173,8 @@ class SGWAService {
                 cessAmount: data.cessAmount || 0
             };
 
-            // Final Status - Spec implies NOC Issued immediately
-            application.status = "NOC_ISSUED";
+            // Final Status - Forward to Enforcement for Final NOC Issuance
+            application.status = "PENDING_FINAL_APPROVAL";
 
             // Map validity to root fields if needed
             if (data.nocValidityYears) {
@@ -184,11 +185,17 @@ class SGWAService {
             const { v4: uuidv4 } = require("uuid");
             const nocDetails = {
                 nocId: uuidv4(),
-                nocNumber: `RJ/CGWA/NOC/${new Date().getFullYear()}/${application.applicationNumber.split('/').pop()}`,
+                nocNumber: data.nocNumber || `RJ/CGWA/NOC/${new Date().getFullYear()}/${application.applicationNumber.split('/').pop()}`,
                 issueDate: new Date(),
                 validFrom: new Date(),
-                validUpto: new Date(new Date().setFullYear(new Date().getFullYear() + (data.nocValidityYears || 3)))
+                validUpto: data.validityDate ? new Date(data.validityDate) : new Date(new Date().setFullYear(new Date().getFullYear() + (data.nocValidityYears || 3)))
             };
+
+            // Update Water Allocation if provided
+            if (data.waterAllocation) {
+                if (!application.waterRequirement) application.waterRequirement = {};
+                application.waterRequirement.allocation = data.waterAllocation;
+            }
 
             // Save NOC details to application (assuming flexible schema or strict mapping)
             // Ideally we should have a separate NOCCertificate model, but for now we attach to application response
@@ -243,7 +250,7 @@ class SGWAService {
             if (Array.isArray(data.rejectionReasons)) {
                 application.rejectionReason = data.rejectionReasons.join(", ");
             } else {
-                application.rejectionReason = data.primaryReason || "Rejected by SGWA";
+                application.rejectionReason = data.reasonCode || data.primaryReason || "Rejected by SGWA";
             }
 
             application.status = "REJECTED_SGWA";
@@ -353,8 +360,8 @@ class SGWAService {
                 applicationId: application._id,
                 raisedBy: officerId,
                 raisedByRole: "SGWA",
-                subject: data.subject,
-                description: data.query,
+                subject: data.queryTitle || data.subject,
+                query: data.description || data.query,
                 priority: data.priority || "MEDIUM",
                 status: "OPEN",
                 responseDeadline: data.responseDeadline
@@ -365,7 +372,7 @@ class SGWAService {
             application.status = "QUERY_RAISED_SGWA";
             application.approvalFlow.sgwa.status = "QUERY";
             application.approvalFlow.sgwa.remarks = data.query;
-            await application.save();
+            await application.save({ validateBeforeSave: false });
 
             await this.sendNotifications(application, "SGWA_QUERY_RAISED");
 

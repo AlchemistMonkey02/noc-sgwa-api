@@ -109,7 +109,7 @@ const UserSchema = new mongoose.Schema(
         // User Type & Role
         userType: {
             type: String,
-            enum: ["APPLICANT", "DGO", "RSGWA", "ENFORCEMENT"],
+            enum: ["APPLICANT", "DGO", "RSGWA", "ENFORCEMENT", "INSPECTION_OFFICER"],
             default: "APPLICANT",
             required: true,
         },

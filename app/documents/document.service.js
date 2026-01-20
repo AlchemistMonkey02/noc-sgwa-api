@@ -223,6 +223,148 @@ class DocumentService {
             throw error;
         }
     }
+    /**
+     * Get documents by application tracking ID
+     */
+    async getDocumentsByTrackingId(trackingId, documentsOnly = false) {
+        try {
+            const NOCApplication = require("../noc/noc-application.model");
+
+            // Find application by tracking ID
+            const application = await NOCApplication.findOne({ trackingId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found with this tracking ID"
+                };
+            }
+
+            // Get embedded documents from application
+            const documents = application.documents || [];
+
+            // If user wants only documents, return just the array
+            if (documentsOnly) {
+                return documents;
+            }
+
+            // Otherwise return with application info
+            return {
+                application: {
+                    applicationId: application.applicationId,
+                    applicationNumber: application.applicationNumber,
+                    trackingId: application.trackingId,
+                    status: application.status
+                },
+                documents
+            };
+        } catch (error) {
+            logger.error("Error fetching documents by tracking ID", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get documents by application ID
+     * Returns embedded documents from NOC application
+     */
+    async getDocumentsByApplicationId(applicationId) {
+        try {
+            const NOCApplication = require("../noc/noc-application.model");
+
+            // Find application by applicationId (UUID)
+            const application = await NOCApplication.findOne({ applicationId });
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found"
+                };
+            }
+
+            // Return embedded documents
+            return application.documents || [];
+        } catch (error) {
+            logger.error("Error fetching documents by application ID", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Verify document with three-way approval (DGO/SGWA/Enforcement)
+     */
+    async verifyDocumentThreeWay(documentId, officerId, officerRole, verificationData) {
+        try {
+            const document = await Document.findOne({ documentId });
+
+            if (!document) {
+                throw {
+                    statusCode: 404,
+                    code: "DOCUMENT_NOT_FOUND",
+                    message: "Document not found"
+                };
+            }
+
+            const roleMap = {
+                "DGO": "dgo",
+                "SGWA": "sgwa",
+                "RSGWA": "sgwa",
+                "ENFORCEMENT": "enforcement"
+            };
+
+            const verificationRole = roleMap[officerRole];
+            if (!verificationRole) {
+                throw {
+                    statusCode: 403,
+                    code: "INVALID_ROLE",
+                    message: "Invalid role for document verification"
+                };
+            }
+
+            // Update verification for specific role
+            if (!document.verification) {
+                document.verification = {};
+            }
+            if (!document.verification[verificationRole]) {
+                document.verification[verificationRole] = {};
+            }
+
+            document.verification[verificationRole] = {
+                verified: verificationData.status === "APPROVED",
+                verifiedBy: officerId,
+                verifiedAt: new Date(),
+                remarks: verificationData.remarks || "",
+                status: verificationData.status || "APPROVED"
+            };
+
+            // Update legacy fields for backward compatibility
+            if (verificationData.status === "APPROVED") {
+                document.status = "VERIFIED";
+                document.isVerified = true;
+            } else if (verificationData.status === "REJECTED") {
+                document.status = "REJECTED";
+                document.isVerified = false;
+                document.rejectionReason = verificationData.remarks;
+            }
+
+            document.verifiedBy = officerId;
+            document.verifiedAt = new Date();
+
+            await document.save();
+
+            logger.info(`Document verified by ${officerRole}: ${documentId}`, {
+                officerId,
+                status: verificationData.status
+            });
+
+            return document;
+        } catch (error) {
+            logger.error("Error in three-way document verification", error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new DocumentService();

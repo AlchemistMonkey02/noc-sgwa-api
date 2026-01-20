@@ -81,6 +81,7 @@ app.use("/api/tools", require("./app/eligibility/eligibility.routes"));
 
 // API Routes
 app.use("/api/auth", require("./app/auth/auth.routes"));
+app.use("/api/users", require("./app/auth/user.routes")); // New: User listing
 app.use("/api/master", require("./app/master-data/master.routes"));
 app.use("/api/master-data", require("./app/master-data/master-data.routes"));
 app.use("/api/documents", require("./app/documents/document.routes"));

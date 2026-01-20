@@ -298,6 +298,122 @@ class EnforcementService {
     }
 
     /**
+     * Get Compliance List (NOCs with compliance status)
+     */
+    async getComplianceList(filters = {}) {
+        try {
+            const query = { status: "ACTIVE" };
+
+            // Apply filters
+            if (filters.status) {
+                // Map compliance status if provided
+                // For now, we'll filter at application level
+            }
+            if (filters.district) {
+                query["location.districtId"] = filters.district;
+            }
+
+            // Get NOC certificates with application data
+            const certificates = await NOCCertificate.find(query)
+                .populate({
+                    path: "applicationId",
+                    select: "applicationNumber projectDetails location"
+                })
+                .populate("companyId", "companyName")
+                .limit(filters.limit || 50)
+                .skip((filters.page - 1) * (filters.limit || 50) || 0);
+
+            // Format response with compliance status
+            const records = certificates.map(cert => {
+                const lastTelemetryData = cert.telemetryData?.lastReportedAt || null;
+                const telemetryInstalled = cert.digitalFlowMeter?.installed || false;
+
+                // Determine compliance status based on telemetry data recency
+                let complianceStatus = "COMPLIANT";
+                if (!telemetryInstalled) {
+                    complianceStatus = "NON_COMPLIANT";
+                } else if (lastTelemetryData) {
+                    const daysSinceReport = (Date.now() - new Date(lastTelemetryData).getTime()) / (1000 * 60 * 60 * 24);
+                    if (daysSinceReport > 7) complianceStatus = "NON_COMPLIANT";
+                    else if (daysSinceReport > 3) complianceStatus = "NOTICE_ISSUED";
+                }
+
+                return {
+                    nocNumber: cert.nocNumber,
+                    companyName: cert.companyId?.companyName || "N/A",
+                    district: cert.applicationId?.location?.districtId || "N/A",
+                    telemetryInstalled,
+                    lastTelemetryData,
+                    complianceStatus,
+                    validFrom: cert.validFrom,
+                    validUntil: cert.validUntil
+                };
+            });
+
+            return {
+                records,
+                pagination: {
+                    total: await NOCCertificate.countDocuments(query),
+                    page: filters.page || 1,
+                    limit: filters.limit || 50
+                }
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Issue Violation Notice
+     */
+    async issueViolationNotice(nocId, officerId, data) {
+        try {
+            const { v4: uuidv4 } = require("uuid");
+
+            // Find the NOC certificate
+            const certificate = await NOCCertificate.findOne({ nocNumber: nocId });
+            if (!certificate) {
+                throw { statusCode: 404, message: "NOC not found" };
+            }
+
+            // Create violation record
+            const violation = new Violation({
+                violationId: uuidv4(),
+                nocId: certificate._id,
+                nocNumber: nocId,
+                violationType: data.violationType,
+                description: data.description,
+                type: 'NOTICE',
+                deadlineDate: data.deadlineDate,
+                issuedBy: officerId,
+                issuedAt: new Date(),
+                status: 'PENDING'
+            });
+
+            await violation.save();
+
+            // Send notification to NOC holder
+            const application = await NOCApplication.findById(certificate.applicationId);
+            if (application) {
+                await notificationService.sendNotification({
+                    event: "VIOLATION_NOTICE_ISSUED",
+                    user: { id: application.userId },
+                    applicationNumber: application.applicationNumber,
+                    projectName: application.projectDetails?.projectName,
+                    violationType: data.violationType,
+                    deadline: data.deadlineDate
+                });
+            }
+
+            logger.info(`Violation notice issued for NOC ${nocId} by officer ${officerId}`);
+            return violation;
+        } catch (error) {
+            logger.error("Error issuing violation notice", error);
+            throw error;
+        }
+    }
+
+    /**
      * Reject application
      */
     async rejectApplication(applicationId, officerId, data) {

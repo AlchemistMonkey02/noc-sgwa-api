@@ -7,10 +7,16 @@ console.log(">>> DGO ROUTES LOADING...");
 console.log(">>> verifyDocuments handler type:", typeof dgoController.verifyDocuments);
 console.log("================================================");
 
+
+
 // All routes require authentication and DGO role
 router.use(authMiddleware.authenticate);
 router.use(authMiddleware.authorize("DGO"));
 
+
+
+// GET /api/officers/dgo/officers - Get officers list
+router.get("/officers", dgoController.getOfficers);
 
 // Debug Ping (Updated)
 router.get("/ping", (req, res) => res.json({ message: "DGO Routes Active", version: "v_probe_1", timestamp: new Date() }));
@@ -61,5 +67,50 @@ router.post("/reports/generate", dgoController.generateReport); // New Endpoint
 
 // GET /api/officers/dgo/stats - Dashboard statistics
 router.get("/dashboard", dgoController.getDashboardStats); // Primary endpoint logic updated
+
+// GET /api/officers/dgo/officers - Get officers list (Moved to top)
+
+// NEW: Simple Document Verification (documentId in body)
+const simpleDocVerify = require("../../documents/simple-doc-verify.service");
+router.post("/verify-document", async (req, res, next) => {
+    try {
+        const { documentId, status, remarks } = req.body;
+        const document = await simpleDocVerify.verifyDocument(
+            documentId,
+            req.user.id,
+            req.user.userType || req.user.role,
+            { status, remarks }
+        );
+        res.json({
+            success: true,
+            data: document,
+            message: `Document ${status.toLowerCase()} by ${req.user.userType || req.user.role}`
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// NEW: Bulk Document Verification (verify multiple at once)
+const bulkDocVerify = require("../../documents/bulk-doc-verify.service");
+const authController = require("../../auth/auth.controller");
+router.post("/verify-documents-bulk", async (req, res, next) => {
+    try {
+        const { documentIds, status, remarks } = req.body;
+        const result = await bulkDocVerify.verifyMultipleDocuments(
+            documentIds,
+            req.user.id,
+            req.user.userType || req.user.role,
+            { status, remarks }
+        );
+        res.json({
+            success: true,
+            data: result,
+            message: `Verified ${result.successCount} of ${result.totalDocuments} documents`
+        });
+    } catch (error) {
+        next(error);
+    }
+});
 
 module.exports = router;
