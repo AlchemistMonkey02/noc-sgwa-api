@@ -232,6 +232,28 @@ class EnforcementController {
             next(error);
         }
     }
+
+    async getComplianceList(req, res, next) {
+        try {
+            const result = await enforcementService.getComplianceList(req.query);
+            res.json({ success: true, data: result });
+        } catch (err) { next(err); }
+    }
+
+    async issueViolationNotice(req, res, next) {
+        try {
+            const result = await enforcementService.issueViolationNotice(
+                req.params.nocId,
+                req.user.id,
+                req.body
+            );
+            res.json({
+                success: true,
+                message: "Violation notice issued successfully",
+                data: result
+            });
+        } catch (err) { next(err); }
+    }
 }
 
 module.exports = new EnforcementController();

@@ -749,9 +749,17 @@ class NOCService {
     /**
      * Get application timeline
      */
+    /**
+     * Get application timeline
+     */
     async getApplicationTimeline(applicationId, userId) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await NOCApplication.findOne({ applicationId, userId })
+                .populate("approvalFlow.dgo.reviewedBy", "firstName lastName role")
+                .populate("approvalFlow.sgwa.reviewedBy", "firstName lastName role")
+                .populate("approvalFlow.enforcement.reviewedBy", "firstName lastName role")
+                .populate("approvalFlow.dgo.assignedTo", "firstName lastName role")
+                .populate("userId", "firstName lastName");
 
             if (!application) {
                 throw {
@@ -761,25 +769,139 @@ class NOCService {
                 };
             }
 
-            const timeline = [
-                {
-                    event: "APPLICATION_CREATED",
-                    timestamp: application.createdAt,
-                    description: "Application draft created"
-                }
-            ];
+            const timeline = [];
 
+            // 1. Created
+            timeline.push({
+                event: "APPLICATION_CREATED",
+                timestamp: application.createdAt,
+                user: "System",
+                description: "Application draft created",
+                icon: "📝"
+            });
+
+            // 2. Submitted
             if (application.submittedAt) {
                 timeline.push({
                     event: "APPLICATION_SUBMITTED",
                     timestamp: application.submittedAt,
-                    description: "Application submitted"
+                    user: `${application.userId.firstName} ${application.userId.lastName}`,
+                    description: "Application submitted for review",
+                    icon: "🚀"
                 });
             }
 
+            const { dgo, sgwa, enforcement } = application.approvalFlow || {};
+
+            // 3. DGO Events
+            if (dgo) {
+                if (dgo.assignedAt) {
+                    timeline.push({
+                        event: "DGO_ASSIGNED",
+                        timestamp: dgo.assignedAt,
+                        user: "System",
+                        description: dgo.assignedTo ? `Assigned to DGO: ${dgo.assignedTo.firstName}` : "Assigned to District Officer",
+                        icon: "👤"
+                    });
+                }
+                if (dgo.reviewedAt) {
+                    const statusText = dgo.status === "APPROVED" ? "Approved" : dgo.status === "REJECTED" ? "Rejected" : "Reviewed";
+                    timeline.push({
+                        event: `DGO_${dgo.status}`,
+                        timestamp: dgo.reviewedAt,
+                        user: dgo.reviewedBy ? `${dgo.reviewedBy.firstName}` : "District Officer",
+                        description: `DGO Recommendation: ${statusText}. Remarks: ${dgo.remarks || "None"}`,
+                        icon: dgo.status === "APPROVED" ? "✅" : "⚠️"
+                    });
+                }
+                if (dgo.status === "QUERY") {
+                    timeline.push({
+                        event: "DGO_QUERY",
+                        timestamp: dgo.reviewedAt, // Using reviewedAt as query time
+                        user: "District Officer",
+                        description: `Query Raised: ${dgo.remarks}`,
+                        icon: "❓"
+                    });
+                }
+                // Documents Verification
+                if (dgo.documentsVerified) {
+                    // Approximate time if not stored explicitly, or use reviewedAt if available
+                    timeline.push({
+                        event: "DOCUMENTS_VERIFIED",
+                        timestamp: dgo.reviewedAt || new Date(),
+                        user: "District Officer",
+                        description: "Documents verified by DGO",
+                        icon: "📑"
+                    });
+                }
+            }
+
+            // 4. Inspection Events
+            if (application.status === "INSPECTION_SCHEDULED" && dgo?.inspectionScheduledAt) {
+                timeline.push({
+                    event: "INSPECTION_SCHEDULED",
+                    timestamp: dgo.inspectionScheduledAt,
+                    user: "District Officer",
+                    description: `Inspection Scheduled.`,
+                    icon: "📅"
+                });
+            }
+            if (dgo?.inspectionDetails?.submittedAt) {
+                timeline.push({
+                    event: "INSPECTION_COMPLETED",
+                    timestamp: dgo.inspectionDetails.submittedAt,
+                    user: "Inspection Officer",
+                    description: "Site Inspection Completed",
+                    icon: "🔍"
+                });
+            }
+
+            // 5. SGWA Events
+            if (sgwa) {
+                if (sgwa.assignedAt) {
+                    timeline.push({
+                        event: "SGWA_ASSIGNED",
+                        timestamp: sgwa.assignedAt,
+                        user: "System",
+                        description: "Forwarded to SGWA for Technical Review",
+                        icon: "➡️"
+                    });
+                }
+                if (sgwa.reviewedAt) {
+                    const statusText = sgwa.status === "APPROVED" ? "Approved" : sgwa.status === "REJECTED" ? "Rejected" : "Reviewed";
+                    timeline.push({
+                        event: `SGWA_${sgwa.status}`,
+                        timestamp: sgwa.reviewedAt,
+                        user: sgwa.reviewedBy ? `${sgwa.reviewedBy.firstName}` : "State Officer",
+                        description: `SGWA Decision: ${statusText}. ${sgwa.remarks || ""}`,
+                        icon: sgwa.status === "APPROVED" ? "🏛️" : "⚠️"
+                    });
+                }
+            }
+
+            // 6. NOC Issued / Final Status
+            if (application.status === "NOC_ISSUED") {
+                timeline.push({
+                    event: "NOC_ISSUED",
+                    timestamp: application.updatedAt,
+                    user: "Authority",
+                    description: "NOC Certificate Issued",
+                    icon: "🎉"
+                });
+            } else if (application.status.includes("REJECTED")) {
+                timeline.push({
+                    event: "APPLICATION_REJECTED",
+                    timestamp: application.updatedAt,
+                    user: "Authority",
+                    description: `Application Rejected. Reason: ${application.rejectionReason || "Criteria not met"}`,
+                    icon: "❌"
+                });
+            }
+
+            // Sort by timestamp descending
             return {
                 applicationId,
-                timeline: timeline.sort((a, b) => b.timestamp - a.timestamp)
+                timeline: timeline.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             };
         } catch (error) {
             throw error;

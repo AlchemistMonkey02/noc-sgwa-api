@@ -565,6 +565,33 @@ const NOCApplicationSchema = new mongoose.Schema(
                 documentId: String,
                 fileName: String,
                 uploadedAt: Date,
+
+                // Three-Way Verification (DGO → SGWA → Enforcement)
+                verification: {
+                    dgo: {
+                        verified: { type: Boolean, default: false },
+                        verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                        verifiedAt: Date,
+                        remarks: String,
+                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                    },
+                    sgwa: {
+                        verified: { type: Boolean, default: false },
+                        verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                        verifiedAt: Date,
+                        remarks: String,
+                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                    },
+                    enforcement: {
+                        verified: { type: Boolean, default: false },
+                        verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                        verifiedAt: Date,
+                        remarks: String,
+                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                    }
+                },
+
+                // Legacy fields for backward compatibility
                 isVerified: { type: Boolean, default: false },
                 remarks: String
             },

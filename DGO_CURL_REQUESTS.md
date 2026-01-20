@@ -16,6 +16,24 @@ curl -X GET "http://localhost:3000/api/officer/dgo/dashboard" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
+### Expected Response
+```json
+{
+    "success": true,
+    "data": {
+        "stats": {
+            "totalApplications": 12,
+            "pendingVerification": 3,
+            "underReview": 5,
+            "queriesRaised": 2,
+            "inspectionPending": 2
+        },
+        "myDistrict": "Assigned District",
+        "recentApplications": []
+    }
+}
+```
+
 ## 3. Application Management
 ### List Applications
 ```bash
@@ -65,13 +83,14 @@ curl -X POST "http://localhost:3000/api/officer/dgo/applications/<APPLICATION_ID
   }'
 ```
 
-### Schedule Inspection (Tracking ID) - Windows
+### Schedule Inspection (Windows)
 ```bash
-curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-6106/schedule-inspection" ^
+curl -X POST "http://localhost:5000/api/officer/dgo/applications/REF-20260110-6106/schedule-inspection" ^
   -H "Authorization: Bearer <TOKEN>" ^
   -H "Content-Type: application/json" ^
-  -d "{ \"inspectionDate\": \"2026-03-01\" }"
+  -d "{ \"inspectionDate\": \"2026-03-01\", \"officerId\": \"696e146cce932f4fde5190a1\" }"
 ```
+*Note: Uses verified Inspector ID `696e146cce932f4fde5190a1`*
 
 ### Raise Query
 ```bash
@@ -118,3 +137,11 @@ curl -X POST "http://localhost:3000/api/officer/dgo/applications/REF-20260110-61
 curl -X GET "http://localhost:3000/api/officer/dgo/compliance-report" \
   -H "Authorization: Bearer <TOKEN>"
 ```
+### Get Inspection Report (DGO View)
+DGO views the report submitted by the inspector.
+
+```bash
+curl -X GET "http://localhost:5000/api/officer/dgo/inspections/APP_1768808640319_5/report" \
+  -H "Authorization: Bearer <DGO_TOKEN>"
+```
+*Note: Using REAL Application ID `APP_1768808640319_5` (Status: INSPECTION_SCHEDULED)*

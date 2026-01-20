@@ -3,6 +3,7 @@ const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
 const ApplicationQuery = require("../../noc/application-query.model");
 const District = require("../../master-data/district.model");
+const User = require("../../auth/user.model");
 
 class DGOService {
     /**
@@ -203,9 +204,25 @@ class DGOService {
 
     /**
      * Schedule Inspection
+     * DGO assigns inspection to Inspection Officer
      */
     async scheduleInspection(applicationId, officerId, data) {
         const application = await this.findApplication(applicationId);
+
+        // Validate inspection officer ID is provided
+        if (!data.inspectorId && !data.officerId) {
+            throw { statusCode: 400, message: "Inspector officer ID is required" };
+        }
+
+        const inspectorId = data.inspectorId || data.officerId;
+
+        // Create inspection record using Inspection Service
+        const inspectionService = require("../inspection/inspection.service");
+        const inspection = await inspectionService.createAssignment(
+            application._id,
+            inspectorId,
+            data.inspectionDate || data.scheduledDate
+        );
 
         // Update application state
         application.status = "INSPECTION_SCHEDULED";
@@ -214,11 +231,18 @@ class DGOService {
 
         // Save inspection schedule details
         application.approvalFlow.dgo.inspectionScheduledAt = new Date();
-        application.approvalFlow.dgo.inspectionAssignedTo = data.officerId || officerId; // Can assign to self or other officer
+        application.approvalFlow.dgo.inspectionAssignedTo = inspectorId;
+        application.approvalFlow.dgo.inspectionId = inspection.inspectionId;
 
         await application.save({ validateBeforeSave: false });
         await this.sendNotifications(application, "INSPECTION_SCHEDULED");
-        return application;
+
+        logger.info(`DGO ${officerId} scheduled inspection for ${applicationId}, assigned to inspector ${inspectorId}`);
+
+        return {
+            application,
+            inspection
+        };
     }
 
     async submitInspectionReport(applicationId, officerId, data) {
@@ -365,16 +389,28 @@ class DGOService {
             const query = districtId ? { "location.districtId": districtId } : {};
 
             const [
-                assignedApplications,
-                pendingInspection, // IN_PROGRESS, SCHEDULED
+                totalApplications,
+                pendingVerification,
                 underReview,
                 queriesRaised,
+                inspectionPending,
                 myDistrictData
             ] = await Promise.all([
-                NOCApplication.countDocuments({ ...query, status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO"] } }),
-                NOCApplication.countDocuments({ ...query, status: { $in: ["INSPECTION_SCHEDULED", "INSPECTION_COMPLETED"] } }),
+                // 1. Total Applications (All time handled by DGO)
+                NOCApplication.countDocuments(query),
+
+                // 2. Pending Verification (Requires attention - newly submitted)
+                NOCApplication.countDocuments({ ...query, status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW"] } }),
+
+                // 3. Under Review (In progress)
                 NOCApplication.countDocuments({ ...query, status: "UNDER_REVIEW_DGO" }),
+
+                // 4. Queries Raised (Awaiting response)
                 NOCApplication.countDocuments({ ...query, status: "QUERY_RAISED_DGO" }),
+
+                // 5. Inspection Pending (Site visits required - Scheduled but not completed)
+                NOCApplication.countDocuments({ ...query, status: "INSPECTION_SCHEDULED" }),
+
                 districtId ? District.findOne({ id: districtId }) : Promise.resolve(null)
             ]);
 
@@ -386,10 +422,11 @@ class DGOService {
 
             return {
                 stats: {
-                    assignedApplications,
-                    pendingInspection,
-                    underReview,
-                    queriesRaised
+                    totalApplications,     // 📋 All time
+                    pendingVerification,   // ⏳ Requires attention
+                    underReview,           // 🔍 In progress
+                    queriesRaised,         // ❓ Awaiting response
+                    inspectionPending      // 🔍 Site visits required
                 },
                 myDistrict: myDistrictData?.name || districtId || "Assigned District",
                 recentApplications
@@ -432,6 +469,26 @@ class DGOService {
             DGO_QUERY_RAISED: `District Officer has raised a query on your application ${application.applicationNumber}. Please respond within the deadline.`
         };
         return messages[event] || "Your application status has been updated.";
+    }
+    /**
+     * Get officers by role
+     */
+    async getOfficers(role) {
+        try {
+            const query = {};
+            if (role) {
+                query.userType = role;
+            } else {
+                query.userType = { $in: ["ENFORCEMENT", "INSPECTION_OFFICER", "SGWA"] };
+            }
+
+            return await User.find(query)
+                .select("firstName lastName email phone userType")
+                .lean();
+        } catch (error) {
+            logger.error("Error fetching officers", error);
+            throw error;
+        }
     }
 }
 

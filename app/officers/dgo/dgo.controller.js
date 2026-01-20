@@ -283,6 +283,21 @@ class DGOController {
             next(error);
         }
     }
+    /**
+     * GET /api/officers/dgo/officers
+     * Get officers by role
+     */
+    async getOfficers(req, res, next) {
+        try {
+            const officers = await dgoService.getOfficers(req.query.role || req.query.userType);
+            res.status(200).json({
+                success: true,
+                data: officers
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new DGOController();
