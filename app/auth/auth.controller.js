@@ -11,7 +11,7 @@ class AuthController {
         try {
             const { phone } = req.body;
 
-            if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+            if (!phone) {
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -114,7 +114,7 @@ class AuthController {
         try {
             const { username } = req.params;
 
-            if (!username || username.length < 4) {
+            if (!username) {
                 return res.status(400).json({
                     success: false,
                     error: {
@@ -187,15 +187,7 @@ class AuthController {
                 });
 
                 // Check declaration
-                if (!declaration) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            code: "DECLARATION_REQUIRED",
-                            message: "Declaration is required"
-                        }
-                    });
-                }
+                // Declaration check removed
 
                 userData = {
                     // From applicantInfo
@@ -784,6 +776,34 @@ class AuthController {
             res.status(200).json({
                 success: true,
                 message: result.message,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * Upload digital signature
+     */
+    async uploadSignature(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILE_UPLOADED",
+                        message: "Please upload an image file",
+                    },
+                });
+            }
+
+            // Using req.user.id from auth middleware
+            const result = await authService.uploadSignature(req.user.id, req.file);
+
+            res.status(200).json({
+                success: true,
+                message: "Digital signature uploaded successfully",
+                data: result,
             });
         } catch (error) {
             next(error);

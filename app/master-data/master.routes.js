@@ -40,4 +40,32 @@ router.get("/titles", masterController.getUserTitles);
 // GET /api/master/genders
 router.get("/genders", masterController.getGenders);
 
+// ===== NOC Application Master Data Routes =====
+const masterDataController = require("./master-data.controller");
+
+// Application Configuration
+router.get("/application-types", masterDataController.getApplicationTypes);
+router.get("/application-sub-types", masterDataController.getApplicationSubTypes);
+router.get("/project-types", masterDataController.getProjectTypes);
+router.get("/project-categories", masterDataController.getProjectCategories);
+router.get("/water-quality-types", masterDataController.getWaterQualityTypes);
+router.get("/utilization-purposes", masterDataController.getUtilizationPurposes);
+
+// Organization Types
+router.get("/msme-types", masterDataController.getMSMETypes);
+router.get("/organization-types", masterDataController.getOrganizationTypes);
+
+// Flow Meter Configuration
+router.get("/flow-meter-config", masterDataController.getFlowMeterConfig);
+router.get("/meter-types", masterDataController.getMeterTypes);
+router.get("/meter-manufacturers", masterDataController.getMeterManufacturers);
+router.get("/meter-models", masterDataController.getMeterModels);
+router.get("/telemetry-providers", masterDataController.getTelemetryProviders);
+router.get("/bis-standards", masterDataController.getBISStandards);
+
+// Other Master Data
+router.get("/geology-types", masterDataController.getGeologyTypes);
+router.get("/area-categories", masterDataController.getAreaCategories);
+router.get("/nabl-labs", masterDataController.getNABLLabs);
+
 module.exports = router;

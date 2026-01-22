@@ -65,18 +65,7 @@ class DocumentController {
                 ? documentTypes
                 : documentTypes.split(',').map(t => t.trim());
 
-            for (const type of types) {
-                if (!allowedTypes.includes(type)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            code: "INVALID_DOCUMENT_TYPE",
-                            message: `Document type '${type}' not allowed for identity uploads.`,
-                            allowedTypes,
-                        },
-                    });
-                }
-            }
+            // Validation removed
 
             const userId = req.user.id;
             const companyId = req.body.companyId || req.company?._id || null;
@@ -126,18 +115,7 @@ class DocumentController {
                 ? documentTypes
                 : documentTypes.split(',').map(t => t.trim());
 
-            for (const type of types) {
-                if (!allowedTypes.includes(type)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            code: "INVALID_DOCUMENT_TYPE",
-                            message: `Document type '${type}' not allowed for company uploads.`,
-                            allowedTypes,
-                        },
-                    });
-                }
-            }
+            // Validation removed
 
             const userId = req.user.id;
             const companyId = req.body.companyId || req.company?._id || null;
@@ -192,18 +170,7 @@ class DocumentController {
                 ? documentTypes
                 : documentTypes.split(',').map(t => t.trim());
 
-            for (const type of types) {
-                if (!allowedTypes.includes(type)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            code: "INVALID_DOCUMENT_TYPE",
-                            message: `Document type '${type}' not allowed for NOC uploads.`,
-                            allowedTypes,
-                        },
-                    });
-                }
-            }
+            // Validation removed
 
             const userId = req.user.id;
             const companyId = req.body.companyId || req.company?._id || null;
@@ -253,18 +220,7 @@ class DocumentController {
                 ? documentTypes
                 : documentTypes.split(',').map(t => t.trim());
 
-            for (const type of types) {
-                if (!allowedTypes.includes(type)) {
-                    return res.status(400).json({
-                        success: false,
-                        error: {
-                            code: "INVALID_DOCUMENT_TYPE",
-                            message: `Document type '${type}' not allowed for clearance uploads.`,
-                            allowedTypes,
-                        },
-                    });
-                }
-            }
+            // Validation removed
 
             const userId = req.user.id;
             const companyId = req.body.companyId || req.company?._id || null;

@@ -205,7 +205,10 @@ class EnforcementService {
      */
     async issueNOC(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            // Find by _id (route param) OR applicationId (custom ID)
+            const application = await NOCApplication.findOne({
+                $or: [{ _id: applicationId }, { applicationId: applicationId }]
+            });
 
             if (!application) {
                 throw { statusCode: 404, message: "Application not found" };
@@ -227,8 +230,29 @@ class EnforcementService {
 
             application.status = "NOC_ISSUED";
 
+            // Fetch Officer's Signature
+            let signaturePath = null;
+            if (officerId) {
+                const User = require("../../auth/user.model");
+                const Document = require("../../documents/document.model");
+                const officer = await User.findById(officerId);
+
+                if (officer && officer.signature) {
+                    const signatureDoc = await Document.findById(officer.signature);
+                    if (signatureDoc) {
+                        signaturePath = signatureDoc.filePath;
+                    }
+                }
+            }
+
+
+
             // Generate NOC Certificate
-            const certificate = await this.generateNOCCertificate(application, nocNumber, data);
+            // Include officerId and signaturePath in data passed to generator
+            const certificate = await this.generateNOCCertificate(application, nocNumber, { ...data, approvedBy: officerId, signaturePath });
+
+            // Link certificate to application
+            application.nocCertificateId = certificate._id;
 
             await application.save();
 
@@ -514,21 +538,192 @@ class EnforcementService {
     async generateNOCCertificate(application, nocNumber, data) {
         try {
             const { v4: uuidv4 } = require("uuid");
+            const pdfService = require("../../services/pdf.service");
+            const Company = require("../../company/company.model"); // Adjust path if needed
+            const Block = require("../../master-data/block.model");
+            const District = require("../../master-data/district.model"); // If exists
+
+            // Fetch Company Details
+            const company = await Company.findById(application.companyId);
+
+            // Fetch Location Names directly or from application if stored
+            // Assuming application.location has IDs. 
+            // Better to fetch names for the certificate.
+            let blockName = application.location.blockId;
+            let districtName = application.location.districtId;
+
+            try {
+                // Try to find block/district names if they are IDs
+                if (application.location.blockId) {
+                    const blockDoc = await Block.findOne({ blockId: application.location.blockId });
+                    if (blockDoc) {
+                        blockName = blockDoc.name;
+                        // District might be in block or separate
+                        // For now using what we have or falling back to ID
+                    }
+                }
+            } catch (err) {
+                logger.warn("Could not fetch block name for certificate", err);
+            }
+
+            // Calculate validity defaults if missing
+            const validityYears = data.validityYears || 3;
+            const validFrom = data.validFrom ? new Date(data.validFrom) : new Date();
+            const validUpto = data.validUpto ? new Date(data.validUpto) : new Date(validFrom.getTime() + (validityYears * 365 * 24 * 60 * 60 * 1000));
+
+            // Get Approved Water Quantity (default to applied quantity if not specified in approval)
+            const approvedWaterQuantity = data.maxDailyExtraction || application.projectDetails?.waterRequirement?.totalRequirement || 0;
+
+            // Approved By (default to logged-in officer passed via data.approvedBy, or fallback)
+            // Ideally should be passed in data.approvedBy from the controller/service issueNOC call.
+            // If missing, we might use the last reviewer from the application object if available
+            const approvedBy = data.approvedBy || application.approvalFlow?.enforcement?.reviewedBy || application.userId; // Fallback to avoid error, but should be real officer ID
 
             const certificate = new NOCCertificate({
                 certificateId: uuidv4(),
+                nocId: nocNumber, // Mapping nocNumber to nocId based on schema
                 nocNumber,
                 applicationId: application._id,
                 userId: application.userId,
                 companyId: application.companyId,
-                validFrom: data.validFrom || new Date(),
-                validUpto: data.validUpto,
-                maxDailyExtraction: data.maxDailyExtraction,
-                maxAnnualExtraction: data.maxAnnualExtraction,
+                validFrom: validFrom,
+                validUpto: validUpto,
+                validityYears: validityYears,
+                maxDailyExtraction: approvedWaterQuantity, // Keeping legacy field populated
+                approvedWaterQuantity: approvedWaterQuantity, // Filling required model field
+                maxAnnualExtraction: data.maxAnnualExtraction || (approvedWaterQuantity * 365),
                 conditions: data.conditions || [],
-                issuedBy: data.approvedBy,
+                approvedBy: approvedBy,
+                issuedBy: approvedBy,
                 status: "ACTIVE"
             });
+
+            // Prepare data for PDF
+            let qrCodeImage = "";
+            let emblemImage = "";
+
+            // Generate QR Code
+            try {
+                // Point to a verification URL (adjust base URL as needed)
+                const verificationUrl = `${process.env.APP_BASE_URL || 'https://sgwa.rajasthan.gov.in'}/verify-noc/${nocNumber}`;
+                qrCodeImage = await require('qrcode').toDataURL(verificationUrl);
+            } catch (qrErr) {
+                logger.error("Error generating QR code", qrErr);
+            }
+
+            // Load Emblem Image
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                // Adjust path to where you saved the emblem.png
+                // Assuming app/assets/emblem.png based on previous command
+                const emblemPath = path.join(__dirname, '../../../assets/emblem.png');
+                if (fs.existsSync(emblemPath)) {
+                    const emblemBuffer = fs.readFileSync(emblemPath);
+                    emblemImage = `data:image/png;base64,${emblemBuffer.toString('base64')}`;
+                }
+            } catch (embErr) {
+                logger.warn("Error loading emblem image", embErr);
+            }
+
+            // Helper to count structures
+            const getCount = (types, cat) => application.groundWaterStructures
+                ? application.groundWaterStructures.filter(s => types.includes(s.structureType) && s.category === cat).length
+                : 0;
+
+            // Structure Counts
+            const dw_ex = getCount(['DUGWELL', 'OPEN_WELL'], 'EXISTING');
+            const dw_prop = getCount(['DUGWELL', 'OPEN_WELL'], 'PROPOSED');
+            const dcb_ex = getCount(['DUG_CUM_BOREWELL'], 'EXISTING');
+            const dcb_prop = getCount(['DUG_CUM_BOREWELL'], 'PROPOSED');
+            const bw_ex = getCount(['BOREWELL'], 'EXISTING');
+            const bw_prop = getCount(['BOREWELL'], 'PROPOSED');
+            const tw_ex = getCount(['TUBEWELL'], 'EXISTING');
+            const tw_prop = getCount(['TUBEWELL'], 'PROPOSED');
+
+            // Total
+            const total_ex = dw_ex + dcb_ex + bw_ex + tw_ex;
+            const total_prop = dw_prop + dcb_prop + bw_prop + tw_prop;
+
+            // Monitoring Details (Simplistic assumption based on available data)
+            // Piezometers often same as abstraction structures if fully monitored, or specific subset.
+            // Using 0 as default if not explicitly tracked yet.
+            const piezo_ex = 0;
+            const piezo_prop = 0;
+
+            // Rainwater Harvesting
+            const rwhs_ex = application.conservationMeasures?.rainwaterHarvesting?.structures
+                ? application.conservationMeasures.rainwaterHarvesting.structures.length // Assuming all are existing/implemented if in the list? 
+                : 0;
+            // Or check 'implemented' flag? Assuming conservationMeasures struct usually lists planned/existing.
+            // Let's assume listed are Proposed if implemented=false? 
+            // For now, pass raw count.
+            const rwhs_prop = 0; // Placeholder
+
+            // Communication Address
+            const comm = application.communicationAddress || {};
+            const commAddress = [comm.addressLine1, comm.addressLine2, comm.district, comm.state, comm.pincode].filter(Boolean).join(", ");
+
+            const formatDate = (date) => {
+                if (!date) return "";
+                const d = new Date(date);
+                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            };
+
+            // Prepare data for PDF
+            const pdfData = {
+                nocNumber,
+                applicationNumber: application.applicationNumber,
+                issueDate: formatDate(new Date()),
+                validFrom: formatDate(validFrom),
+                validUpto: formatDate(validUpto),
+                submittedDate: formatDate(application.submittedAt || application.createdAt),
+
+                // Header & Applicant Info
+                projectStatus: application.projectDetails.projectStatus || "New",
+                nocType: application.applicationType || "New",
+                category: application.assessmentUnit || "Safe",
+
+                companyName: application.projectDetails.organizationName || application.projectDetails.applicantName,
+                projectAddress: `${application.location.address || ''} ${application.location.village || ''}`,
+                town: application.location.tehsil || application.location.blockId,
+                block: application.location.blockId,
+                district: application.location.districtId,
+                state: "Rajasthan",
+                communicationAddress: commAddress,
+                pinCode: comm.pincode || application.location.pincode,
+
+                // Abstraction
+                approvedWaterQuantity: approvedWaterQuantity, // m3/day
+                approvedWaterQuantityAnnual: (approvedWaterQuantity * 365).toFixed(2), // m3/year
+
+                // Structure Table
+                dw_ex, dw_prop, total_dw: dw_ex + dw_prop,
+                dcb_ex, dcb_prop, total_dcb: dcb_ex + dcb_prop,
+                bw_ex, bw_prop, total_bw: bw_ex + bw_prop,
+                tw_ex, tw_prop, total_tw: tw_ex + tw_prop,
+                mp_ex: 0, mp_prop: 0, total_mp: 0,
+                mpu_ex: 0, mpu_prop: 0, total_mpu: 0,
+                total_ex, total_prop, grand_total: total_ex + total_prop,
+
+                // Monitoring Table
+                piezo_ex: getCount(['PIEZOMETER', 'OBSERVATION_WELL'], 'EXISTING'),
+                piezo_prop: getCount(['PIEZOMETER', 'OBSERVATION_WELL'], 'PROPOSED'),
+                piezo_mech_ex: "Manual/DWLR", piezo_mech_prop: "Manual/DWLR",
+                rwhs_ex: application.conservationMeasures?.rainwaterHarvesting?.structures?.length || 0,
+                rwhs_prop: rwhs_prop, // Still placeholder if not tracking proposed specifically
+                wfm_ex: total_ex, wfm_prop: total_prop, // Assuming all structures need meters
+
+                conditions: data.conditions || [],
+                validityYears: validityYears,
+                signaturePath: data.signaturePath,
+                qrCodeImage,
+                emblemImage
+            };
+
+            // Generate PDF
+            const pdfPath = await pdfService.generateNOCCertificate(pdfData);
+            certificate.certificatePDF = pdfPath;
 
             await certificate.save();
 

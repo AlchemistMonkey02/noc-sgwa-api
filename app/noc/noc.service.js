@@ -754,7 +754,17 @@ class NOCService {
      */
     async getApplicationTimeline(applicationId, userId) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId })
+            // Check if applicationId is a valid MongoDB ObjectId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+
+            const query = { userId };
+            if (isObjectId) {
+                query._id = applicationId;
+            } else {
+                query.applicationId = applicationId;
+            }
+
+            const application = await NOCApplication.findOne(query)
                 .populate("approvalFlow.dgo.reviewedBy", "firstName lastName role")
                 .populate("approvalFlow.sgwa.reviewedBy", "firstName lastName role")
                 .populate("approvalFlow.enforcement.reviewedBy", "firstName lastName role")
@@ -909,6 +919,71 @@ class NOCService {
     }
 
     /**
+     * Get approval flow status only
+     */
+    async getApprovalFlow(applicationId, userId) {
+        try {
+            // Check if applicationId is a valid MongoDB ObjectId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+
+            const query = { userId };
+            if (isObjectId) {
+                query._id = applicationId;
+            } else {
+                query.applicationId = applicationId;
+            }
+
+            const application = await NOCApplication.findOne(query)
+                .populate("approvalFlow.dgo.reviewedBy", "firstName lastName")
+                .populate("approvalFlow.sgwa.reviewedBy", "firstName lastName")
+                .populate("approvalFlow.enforcement.reviewedBy", "firstName lastName")
+                .select("applicationId applicationNumber status approvalFlow");
+
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found",
+                };
+            }
+
+            const { dgo, sgwa, enforcement } = application.approvalFlow || {};
+
+            return {
+                applicationId: application.applicationId,
+                applicationNumber: application.applicationNumber,
+                currentStatus: application.status,
+                approvalFlow: {
+                    dgo: {
+                        status: dgo?.status || "PENDING",
+                        reviewedBy: dgo?.reviewedBy ? `${dgo.reviewedBy.firstName} ${dgo.reviewedBy.lastName}` : null,
+                        reviewedAt: dgo?.reviewedAt,
+                        remarks: dgo?.remarks,
+                        documentsVerified: dgo?.documentsVerified || false
+                    },
+                    sgwa: {
+                        status: sgwa?.status || "PENDING",
+                        reviewedBy: sgwa?.reviewedBy ? `${sgwa.reviewedBy.firstName} ${sgwa.reviewedBy.lastName}` : null,
+                        reviewedAt: sgwa?.reviewedAt,
+                        remarks: sgwa?.remarks,
+                        recommendation: sgwa?.recommendation
+                    },
+                    enforcement: {
+                        status: enforcement?.status || "PENDING",
+                        reviewedBy: enforcement?.reviewedBy ? `${enforcement.reviewedBy.firstName} ${enforcement.reviewedBy.lastName}` : null,
+                        reviewedAt: enforcement?.reviewedAt,
+                        remarks: enforcement?.remarks,
+                        nocNumber: enforcement?.nocNumber,
+                        nocIssuedAt: enforcement?.nocIssuedAt
+                    }
+                }
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Link documents to application
      */
     async linkDocuments(applicationId, documentIds, userId) {
@@ -969,9 +1044,27 @@ class NOCService {
     /**
      * Get NOC Certificate details
      */
+    /**
+     * Get NOC Certificate details
+     */
     async getCertificate(applicationId, userId) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            // Check if applicationId is a valid MongoDB ObjectId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+
+            const query = { userId };
+            if (isObjectId) {
+                query._id = applicationId;
+            } else {
+                query.applicationId = applicationId;
+            }
+
+            console.log(`[DEBUG] getCertificate - AppID: ${applicationId}, UserID: ${userId}`);
+            console.log(`[DEBUG] getCertificate - Query:`, JSON.stringify(query));
+
+            const application = await NOCApplication.findOne(query);
+
+            console.log(`[DEBUG] getCertificate - Found App:`, application ? application._id : "NULL");
 
             if (!application) {
                 throw {

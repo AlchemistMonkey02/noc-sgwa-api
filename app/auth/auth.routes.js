@@ -57,6 +57,12 @@ router.post(
     authController.uploadProfilePicture
 );
 
+router.post(
+    "/profile/signature",
+    registrationUpload.single("signature"),
+    authController.uploadSignature
+);
+
 // Contact Update (Email/Phone) with OTP
 router.post("/profile/contact/otp", authController.requestContactUpdateOTP);
 router.post("/profile/contact/verify", authController.verifyContactUpdate);

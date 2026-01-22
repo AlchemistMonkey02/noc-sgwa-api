@@ -118,7 +118,13 @@ class CompanyController {
     async getCompanyById(req, res, next) {
         try {
             const userId = req.user.id;
-            const company = await companyService.getCompanyById(req.params.id, userId);
+
+            // Allow officers to view any company
+            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+
+            // If officer, pass null for userId to skip ownership check
+            // If applicant, pass userId to enforce ownership
+            const company = await companyService.getCompanyById(req.params.id, isOfficer ? null : userId);
 
             res.status(200).json({
                 success: true,
