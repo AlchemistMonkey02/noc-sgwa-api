@@ -4,16 +4,14 @@ const NOCApplicationSchema = new mongoose.Schema(
     {
         applicationId: {
             type: String,
-            required: true,
+            // required: true, // Removed
             unique: true,
         },
         applicationNumber: {
             type: String,
             unique: true,
-            unique: true,
-            sparse: true, // Only for submitted applications
+            sparse: true,
         },
-        // NEW: System generated simple tracking ID
         trackingId: {
             type: String,
             unique: true,
@@ -21,110 +19,52 @@ const NOCApplicationSchema = new mongoose.Schema(
         },
         userId: {
             type: mongoose.Schema.Types.ObjectId,
-            required: true,
             ref: "User",
             index: true,
         },
-
-        // Company reference (REQUIRED)
         companyId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company",
-            required: [true, "Company is required for NOC application"],
             index: true,
         },
-
-        // CGWA Application Category
         applicationCategory: {
             type: String,
-            enum: ["WITHDRAWAL", "RECHARGE"],
-            required: true,
             default: "WITHDRAWAL",
         },
-
         sectorType: {
             type: String,
-            enum: ["INDUSTRIAL", "DOMESTIC", "IRRIGATION", "COMMERCIAL", "INFRASTRUCTURE", "MINING", "OTHER"],
-            required: true,
         },
-
         validityPeriodRequested: {
-            type: Number, // in years
-            required: true,
-            min: 1,
-            max: 10,
+            type: Number,
             default: 3,
         },
-
-        // Application Type
         applicationType: {
             type: String,
-            required: true,
-            enum: ["NEW", "RENEWAL", "AMENDMENT"],
         },
         applicationSubType: {
             type: String,
-            required: true,
         },
         projectType: {
             type: String,
-            required: true,
         },
         waterQualityType: {
             type: String,
-            required: true,
         },
         groundWaterUtilizationFor: {
             type: String,
-            required: true,
         },
         dateOfCommencement: {
             type: Date,
-            required: true,
         },
         existingNOCStatus: {
             type: String,
-            enum: ["YES", "NO"],
             default: "NO",
         },
         oldNOCNumber: {
             type: String,
-            required: function () { return this.existingNOCStatus === "YES"; }
         },
         status: {
             type: String,
-            required: true,
-            enum: [
-                "DRAFT",
-                "SUBMITTED",
-
-                // DGO Level
-                "PENDING_DGO_REVIEW",
-                "UNDER_REVIEW_DGO",
-                "QUERY_RAISED_DGO",
-                "APPROVED_DGO",
-                "REJECTED_DGO",
-
-                // SGWA Level
-                "PENDING_SGWA_REVIEW",
-                "UNDER_REVIEW_SGWA",
-                "QUERY_RAISED_SGWA",
-                "APPROVED_SGWA",
-                "REJECTED_SGWA",
-
-                // Enforcement Level
-                "PENDING_ENFORCEMENT_REVIEW",
-                "INSPECTION_SCHEDULED",
-                "INSPECTED",
-                "UNDER_REVIEW_ENFORCEMENT",
-                "QUERY_RAISED_ENFORCEMENT",
-                "APPROVED_ENFORCEMENT",
-                "REJECTED_ENFORCEMENT",
-
-                // Final States
-                "NOC_ISSUED",
-                "WITHDRAWN",
-            ],
             default: "DRAFT",
             index: true,
         },
@@ -136,7 +76,7 @@ const NOCApplicationSchema = new mongoose.Schema(
                 assignedAt: Date,
                 reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
                 reviewedAt: Date,
-                status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'QUERY'], default: 'PENDING' },
+                status: { type: String, default: 'PENDING' },
                 remarks: String,
                 recommendation: String,
                 inspectionReport: String,
@@ -147,7 +87,7 @@ const NOCApplicationSchema = new mongoose.Schema(
                 assignedAt: Date,
                 reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
                 reviewedAt: Date,
-                status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'QUERY'], default: 'PENDING' },
+                status: { type: String, default: 'PENDING' },
                 remarks: String,
                 recommendation: String,
                 technicalReview: String,
@@ -163,7 +103,7 @@ const NOCApplicationSchema = new mongoose.Schema(
                 inspectionScheduledAt: Date,
                 inspectionCompletedAt: Date,
                 inspectionReport: String,
-                status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED', 'QUERY'], default: 'PENDING' },
+                status: { type: String, default: 'PENDING' },
                 remarks: String,
                 finalDecision: String,
                 nocNumber: String,
@@ -173,9 +113,9 @@ const NOCApplicationSchema = new mongoose.Schema(
 
         // Location Details
         location: {
-            stateId: { type: String, required: true },
-            districtId: { type: String, required: true },
-            blockId: { type: String, required: true },
+            stateId: { type: String },
+            districtId: { type: String },
+            blockId: { type: String },
             tehsil: String,
             assessmentUnit: String,
             relevantBlocks: String,
@@ -190,25 +130,22 @@ const NOCApplicationSchema = new mongoose.Schema(
 
         // Project Details
         projectDetails: {
-            projectName: { type: String, required: true },
+            projectName: { type: String },
             industryType: String,
             projectDescription: String,
 
-            // Land Use Details (Enhanced)
             landUseDetails: {
-                totalArea: Number, // sq meters
+                totalArea: Number,
                 rooftopArea: Number,
                 pavedArea: Number,
                 greenBeltArea: Number,
                 openArea: Number,
             },
 
-            // Legacy fields mapped or kept for backward compatibility if needed
             landArea: Number,
             builtUpArea: Number,
             openLandArea: Number,
 
-            // Applicant/Org Details
             applicantName: String,
             organizationName: String,
             organizationType: String,
@@ -218,7 +155,6 @@ const NOCApplicationSchema = new mongoose.Schema(
             aadhaarNumber: String,
             panNumber: String,
 
-            // MSME Status (affects NOC exemption)
             isMSME: {
                 type: Boolean,
                 default: false,
@@ -228,30 +164,22 @@ const NOCApplicationSchema = new mongoose.Schema(
                 registrationDate: Date,
                 category: {
                     type: String,
-                    enum: ["MICRO", "SMALL", "MEDIUM"],
                 },
                 certificateDocument: String,
             },
 
-            // NEW: Project Status
             projectStatus: {
                 type: String,
-                enum: ['NEW', 'EXISTING', 'EXPANSION']
             },
             nicCode: String,
             contactPersonDesignation: String,
 
-            // NEW: Enhanced land details
-            // totalLandArea: Number, // Replaced by landUseDetails.totalArea
-            // greenBeltArea: Number, // Replaced by landUseDetails.greenBeltArea
-            greenBeltPercentage: Number, // auto-calculated
+            greenBeltPercentage: Number,
 
-            // NEW: Wetland proximity
             isNearWetland: { type: Boolean, default: false },
             wetlandName: String,
-            wetlandDistance: Number, // meters
+            wetlandDistance: Number,
 
-            // Green Belt (CGWA requirement)
             greenBelt: {
                 implemented: { type: Boolean, default: false },
                 area: Number,
@@ -265,36 +193,34 @@ const NOCApplicationSchema = new mongoose.Schema(
             },
         },
 
-        // NEW: Digital Flow Meter (Mandatory for ALL NOC holders)
+        // Digital Flow Meter
         digitalFlowMeter: {
             meterType: {
                 type: String,
-                enum: ["DIGITAL_FLOW_METER_WITH_TELEMETRY"],
                 default: "DIGITAL_FLOW_METER_WITH_TELEMETRY"
             },
-            manufacturer: { type: String, required: false },
-            modelNumber: { type: String, required: false }, // Can be updated later
-            serialNumber: { type: String, required: false },
-            bisStandards: { type: String, required: false }, // e.g., IS 2373
+            manufacturer: { type: String },
+            modelNumber: { type: String },
+            serialNumber: { type: String },
+            bisStandards: { type: String },
             calibrationDate: Date,
 
             telemetry: {
-                enabled: { type: Boolean, required: true, default: true },
+                enabled: { type: Boolean, default: true },
                 serviceProvider: String,
-                proposedInstallationDate: { type: Date, required: false }
+                proposedInstallationDate: { type: Date }
             },
 
-            // Compliance Fields
             complianceCommitments: {
                 installWithin30Days: { type: Boolean, default: false },
                 maintainTelemetry: { type: Boolean, default: false },
                 submitDailyData: { type: Boolean, default: false },
                 penaltyAwareness: { type: Boolean, default: false },
-                maintainLogbook: { type: Boolean, default: false } // Auto-generated logbook requirement
+                maintainLogbook: { type: Boolean, default: false }
             }
         },
 
-        // NEW: Communication Address (Section 1)
+        // Communication Address
         communicationAddress: {
             addressLine1: String,
             addressLine2: String,
@@ -306,31 +232,21 @@ const NOCApplicationSchema = new mongoose.Schema(
             sameAsProjectAddress: { type: Boolean, default: false }
         },
 
-        // NEW: Section 3 - Drinking & Domestic Use
+        // Drinking & Domestic Use
         drinkingDomesticUse: {
             numberOfWorkers: { type: Number, default: 0 },
             numberOfResidents: { type: Number, default: 0 },
-            dailyRequirementPerPerson: { type: Number, default: 135 }, // CGWA standard liters
-            totalDailyDomestic: Number, // auto-calculated (KL)
-            totalAnnualDomestic: Number // auto-calculated (KL)
+            dailyRequirementPerPerson: { type: Number, default: 135 },
+            totalDailyDomestic: Number,
+            totalAnnualDomestic: Number
         },
 
-        // NEW: Section 4 - Water Requirement Breakup (Enhanced)
+        // Water Requirement Breakup
         waterRequirementBreakup: [{
             activityType: {
                 type: String,
-                enum: [
-                    'INDUSTRIAL_PROCESS',
-                    'BOILER_FEED',
-                    'COOLING_TOWER',
-                    'DOMESTIC_DRINKING',
-                    'GREENBELT_HORTICULTURE',
-                    'FIREFIGHTING',
-                    'CONSTRUCTION',
-                    'OTHER'
-                ]
             },
-            totalRequirement: Number, // m³/day
+            totalRequirement: Number,
             freshGroundWater: Number,
             surfaceWater: Number,
             recycledWaterSTP: Number,
@@ -339,59 +255,47 @@ const NOCApplicationSchema = new mongoose.Schema(
             remarks: String
         }],
 
-
-
-        // NEW: Section 5 - Ground Water Structures (Enhanced)
-        // NEW: Section 5 - Ground Water Structures (Enhanced)
+        // Ground Water Structures
         groundWaterStructures: [{
             structureType: {
                 type: String,
-                enum: ['BOREWELL', 'TUBEWELL', 'DUGWELL', 'OPEN_WELL', 'DUG_CUM_BOREWELL']
             },
             category: {
                 type: String,
-                enum: ['EXISTING', 'PROPOSED']
             },
-            // Technical Details
-            yearOfConstruction: Number, // YYYY
-            depth: Number, // meters
-            diameter: Number, // mm
-            depthToWaterLevel: Number, // mbgl
-            discharge: Number, // m3/hour
+            yearOfConstruction: Number,
+            depth: Number,
+            diameter: Number,
+            depthToWaterLevel: Number,
+            discharge: Number,
 
-            // Compliance
             waterMeterFitted: {
                 type: Boolean,
                 default: false
             },
 
-            // Pump Details
             pumpDetails: {
                 pumpType: {
                     type: String,
-                    enum: ["SUBMERSIBLE", "CENTRIFUGAL", "OTHER"],
                     default: "SUBMERSIBLE"
                 },
-                capacityHP: Number, // Horsepower
+                capacityHP: Number,
             },
 
-            // Legacy/Geo fields
             latitude: Number,
             longitude: Number,
-            status: String, // Operational/Non-Operational
-            horsepower: Number, // kept for legacy or redundancy
+            status: String,
+            horsepower: Number,
         }],
 
-        // Enhanced Water Requirements (CGWA Compliant)
+        // Enhanced Water Requirements
         waterRequirement: {
-            purpose: { type: String, required: true },
+            purpose: { type: String },
 
-            // Total Water Requirement Logic
-            totalRequirement: Number, // Total Requirement (Fresh + Recycled)
-            freshWaterRequirement: Number, // Total Fresh
-            recycledWaterUsage: Number, // Total Recycled
+            totalRequirement: Number,
+            freshWaterRequirement: Number,
+            recycledWaterUsage: Number,
 
-            // Detailed Breakup
             breakup: {
                 domestic: {
                     total: Number,
@@ -416,32 +320,28 @@ const NOCApplicationSchema = new mongoose.Schema(
                 }
             },
 
-            // Proposed extraction details
             proposedExtraction: {
-                numberOfBorewells: { type: Number, required: true },
+                numberOfBorewells: { type: Number },
                 borewellDetails: [{
-                    depth: Number, // meters
-                    diameter: Number, // mm
-                    dischargeCapacity: Number, // LPM (Liters Per Minute)
-                    operatingHours: Number, // hours per day
-                    operatingDays: Number, // days per month
+                    depth: Number,
+                    diameter: Number,
+                    dischargeCapacity: Number,
+                    operatingHours: Number,
+                    operatingDays: Number,
                 }],
-                totalDailyExtraction: Number, // KLD (Kiloliters Per Day)
-                totalAnnualExtraction: Number, // KL per year
+                totalDailyExtraction: Number,
+                totalAnnualExtraction: Number,
             },
 
-            // Pumping Equipment Details
             pumpingDetails: {
                 pumpType: {
                     type: String,
-                    enum: ["SUBMERSIBLE", "CENTRIFUGAL", "OTHER"],
                     default: "SUBMERSIBLE"
                 },
-                capacityHP: Number, // Horsepower
-                dischargeRate: Number // Optional if different from borewell capacity
+                capacityHP: Number,
+                dischargeRate: Number
             },
 
-            // Purpose-wise breakup (Legacy/Simplified)
             purposeWiseBreakup: {
                 drinking: { type: Number, default: 0 },
                 industrial: { type: Number, default: 0 },
@@ -451,80 +351,70 @@ const NOCApplicationSchema = new mongoose.Schema(
                 other: { type: Number, default: 0 },
             },
 
-            // Legacy fields (backward compatibility)
-            dailyRequirement: Number, // MLD
+            dailyRequirement: Number,
             sourceType: {
                 type: String,
-                enum: ["BOREWELL", "TUBE_WELL", "OPEN_WELL"],
             },
-            depth: Number, // meters
-            pumpCapacity: Number, // HP (Legacy)
+            depth: Number,
+            pumpCapacity: Number,
         },
 
-        // Hydrogeological Information (CGWA MANDATORY)
+        // Hydrogeological Information
         hydrogeology: {
             aquiferType: {
                 type: String,
-                enum: ["CONFINED", "UNCONFINED", "SEMI_CONFINED"],
             },
             aquiferDepthRange: {
                 from: Number,
                 to: Number,
             },
-            staticWaterLevel: Number, // mbgl (meters below ground level)
-            dynamicWaterLevel: Number, // mbgl
-            drawdown: Number, // meters
-            recoveryRate: Number, // meters per hour
+            staticWaterLevel: Number,
+            dynamicWaterLevel: Number,
+            drawdown: Number,
+            recoveryRate: Number,
             waterQuality: {
                 type: String,
-                enum: ["POTABLE", "NON_POTABLE", "SALINE"],
             },
             pumpingTest: {
                 conducted: { type: Boolean, default: false },
-                duration: Number, // hours
-                dischargeRate: Number, // LPM
+                duration: Number,
+                dischargeRate: Number,
                 conductedBy: String,
                 reportDate: Date,
                 documentId: String,
             },
         },
 
-        // Water Conservation Measures (MANDATORY for CGWA)
+        // Water Conservation Measures
         conservationMeasures: {
-            // Rainwater Harvesting (MANDATORY if extraction > 10 KLD)
             rainwaterHarvesting: {
-                implemented: { type: Boolean, required: true },
+                implemented: { type: Boolean },
                 structures: [{
                     type: {
                         type: String,
-                        enum: ["ROOFTOP", "SURFACE", "RECHARGE_PIT", "RECHARGE_WELL", "PERCOLATION_TANK"],
                     },
-                    capacity: Number, // liters
-                    rechargeArea: Number, // sq meters
+                    capacity: Number,
+                    rechargeArea: Number,
                     location: String,
                 }],
-                totalRechargeCapacity: Number, // KL per year
+                totalRechargeCapacity: Number,
             },
 
-            // Recycling & Reuse
             recyclingReuse: {
                 planned: { type: Boolean, default: false },
-                percentage: Number, // % of total water
+                percentage: Number,
                 treatmentMethod: String,
                 reuseApplication: String,
             },
 
-            // Water Audit
             waterAudit: {
                 mechanism: String,
                 frequency: {
                     type: String,
-                    enum: ["MONTHLY", "QUARTERLY", "ANNUALLY"],
                 },
                 lastAuditDate: Date,
             },
 
-            // Conservation Plan Document
             conservationPlanDocument: {
                 uploaded: Boolean,
                 documentId: String,
@@ -532,66 +422,63 @@ const NOCApplicationSchema = new mongoose.Schema(
             },
         },
 
-        // Undertakings & Declarations (CGWA MANDATORY)
+        // Undertakings & Declarations
         undertakings: {
-            informationAccuracy: { type: Boolean, required: true },
-            complianceAgreement: { type: Boolean, required: true },
-            waterMeterInstallation: { type: Boolean, required: true },
-            inspectionConsent: { type: Boolean, required: true },
-            penaltyAcceptance: { type: Boolean, required: true },
+            informationAccuracy: { type: Boolean },
+            complianceAgreement: { type: Boolean },
+            waterMeterInstallation: { type: Boolean },
+            inspectionConsent: { type: Boolean },
+            penaltyAcceptance: { type: Boolean },
             undertakingDate: Date,
             undertakingPlace: String,
             digitalSignature: String,
         },
 
-        // Existing NOC Details (for Renewal/Amendment)
+        // Existing NOC Details
         existingNOCDetails: {
             nocNumber: String,
             issueDate: Date,
             validUpto: Date,
             issuingAuthority: String,
-            approvedExtraction: Number, // KLD
-            actualExtraction: Number, // KLD
+            approvedExtraction: Number,
+            actualExtraction: Number,
             complianceStatus: {
                 type: String,
-                enum: ["COMPLIANT", "NON_COMPLIANT", "PARTIAL"],
             },
         },
 
         // Documents
         documents: [
             {
-                documentType: String, // E.g., AUTHORIZATION_LETTER
+                documentType: String,
                 documentId: String,
                 fileName: String,
                 uploadedAt: Date,
 
-                // Three-Way Verification (DGO → SGWA → Enforcement)
                 verification: {
                     dgo: {
                         verified: { type: Boolean, default: false },
                         verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
                         verifiedAt: Date,
                         remarks: String,
-                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                        status: { type: String, default: 'PENDING' }
                     },
                     sgwa: {
                         verified: { type: Boolean, default: false },
                         verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
                         verifiedAt: Date,
                         remarks: String,
-                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                        status: { type: String, default: 'PENDING' }
                     },
                     enforcement: {
                         verified: { type: Boolean, default: false },
                         verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
                         verifiedAt: Date,
                         remarks: String,
-                        status: { type: String, enum: ['APPROVED', 'REJECTED', 'PENDING'], default: 'PENDING' }
+                        status: { type: String, default: 'PENDING' }
                     }
                 },
 
-                // Legacy fields for backward compatibility
                 isVerified: { type: Boolean, default: false },
                 remarks: String
             },
@@ -632,25 +519,15 @@ const NOCApplicationSchema = new mongoose.Schema(
             ref: "NOCCertificate",
         },
 
-        // NEW: Application Progress Tracking
+        // Progress Tracking
         progressTracking: {
             currentStage: {
                 type: String,
-                enum: [
-                    'SUBMITTED',
-                    'DOCUMENT_VERIFICATION',
-                    'TECHNICAL_REVIEW',
-                    'FIELD_INSPECTION',
-                    'FINAL_APPROVAL',
-                    'NOC_GENERATION',
-                    'COMPLETED'
-                ]
             },
             timeline: [{
                 stage: String,
                 status: {
                     type: String,
-                    enum: ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED']
                 },
                 startedAt: Date,
                 completedAt: Date,
@@ -664,7 +541,6 @@ const NOCApplicationSchema = new mongoose.Schema(
             actualCompletionDate: Date
         },
 
-        // NEW: Section Completion Status (for 8-section flow)
         sectionCompletionStatus: {
             section1BasicDetails: { type: Boolean, default: false },
             section2LocationDetails: { type: Boolean, default: false },

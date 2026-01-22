@@ -89,8 +89,8 @@ class DocumentService {
                 };
             }
 
-            // Access control
-            const isOwner = document.userId.toString() === userId;
+            // Access control - ensure both sides are strings for comparison
+            const isOwner = document.userId.toString() === userId.toString();
             const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT"].includes(userType);
 
             if (!isOwner && !isOfficer) {

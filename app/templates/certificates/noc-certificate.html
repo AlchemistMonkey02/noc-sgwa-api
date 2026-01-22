@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC Certificate</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            margin: 0;
+            padding: 40px;
+            line-height: 1.4;
+        }
+
+        .container {
+            width: 100%;
+        }
+
+        /* Header Grid */
+        .header-table {
+            width: 100%;
+            border-bottom: 2px solid #000;
+            margin-bottom: 5px;
+        }
+
+        .header-table td {
+            vertical-align: top;
+        }
+
+        .header-left {
+            width: 40%;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .header-center {
+            width: 20%;
+            text-align: center;
+        }
+
+        .header-center img {
+            height: 60px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .header-right {
+            width: 40%;
+            text-align: right;
+        }
+
+        .qr-code {
+            height: 80px;
+            width: 80px;
+        }
+
+        /* Titles */
+        .noc-title-hindi {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .noc-title-eng {
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+        }
+
+        /* General Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+        }
+
+        td,
+        th {
+            border: 1px solid #ccc;
+            /* Light gray borders for inside */
+            padding: 4px;
+        }
+
+        .outer-border {
+            border: 1px solid #000;
+        }
+
+        /* Project Details Table */
+        .details-table td {
+            border: 1px solid #ccc;
+        }
+
+        .label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .value {
+            font-weight: bold;
+            font-size: 11px;
+        }
+
+        /* Numbered Grid (1. NOC No, etc) */
+        .numbered-table td {
+            vertical-align: top;
+            width: 50%;
+        }
+
+        .num-label {
+            color: #666;
+            margin-right: 5px;
+        }
+
+        .num-value {
+            font-weight: bold;
+        }
+
+        /* Blue Headers */
+        .blue-header {
+            background-color: #1f4e79;
+            /* CGWA Blue */
+            color: white;
+            padding: 5px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        /* Technical Tables */
+        .tech-table th {
+            background-color: #1f4e79;
+            color: white;
+            text-align: center;
+            border: 1px solid white;
+            font-weight: normal;
+        }
+
+        .tech-table td {
+            text-align: center;
+            border: 1px solid #ccc;
+        }
+
+        .tech-table .row-total {
+            font-weight: bold;
+        }
+
+        .footer-note {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .conditions {
+            margin-top: 10px;
+        }
+
+        .conditions h4 {
+            margin: 10px 0 5px 0;
+            font-size: 11px;
+        }
+
+        .conditions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .conditions li {
+            margin-bottom: 4px;
+        }
+
+        /* Watermark-like footer */
+        .watermark {
+            text-align: right;
+            font-size: 9px;
+            color: #999;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Header -->
+        <table class="header-table" style="border: none;">
+            <tr style="border: none;">
+                <td class="header-left" style="border: none;">
+                    भारत सरकार<br>
+                    जल शक्ति मंत्रालय<br>
+                    GOVERNMENT OF INDIA<br>
+                    MINISTRY OF JAL SHAKTI<br>
+                    CENTRAL GROUND WATER AUTHORITY
+                </td>
+                <td class="header-center" style="border: none;">
+                    {{#if emblemImage}}
+                    <img src="{{emblemImage}}" alt="Emblem">
+                    {{else}}
+                    <div style="font-size:30px;">🏛️</div>
+                    {{/if}}
+                    <div style="font-size: 10px; font-weight: bold; margin-top:2px;">सत्यमेव जयते</div>
+                </td>
+                <td class="header-right" style="border: none;">
+                    {{#if qrCodeImage}}
+                    <img src="{{qrCodeImage}}" class="qr-code" alt="QR">
+                    {{else}}
+                    [QR CODE]
+                    {{/if}}
+                </td>
+            </tr>
+        </table>
+
+        <div style="border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
+
+        <div class="noc-title-hindi">भूजल निकासी हेतु अनापत्ति प्रमाण पत्र</div>
+        <div class="noc-title-eng">NO OBJECTION CERTIFICATE (NOC) FOR GROUND WATER ABSTRACTION</div>
+
+        <!-- Project Info Grid -->
+        <table class="details-table" style="border: 1px solid #ccc;">
+            <tr>
+                <td colspan="3">
+                    <span class="label">PROJECT NAME</span>&nbsp; <span class="value">{{companyName}}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <span class="label">PROJECT ADDRESS</span>&nbsp; <span class="value">{{projectAddress}}</span>
+                </td>
+                <td style="width: 25%;">
+                    <span class="label">PIN CODE</span>&nbsp; <span class="value">{{pinCode}}</span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <span class="label">STATE</span>&nbsp; <span class="value">{{state}}</span>
+                </td>
+                <td>
+                    <span class="label">DISTRICT</span>&nbsp; <span class="value">{{district}}</span>
+                </td>
+                <td>
+                    <span class="label">TOWN/BLOCK</span><br>
+                    <span class="value">{{town}} / {{block}}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3">
+                    <span class="label">COMMUNICATION ADDRESS</span>&nbsp; <span
+                        class="value">{{communicationAddress}}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3">
+                    <span class="label">ADDRESS OF SGWA REGIONAL OFFICE</span>&nbsp; <span class="value">State Ground
+                        Water Authority, Jaipur, Rajasthan</span>
+                </td>
+            </tr>
+        </table>
+
+        <!-- NOC Details Numbers -->
+        <table class="numbered-table" style="border: 1px solid #ccc;">
+            <tr>
+                <td><span class="num-label">1. NOC NO.</span> <span class="num-value">{{nocNumber}}</span></td>
+                <td><span class="num-label">2. DATE OF ISSUANCE</span> <span class="num-value">{{issueDate}}</span></td>
+            </tr>
+            <tr>
+                <td><span class="num-label">3. APPLICATION NO.</span> <span
+                        class="num-value">{{applicationNumber}}</span></td>
+                <td><span class="num-label">4. APPLICATION TYPE</span> <span class="num-value">{{nocType}}</span></td>
+            </tr>
+            <tr>
+                <td><span class="num-label">5. PROJECT STATUS</span> <span class="num-value">{{projectStatus}}</span>
+                </td>
+                <td><span class="num-label">6. NOC TYPE</span> <span class="num-value">{{nocType}}</span></td>
+            </tr>
+            <tr>
+                <td><span class="num-label">7. VALID FROM</span> <span class="num-value">{{validFrom}}</span></td>
+                <td><span class="num-label">8. VALID UP TO</span> <span class="num-value">{{validUpto}}</span></td>
+            </tr>
+            <tr>
+                <td><span class="num-label">9. WATER QUALITY TYPE</span> <span class="num-value">Fresh Water</span></td>
+                <td><span class="num-label">10. AREA TYPE CATEGORY</span> <span class="num-value">{{category}} (GWRE -
+                        2024)</span></td>
+            </tr>
+        </table>
+
+        <!-- Section 11 -->
+        <div class="blue-header">11. Ground Water Abstraction Permitted</div>
+        <table class="tech-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width: 40%;">GW Abstraction</th>
+                    <th colspan="2">Dewatering</th>
+                    <th colspan="2">Total</th>
+                </tr>
+                <tr>
+                    <th>m³/day</th>
+                    <th>m³/year</th>
+                    <th>m³/day</th>
+                    <th>m³/year</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Ground Water Abstraction</strong></td>
+                    <td>0.00</td>
+                    <td>0.00</td>
+                    <td><strong>{{approvedWaterQuantity}}</strong></td>
+                    <td><strong>{{approvedWaterQuantityAnnual}}</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Dewatering</strong></td>
+                    <td>0.00</td>
+                    <td>0.00</td>
+                    <td><strong>0.00</strong></td>
+                    <td><strong>0.00</strong></td>
+                </tr>
+                <tr style="background-color: #eee;">
+                    <td><strong>Total</strong></td>
+                    <td><strong>0.00</strong></td>
+                    <td><strong>0.00</strong></td>
+                    <td><strong>{{approvedWaterQuantity}}</strong></td>
+                    <td><strong>{{approvedWaterQuantityAnnual}}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Section 12 -->
+        <div class="blue-header">12. Details of Ground Water Abstraction / Dewatering Structures</div>
+        <table class="tech-table">
+            <thead>
+                <tr>
+                    <th colspan="5">EXISTING &nbsp; {{total_ex}}</th>
+                    <th colspan="5">PROPOSED &nbsp; {{total_prop}}</th>
+                    <th colspan="5">TOTAL &nbsp; {{grand_total}}</th>
+                </tr>
+                <tr style="font-size: 9px;">
+                    <!-- Existing Header -->
+                    <th>DW</th>
+                    <th>DCB</th>
+                    <th>BW</th>
+                    <th>TW</th>
+                    <th>Pu</th>
+                    <!-- Proposed Header -->
+                    <th>DW</th>
+                    <th>DCB</th>
+                    <th>BW</th>
+                    <th>TW</th>
+                    <th>Pu</th>
+                    <!-- Total Header -->
+                    <th>DW</th>
+                    <th>DCB</th>
+                    <th>BW</th>
+                    <th>TW</th>
+                    <th>Pu</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <!-- Existing Values -->
+                    <td>{{dw_ex}}</td>
+                    <td>{{dcb_ex}}</td>
+                    <td>{{bw_ex}}</td>
+                    <td>{{tw_ex}}</td>
+                    <td>{{mpu_ex}}</td>
+                    <!-- Proposed Values -->
+                    <td>{{dw_prop}}</td>
+                    <td>{{dcb_prop}}</td>
+                    <td>{{bw_prop}}</td>
+                    <td>{{tw_prop}}</td>
+                    <td>{{mpu_prop}}</td>
+                    <!-- Total Values -->
+                    <td>{{total_dw}}</td>
+                    <td>{{total_dcb}}</td>
+                    <td>{{total_bw}}</td>
+                    <td>{{total_tw}}</td>
+                    <td>{{total_mpu}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="footer-note">*DW-Dug Well; DCB-Dug-cum-Bore Well; BW-Bore Well; TW-Tube Well; Pu-Pumps</div>
+
+        <!-- Conditions -->
+        <div style="font-weight: bold; margin-top: 15px; font-size: 11px;">
+            Validity of this NOC shall be subject to mandatory compliance of the following conditions:
+        </div>
+
+        <div class="conditions">
+            <h4>Phase I (within 30 days)</h4>
+            <ol>
+                <li>Installation of tamper proof digital water flow meter with telemetry on all the abstraction
+                    structure(s) is mandatory for all users seeking No Objection Certificate. Intimation regarding their
+                    installation shall be updated in Self-Compliance Module.</li>
+                <li>Installation of Piezometers with Digital Water Level Recorders (DWLR) and Telemetry is mandatory.
+                </li>
+            </ol>
+        </div>
+
+        <div class="watermark">
+            <br>
+            <!-- Signature could go here if needed, but CGWA PDF mostly relies on header QR -->
+            {{#if signatureImage}}
+            <img src="{{signatureImage}}" style="max-height: 50px; float: right;" alt="Sig">
+            {{/if}}
+        </div>
+
+    </div>
+</body>
+
+</html>

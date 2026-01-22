@@ -4,12 +4,10 @@ const DocumentSchema = new mongoose.Schema(
     {
         documentId: {
             type: String,
-            required: true,
             unique: true,
         },
         userId: {
             type: mongoose.Schema.Types.ObjectId,
-            required: true,
             ref: "User",
             index: true,
         },
@@ -17,7 +15,6 @@ const DocumentSchema = new mongoose.Schema(
         companyId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company",
-            required: false,  // Optional - some docs may not be company-specific
             index: true,
         },
         applicationId: {
@@ -29,88 +26,24 @@ const DocumentSchema = new mongoose.Schema(
         // Document details
         documentType: {
             type: String,
-            required: true,
-            enum: [
-                // Identity Documents
-                "AADHAR",
-                "PAN",
-
-                // Land/Property Documents
-                "LAND_OWNERSHIP",
-                "KHASRA_KHATAUNI",
-                "REVENUE_RECORDS",
-                "LEASE_DEED",
-                "SALE_DEED",
-
-                // Site/Project Documents
-                "SITE_PLAN",
-                "BUILDING_PLAN",
-                "LAYOUT_PLAN",
-
-                // CGWA Specific Documents
-                "PUMPING_TEST_REPORT",
-                "HYDROGEOLOGICAL_REPORT",
-                "WATER_QUALITY_REPORT",
-                "WATER_ANALYSIS",
-                "CONSERVATION_PLAN",
-                "RAINWATER_HARVESTING_PLAN",
-                "GREEN_BELT_PLAN",
-                "WATER_AUDIT_REPORT",
-                "RECYCLING_PLAN",
-
-                // Clearances & Licenses
-                "EXISTING_NOC",
-                "EC_CERTIFICATE",
-                "CTO_CTE",
-                "POLLUTION_NOC",
-                "FOREST_CLEARANCE",
-                "FACTORY_LICENSE",
-                "TRADE_LICENSE",
-
-                // Company Documents
-                "GST_CERTIFICATE",
-                "MSME_CERTIFICATE",
-                "INCORPORATION_CERTIFICATE",
-                "PARTNERSHIP_DEED",
-                "AUTHORIZATION_LETTER",
-
-                // Legal Documents
-                "UNDERTAKING",
-                "AFFIDAVIT",
-                "INDEMNITY_BOND",
-
-                // Technical Documents
-                "BOREWELL_COMPLETION_REPORT",
-                "SOIL_INVESTIGATION_REPORT",
-                "GEOPHYSICAL_SURVEY",
-
-                // Others
-                "OTHER",
-            ],
         },
         documentName: {
             type: String,
-            required: true,
         },
         originalFilename: {
             type: String,
-            required: true,
         },
         storedFilename: {
             type: String,
-            required: true,
         },
         filePath: {
             type: String,
-            required: true,
         },
         fileSize: {
             type: Number, // in bytes
-            required: true,
         },
         mimeType: {
             type: String,
-            required: true,
         },
 
         // Three-Way Verification (DGO → SGWA → Enforcement)
@@ -120,21 +53,21 @@ const DocumentSchema = new mongoose.Schema(
                 verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
                 verifiedAt: Date,
                 remarks: String,
-                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+                status: { type: String, default: "PENDING" }
             },
             sgwa: {
                 verified: { type: Boolean, default: false },
                 verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
                 verifiedAt: Date,
                 remarks: String,
-                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+                status: { type: String, default: "PENDING" }
             },
             enforcement: {
                 verified: { type: Boolean, default: false },
                 verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
                 verifiedAt: Date,
                 remarks: String,
-                status: { type: String, enum: ["APPROVED", "REJECTED", "PENDING"], default: "PENDING" }
+                status: { type: String, default: "PENDING" }
             }
         },
 
@@ -152,7 +85,6 @@ const DocumentSchema = new mongoose.Schema(
         // Status
         status: {
             type: String,
-            enum: ["UPLOADED", "VERIFIED", "REJECTED"],
             default: "UPLOADED",
         },
         rejectionReason: String,

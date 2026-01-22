@@ -26,7 +26,7 @@ router.get("/active-nocs", enforcementController.getActiveNOCs);
 
 router.post("/nocs/:id/revoke", enforcementController.revokeNOC);
 
-router.post("/inspections/schedule", enforcementController.scheduleComplianceInspection);
+// router.post("/inspections/schedule", enforcementController.scheduleComplianceInspection); // REMOVED: Enforcement Wing does not schedule inspections
 router.post("/inspections/:id/report", enforcementController.submitComplianceReport);
 
 // Violations & Penalties

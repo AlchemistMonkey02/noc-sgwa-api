@@ -582,6 +582,26 @@ class NOCController {
     }
 
     /**
+     * GET /api/applications/noc/:id/approval-flow
+     * Get approval flow status only
+     */
+    async getApprovalFlow(req, res, next) {
+        try {
+            const approvalFlow = await nocService.getApprovalFlow(
+                req.params.id,
+                req.user.id
+            );
+
+            res.status(200).json({
+                success: true,
+                data: approvalFlow
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * POST /api/applications/noc/:id/documents
      * Link documents to application
      */

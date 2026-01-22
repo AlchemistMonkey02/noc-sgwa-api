@@ -106,6 +106,9 @@ router.post("/:id/validate-section/:sectionNumber", nocController.validateSectio
 router.get("/:id/progress", nocController.getApplicationProgress);
 router.get("/:id/timeline", nocController.getApplicationTimeline);
 
+// NEW: Approval Flow Status
+router.get("/:id/approval-flow", nocController.getApprovalFlow);
+
 
 
 module.exports = router;

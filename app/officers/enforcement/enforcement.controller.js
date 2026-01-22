@@ -117,12 +117,13 @@ class EnforcementController {
         } catch (err) { next(err); }
     }
 
-    async scheduleComplianceInspection(req, res, next) {
-        try {
-            const result = await enforcementService.scheduleComplianceInspection(req.user.id, req.body);
-            res.json({ success: true, message: "Inspection scheduled", data: result });
-        } catch (err) { next(err); }
-    }
+    // REMOVED: Enforcement Wing does not schedule inspections
+    // async scheduleComplianceInspection(req, res, next) {
+    //     try {
+    //         const result = await enforcementService.scheduleComplianceInspection(req.user.id, req.body);
+    //         res.json({ success: true, message: "Inspection scheduled", data: result });
+    //     } catch (err) { next(err); }
+    // }
 
     async submitComplianceReport(req, res, next) {
         try {
