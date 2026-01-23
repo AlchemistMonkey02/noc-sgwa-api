@@ -24,8 +24,8 @@ async function debugOwnership() {
         console.log(`User ID (String): ${user._id.toString()}`);
 
         // 2. Get the Application
-        const appId = "696385af85ba8d751b6f1d3a";
-        const app = await NOCApplication.findById(appId);
+        const appId = "95284192-40e2-4643-8cbe-cffaca7826bf";
+        const app = await NOCApplication.findOne({ applicationId: appId });
 
         if (!app) {
             console.log(`CRITICAL: Application '${appId}' NOT FOUND!`);
@@ -49,6 +49,10 @@ async function debugOwnership() {
         } else {
             console.log("Ownership is CORRECT.");
         }
+
+        console.log("--- DOCUMENT CHECK ---");
+        console.log(`Documents Array Length: ${app.documents ? app.documents.length : 0}`);
+        console.log(`Documents:`, app.documents);
 
     } catch (error) {
         console.error("Error:", error);

@@ -91,14 +91,17 @@ const registerCompanySchema = Joi.object({
             .messages({ "string.empty": "Authorized person name is required" }),
         designation: Joi.string().required()
             .messages({ "string.empty": "Designation is required" }),
-        email: Joi.string().email().optional(),
-        phone: Joi.string().pattern(/^[6-9]\d{9}$/).optional(),
+        email: Joi.string().email().required()
+            .messages({ "any.required": "Authorized person email is required" }),
+        phone: Joi.string().pattern(/^[6-9]\d{9}$/).required()
+            .messages({ "any.required": "Authorized person phone is required" }),
         aadhaarNumber: Joi.string().pattern(/^[0-9]{12}$/).optional(),
     }).required(),
 
     numberOfEmployees: Joi.number().min(0).optional(),
     annualTurnover: Joi.number().min(0).optional(),
     dateOfIncorporation: Joi.date().max("now").optional(),
+    incorporationId: Joi.string().trim().optional(),
     remarks: Joi.string().allow("").optional(),
 });
 
@@ -129,6 +132,7 @@ const updateCompanySchema = Joi.object({
     }).optional(),
     numberOfEmployees: Joi.number().min(0).optional(),
     annualTurnover: Joi.number().min(0).optional(),
+    incorporationId: Joi.string().trim().optional(),
     remarks: Joi.string().optional(),
 });
 

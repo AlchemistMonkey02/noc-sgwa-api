@@ -456,6 +456,13 @@ const NOCApplicationSchema = new mongoose.Schema(
                 uploadedAt: Date,
 
                 verification: {
+                    ai: {
+                        verified: { type: Boolean, default: false },
+                        confidence: Number,
+                        verifiedAt: Date,
+                        remarks: String,
+                        status: { type: String, default: "PENDING" }
+                    },
                     dgo: {
                         verified: { type: Boolean, default: false },
                         verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

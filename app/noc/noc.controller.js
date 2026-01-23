@@ -96,7 +96,7 @@ class NOCController {
      */
     async submitApplication(req, res, next) {
         try {
-            const application = await nocService.submitApplication(req.params.id, req.user.id);
+            const application = await nocService.submitApplication(req.params.id, req.user.id, req.user.userType);
 
             res.status(200).json({
                 success: true,
@@ -119,7 +119,7 @@ class NOCController {
      */
     async withdrawApplication(req, res, next) {
         try {
-            const application = await nocService.withdrawApplication(req.params.id, req.user.id);
+            const application = await nocService.withdrawApplication(req.params.id, req.user.id, req.user.userType);
 
             res.status(200).json({
                 success: true,
@@ -471,7 +471,8 @@ class NOCController {
         try {
             const summary = await nocService.getApplicationSummary(
                 req.params.id,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -511,7 +512,7 @@ class NOCController {
      */
     async getSectionStatus(req, res, next) {
         try {
-            const status = await nocService.getSectionCompletionStatus(req.params.id);
+            const status = await nocService.getSectionCompletionStatus(req.params.id, req.user.id, req.user.userType);
 
             res.status(200).json({
                 success: true,
@@ -529,7 +530,7 @@ class NOCController {
     async validateSection(req, res, next) {
         try {
             const { id, sectionNumber } = req.params;
-            const validation = await nocService.validateSection(id, parseInt(sectionNumber));
+            const validation = await nocService.validateSection(id, parseInt(sectionNumber), req.user.id, req.user.userType);
 
             res.status(200).json({
                 success: validation.isValid,
@@ -549,7 +550,8 @@ class NOCController {
         try {
             const progress = await nocService.getApplicationProgress(
                 req.params.id,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -569,7 +571,8 @@ class NOCController {
         try {
             const timeline = await nocService.getApplicationTimeline(
                 req.params.id,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -589,7 +592,8 @@ class NOCController {
         try {
             const approvalFlow = await nocService.getApprovalFlow(
                 req.params.id,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -633,7 +637,7 @@ class NOCController {
         try {
             const documents = await nocService.getApplicationDocuments(
                 req.params.id,
-                req.user.id
+                req.user
             );
 
             res.status(200).json({
@@ -660,7 +664,8 @@ class NOCController {
                 req.params.id,
                 1,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -683,7 +688,8 @@ class NOCController {
                 req.params.id,
                 2,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -706,7 +712,8 @@ class NOCController {
                 req.params.id,
                 3,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -729,7 +736,8 @@ class NOCController {
                 req.params.id,
                 4,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -752,7 +760,8 @@ class NOCController {
                 req.params.id,
                 5,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -775,7 +784,8 @@ class NOCController {
                 req.params.id,
                 6,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({
@@ -1038,26 +1048,6 @@ class NOCController {
         }
     }
 
-    /**
-     * GET /api/applications/noc/:id/calculate-fees
-     * Calculate application fees (Section 7: GW Charges)
-     */
-    async calculateFees(req, res, next) {
-        try {
-            const feeCalculation = await nocService.calculateApplicationFees(
-                req.params.id,
-                req.user.id
-            );
-
-            res.status(200).json({
-                success: true,
-                data: feeCalculation,
-                message: "Fees calculated successfully"
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
 
     /**
      * GET /api/applications/noc/:id/summary
@@ -1074,6 +1064,31 @@ class NOCController {
                 success: true,
                 data: summary,
                 message: "Application summary retrieved successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/applications/noc/calculate-discharge
+     * Calculate pump discharge rate
+     */
+    async calculatePumpDischarge(req, res, next) {
+        try {
+            const pumpCalculationService = require("./pump-calculation.service");
+            const { pumpCapacityHP, depthMeters, efficiency } = req.body;
+
+            const result = pumpCalculationService.calculateDischarge(
+                parseFloat(pumpCapacityHP),
+                parseFloat(depthMeters),
+                efficiency ? parseFloat(efficiency) : undefined
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Pump discharge calculated successfully"
             });
         } catch (error) {
             next(error);

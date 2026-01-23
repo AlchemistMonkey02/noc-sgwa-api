@@ -27,7 +27,7 @@ router.get("/ref/:trackingId/documents", nocController.getDocumentsByTrackingId)
 router.post(
     "/",
     companyMiddleware.verifyCompanyOwnership,
-    nocValidator.validateNOCApplication,
+    nocValidator.validateNOCDraft,
     nocController.createOrUpdateApplication
 );
 
@@ -108,6 +108,9 @@ router.get("/:id/timeline", nocController.getApplicationTimeline);
 
 // NEW: Approval Flow Status
 router.get("/:id/approval-flow", nocController.getApprovalFlow);
+
+// NEW: Pump Discharge Calculation (Public util)
+router.post("/calculate-discharge", nocController.calculatePumpDischarge);
 
 
 

@@ -3,8 +3,21 @@ const documentController = require("./document.controller");
 const authMiddleware = require("../middleware/auth.middleware");
 const { upload, handleMulterError } = require("./upload.middleware");
 
-// All routes require authentication
+// POST /api/documents/:id/verify-ai - Public AI Verification (No Auth Token Required)
+router.post("/:id/verify-ai", documentController.verifyDocumentAI);
+
+// All routes AFTER this line require authentication
 router.use(authMiddleware.authenticate);
+
+// POST /api/documents/upload/single - Upload single document
+router.post(
+    "/upload/single",
+    upload.single("file"),
+    documentController.uploadSingleDocument
+);
+
+// POST /api/documents/link - Link document to application
+router.post("/link", documentController.linkDocumentToApplication);
 
 // POST /api/documents/upload - Upload documents (multiple files)
 router.post(
@@ -50,6 +63,9 @@ router.get("/:id/download", documentController.downloadDocument);
 // GET /api/documents/:id/view - View document inline
 router.get("/:id/view", documentController.viewDocument);
 
+// GET /api/documents/:id/details - Get document details (metadata)
+router.get("/:id/details", documentController.getDocumentDetails);
+
 // DELETE /api/documents/:id - Delete document
 router.delete("/:id", documentController.deleteDocument);
 
@@ -57,13 +73,24 @@ router.delete("/:id", documentController.deleteDocument);
 router.put(
     "/:id/verify",
     authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT"),
+    authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT"),
     documentController.verifyDocument
+);
+
+// POST /api/documents/:id/verify-officer - Three-way Officer Verification
+router.post(
+    "/:id/verify-officer",
+    authMiddleware.authorize("DGO", "RSGWA", "SGWA", "ENFORCEMENT"),
+    documentController.verifyDocumentThreeWay
 );
 
 // GET /api/documents/tracking/:trackingId - Get documents by tracking ID
 router.get("/tracking/:trackingId", documentController.getDocumentsByTrackingId);
 
 // GET /api/documents/application/:applicationId - Get documents by application ID
+// GET /api/documents/application/:applicationId - Get documents by application ID
 router.get("/application/:applicationId", documentController.getDocumentsByApplicationId);
+
+
 
 module.exports = router;
