@@ -1,5 +1,49 @@
 const Joi = require("joi");
 
+// Draft create/update (section-wise flow): allow partial payloads
+// NOTE: Full validation should happen at submit-time (or via /validate).
+const nocDraftSchema = Joi.object({
+    applicationType: Joi.string().valid("NEW", "RENEWAL", "AMENDMENT").optional(),
+    applicationSubType: Joi.string().optional(),
+    projectType: Joi.string().optional(),
+    waterQualityType: Joi.string().optional(),
+    groundWaterUtilizationFor: Joi.string().optional(),
+    dateOfCommencement: Joi.date().optional(),
+    existingNOCStatus: Joi.string().valid("YES", "NO").optional(),
+    oldNOCNumber: Joi.any().optional(),
+
+    location: Joi.object({
+        stateId: Joi.string().optional(),
+        districtId: Joi.string().optional(),
+        blockId: Joi.string().optional(),
+        tehsil: Joi.string().optional(),
+        assessmentUnit: Joi.string().optional(),
+        relevantBlocks: Joi.string().optional(),
+        blockCategory: Joi.string().optional(),
+        village: Joi.string().optional(),
+        address: Joi.string().optional(),
+        pincode: Joi.string().pattern(/^[1-9][0-9]{5}$/).optional(),
+        latitude: Joi.number().min(-90).max(90).optional(),
+        longitude: Joi.number().min(-180).max(180).optional(),
+        geology: Joi.string().optional(),
+    }).optional(),
+
+    projectDetails: Joi.object().unknown(true).optional(),
+    digitalFlowMeter: Joi.object().unknown(true).optional(),
+    communicationAddress: Joi.object().unknown(true).optional(),
+    waterRequirement: Joi.object().unknown(true).optional(),
+    groundWaterStructures: Joi.array().items(Joi.object().unknown(true)).optional(),
+    waterRequirementBreakup: Joi.array().items(Joi.object().unknown(true)).optional(),
+    drinkingDomesticUse: Joi.object().unknown(true).optional(),
+    stpEtpDetails: Joi.object().unknown(true).optional(),
+    conservationMeasures: Joi.object().unknown(true).optional(),
+    hydrogeology: Joi.object().unknown(true).optional(),
+    feeDetails: Joi.object().unknown(true).optional(),
+    documents: Joi.array().items(Joi.object().unknown(true)).optional(),
+
+    applicationId: Joi.string().optional(), // For updates
+}).unknown(true);
+
 // Create/Update NOC Application
 const nocApplicationSchema = Joi.object({
     applicationType: Joi.string().valid("NEW", "RENEWAL", "AMENDMENT").required(),
@@ -190,6 +234,7 @@ const validate = (schema) => {
 };
 
 module.exports = {
+    validateNOCDraft: validate(nocDraftSchema),
     validateNOCApplication: validate(nocApplicationSchema),
     validateQueryResponse: validate(queryResponseSchema),
     validateRaiseQuery: validate(raiseQuerySchema),

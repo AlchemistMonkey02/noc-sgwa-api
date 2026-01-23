@@ -4,6 +4,46 @@ const logger = require("../utils/logger");
 
 class DocumentController {
     /**
+     * POST /api/documents/upload/single
+     * Upload a single document
+     */
+    async uploadSingleDocument(req, res, next) {
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "NO_FILE",
+                        message: "No file uploaded",
+                    },
+                });
+            }
+
+            const userId = req.user.id;
+            const companyId = req.body.companyId || req.company?._id || null;
+
+            // Service expects an array of files
+            const files = [req.file];
+
+            const documents = await documentService.uploadDocuments(
+                files,
+                userId,
+                companyId,
+                req.body.documentType || "OTHER",
+                { applicationId: req.body.applicationId }
+            );
+
+            res.status(201).json({
+                success: true,
+                data: documents[0], // Return single object
+                message: "Document uploaded successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * POST /api/documents/upload
      * Upload documents with automatic user and company linking
      */
@@ -28,7 +68,8 @@ class DocumentController {
                 req.files,
                 userId,
                 companyId,
-                req.body.documentType || "OTHER"
+                req.body.documentType || "OTHER",
+                { applicationId: req.body.applicationId }
             );
 
             res.status(201).json({
@@ -74,7 +115,8 @@ class DocumentController {
                 req.files,
                 userId,
                 companyId,
-                documentTypes
+                documentTypes,
+                { applicationId: req.body.applicationId }
             );
 
             res.status(201).json({
@@ -124,7 +166,8 @@ class DocumentController {
                 req.files,
                 userId,
                 companyId,
-                documentTypes
+                documentTypes,
+                { applicationId: req.body.applicationId }
             );
 
             res.status(201).json({
@@ -179,7 +222,8 @@ class DocumentController {
                 req.files,
                 userId,
                 companyId,
-                documentTypes
+                documentTypes,
+                { applicationId: req.body.applicationId }
             );
 
             res.status(201).json({
@@ -229,7 +273,8 @@ class DocumentController {
                 req.files,
                 userId,
                 companyId,
-                documentTypes
+                documentTypes,
+                { applicationId: req.body.applicationId }
             );
 
             res.status(201).json({
@@ -317,6 +362,29 @@ class DocumentController {
 
             // Send file
             res.sendFile(path.resolve(document.filePath));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/documents/:id/details
+     * Get document details (metadata and verification status)
+     */
+    async getDocumentDetails(req, res, next) {
+        try {
+            const { id } = req.params;
+
+            const document = await documentService.getDocument(
+                id,
+                req.user.id,
+                req.user.userType
+            );
+
+            res.status(200).json({
+                success: true,
+                data: document,
+            });
         } catch (error) {
             next(error);
         }
@@ -429,6 +497,87 @@ class DocumentController {
                 success: true,
                 data: document,
                 message: "Document verified successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/link
+     * Link document(s) to application
+     */
+    async linkDocumentToApplication(req, res, next) {
+        try {
+            const { documentId, documentIds, applicationId } = req.body;
+
+            if (!applicationId) {
+                throw {
+                    statusCode: 400,
+                    code: "MISSING_FIELDS",
+                    message: "applicationId is required"
+                };
+            }
+
+            let result;
+            if (documentIds && Array.isArray(documentIds)) {
+                result = await documentService.linkDocumentsToApplication(
+                    documentIds,
+                    applicationId,
+                    req.user.id
+                );
+            } else if (documentId) {
+                result = await documentService.linkDocumentToApplication(
+                    documentId,
+                    applicationId,
+                    req.user.id
+                );
+            } else {
+                throw {
+                    statusCode: 400,
+                    code: "MISSING_FIELDS",
+                    message: "Either documentId or documentIds is required"
+                };
+            }
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: result.message || "Document(s) linked successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/documents/:id/verify-ai
+     * AI Verification Check
+     */
+    async verifyDocumentAI(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { verified } = req.body;  // true/false
+
+            if (typeof verified !== 'boolean') {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "INVALID_INPUT",
+                        message: "The 'verified' field must be a boolean (true/false)."
+                    }
+                });
+            }
+
+            const document = await documentService.verifyDocumentAI(
+                id,
+                verified
+            );
+
+            res.status(200).json({
+                success: true,
+                data: document,
+                message: `Document AI verification ${verified ? "successful" : "failed"}`
             });
         } catch (error) {
             next(error);

@@ -22,6 +22,11 @@ const CompanySchema = new mongoose.Schema({
     },
 
     // Registration Details
+    incorporationId: {
+        type: String,
+        trim: true,
+        sparse: true,
+    },
     companyRegistrationNumber: {
         type: String,
         trim: true,

@@ -112,6 +112,79 @@ class CompanyController {
     }
 
     /**
+     * GET /api/companies/:id/documents
+     * Get company documents
+     */
+    async getCompanyDocuments(req, res, next) {
+        try {
+            const companyId = req.params.id;
+            const userId = req.user.id;
+
+            // Allow officers to bypass ownership check
+            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+
+            const documents = await companyService.getCompanyDocuments(
+                companyId,
+                isOfficer ? null : userId
+            );
+
+            res.status(200).json({
+                success: true,
+                data: documents,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/companies/:id/documents/upload
+     * Upload a single company document
+     */
+    async uploadCompanyDocument(req, res, next) {
+        try {
+            const companyId = req.params.id;
+            const userId = req.user.id;
+            const { documentType } = req.body;
+
+            if (!documentType) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "MISSING_DOCUMENT_TYPE",
+                        message: "documentType is required",
+                    },
+                });
+            }
+
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "MISSING_FILE",
+                        message: "No file uploaded",
+                    },
+                });
+            }
+
+            const document = await companyService.uploadCompanyDocument(
+                companyId,
+                userId,
+                documentType,
+                req.file
+            );
+
+            res.status(201).json({
+                success: true,
+                data: document,
+                message: "Document uploaded successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * GET /api/companies/:id
      * Get company by ID
      */
@@ -145,7 +218,8 @@ class CompanyController {
             const company = await companyService.updateCompany(
                 req.params.id,
                 userId,
-                req.body
+                req.body,
+                req.files
             );
 
             res.status(200).json({
@@ -234,6 +308,43 @@ class CompanyController {
                 success: true,
                 data: company,
                 message: `Company ${action}d successfully`,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/companies/officer/:id/verify-document
+     * Verify/Reject company document
+     */
+    async verifyCompanyDocument(req, res, next) {
+        try {
+            const officerId = req.user.id;
+            const { documentId, status, remarks } = req.body;
+
+            if (!["VERIFIED", "REJECTED"].includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    error: {
+                        code: "INVALID_STATUS",
+                        message: "Status must be 'VERIFIED' or 'REJECTED'",
+                    },
+                });
+            }
+
+            const company = await companyService.verifyCompanyDocument(
+                req.params.id,
+                officerId,
+                documentId,
+                status,
+                remarks
+            );
+
+            res.status(200).json({
+                success: true,
+                data: company,
+                message: `Document ${status.toLowerCase()} successfully`,
             });
         } catch (error) {
             next(error);

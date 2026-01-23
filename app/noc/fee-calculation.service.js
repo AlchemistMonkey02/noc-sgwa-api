@@ -15,7 +15,9 @@ class FeeCalculationService {
     async calculateFees(applicationId, manualInputs = {}) {
         try {
             // Fetch application
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -61,8 +63,15 @@ class FeeCalculationService {
     extractFeeInputs(application, manualInputs) {
         // Priority: Manual inputs > Application data
 
+        // Helper to parse float safely
+        const parseFloatSafe = (val) => {
+            if (val === undefined || val === null || val === "") return undefined;
+            const parsed = parseFloat(val);
+            return isNaN(parsed) ? undefined : parsed;
+        };
+
         // 1. Water Requirement (from Section 4 - Water Requirement Breakup)
-        const totalWaterRequirement = manualInputs.waterRequirement ||
+        const totalWaterRequirement = parseFloatSafe(manualInputs.waterRequirement) ??
             this.calculateTotalWaterRequirement(application);
 
         // 2. Block Category (from Section 2 - Location Details)
@@ -81,18 +90,22 @@ class FeeCalculationService {
             "NEW";
 
         // 5. Validity Period (from Section 1)
-        const validityPeriod = manualInputs.validityPeriod ||
-            application.validityPeriodRequested ||
+        const validityPeriod = parseFloatSafe(manualInputs.validityPeriod) ??
+            application.validityPeriodRequested ??
             3;
 
         // 6. MSME Status (affects fee exemption/discount)
-        const isMSME = manualInputs.isMSME !== undefined ?
-            manualInputs.isMSME :
-            (application.projectDetails?.isMSME || false);
+        let isMSME = manualInputs.isMSME;
+        if (isMSME === "true") isMSME = true;
+        if (isMSME === "false") isMSME = false;
+
+        if (isMSME === undefined) {
+            isMSME = application.projectDetails?.isMSME || false;
+        }
 
         // 7. Number of Borewells (from Section 5)
-        const numberOfBorewells = manualInputs.numberOfBorewells ||
-            application.groundWaterStructures?.length ||
+        const numberOfBorewells = parseFloatSafe(manualInputs.numberOfBorewells) ??
+            application.groundWaterStructures?.length ??
             0;
 
         return {
@@ -162,7 +175,7 @@ class FeeCalculationService {
         } = inputs;
 
         // Base fee structure
-        const BASE_FEE = 1000;
+        const BASE_FEE = 10000;
         const ABSTRACTION_RATE_PER_KL = this.getAbstractionRate(blockCategory, sectorType);
         const BOREWELL_FEE = 500; // Per borewell
         const GST_RATE = 0.18; // 18% GST

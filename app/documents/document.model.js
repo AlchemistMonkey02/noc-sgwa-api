@@ -18,8 +18,8 @@ const DocumentSchema = new mongoose.Schema(
             index: true,
         },
         applicationId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "NOCApplication",
+            type: String,
+            // ref: "NOCApplication", // Relationship is based on UUID string, not ObjectId
             index: true,
         },
 
@@ -48,6 +48,13 @@ const DocumentSchema = new mongoose.Schema(
 
         // Three-Way Verification (DGO → SGWA → Enforcement)
         verification: {
+            ai: {
+                verified: { type: Boolean, default: false },
+                confidence: Number,
+                verifiedAt: Date,
+                remarks: String,
+                status: { type: String, default: "PENDING" }
+            },
             dgo: {
                 verified: { type: Boolean, default: false },
                 verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

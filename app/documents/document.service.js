@@ -79,7 +79,13 @@ class DocumentService {
      */
     async getDocument(documentId, userId, userType) {
         try {
-            const document = await Document.findOne({ documentId });
+            const mongoose = require("mongoose");
+            const isObjectId = mongoose.Types.ObjectId.isValid(documentId);
+            const query = isObjectId
+                ? { $or: [{ _id: documentId }, { documentId: documentId }] }
+                : { documentId };
+
+            const document = await Document.findOne(query);
 
             if (!document) {
                 throw {
@@ -91,9 +97,15 @@ class DocumentService {
 
             // Access control - ensure both sides are strings for comparison
             const isOwner = document.userId.toString() === userId.toString();
-            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT"].includes(userType);
+            // Also allow if company matches (for company documents)
+            // But we need to ensure the user owns the company? 
+            // Simplified: if user owns document OR is officer.
+
+            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "SGWA"].includes(userType);
 
             if (!isOwner && !isOfficer) {
+                // If checking company ownership is needed, we'd need to look up company
+                // For now, stricter is safer.
                 throw {
                     statusCode: 403,
                     code: "UNAUTHORIZED_ACCESS",
@@ -271,21 +283,13 @@ class DocumentService {
      */
     async getDocumentsByApplicationId(applicationId) {
         try {
-            const NOCApplication = require("../noc/noc-application.model");
+            // Directly query the Document collection
+            // This allows retrieving documents even if the NOCApplication record doesn't exist yet
+            const documents = await Document.find({ applicationId })
+                .select("-filePath") // Exclude sensitive/large paths
+                .sort({ uploadedAt: -1 });
 
-            // Find application by applicationId (UUID)
-            const application = await NOCApplication.findOne({ applicationId });
-
-            if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found"
-                };
-            }
-
-            // Return embedded documents
-            return application.documents || [];
+            return documents;
         } catch (error) {
             logger.error("Error fetching documents by application ID", error);
             throw error;
@@ -362,6 +366,188 @@ class DocumentService {
             return document;
         } catch (error) {
             logger.error("Error in three-way document verification", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Link document to application
+     */
+    async linkDocumentToApplication(documentId, applicationId, userId) {
+        try {
+            // Re-use bulk implementation for single document
+            return await this.linkDocumentsToApplication([documentId], applicationId, userId);
+        } catch (error) {
+            logger.error("Error linking document", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Link multiple documents to application
+     */
+    async linkDocumentsToApplication(documentIds, applicationId, userId) {
+        try {
+            const Document = require("./document.model");
+            const NOCApplication = require("../noc/noc-application.model");
+
+            if (!Array.isArray(documentIds) || documentIds.length === 0) {
+                throw {
+                    statusCode: 400,
+                    code: "INVALID_INPUT",
+                    message: "documentIds must be a non-empty array"
+                };
+            }
+
+            // 1. Fetch all documents
+            // We use $in to get all documents at once
+            const documents = await Document.find({
+                $or: [
+                    { documentId: { $in: documentIds } },
+                    { _id: { $in: documentIds } }
+                ]
+            });
+
+            if (documents.length !== documentIds.length) {
+                // Some documents might not exist
+                // Ideally we should report which ones, but for now just error
+                // Filter out found IDs to see which are missing if needed
+                throw {
+                    statusCode: 404,
+                    code: "DOCUMENT_NOT_FOUND",
+                    message: "One or more documents not found"
+                };
+            }
+
+            // 2. Verify ownership of ALL documents
+            const nonOwnedDocs = documents.filter(doc => doc.userId.toString() !== userId);
+            if (nonOwnedDocs.length > 0) {
+                throw {
+                    statusCode: 403,
+                    code: "UNAUTHORIZED_ACCESS",
+                    message: "You can only link your own documents"
+                };
+            }
+
+            // 3. Fetch Application
+            const application = await NOCApplication.findOne({ applicationId });
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: "APPLICATION_NOT_FOUND",
+                    message: "Application not found"
+                };
+            }
+
+            // 4. Verify Application ownership
+            if (application.userId.toString() !== userId) {
+                throw {
+                    statusCode: 403,
+                    code: "UNAUTHORIZED_ACCESS",
+                    message: "You can only link documents to your own applications"
+                };
+            }
+
+            // 5. Update Documents in Document Collection
+            // We can use updateMany. The filter ensures we only update the ones we verified
+            // Note: We use the _ids of the fetched documents to be safe
+            const docObjectIds = documents.map(d => d._id);
+            await Document.updateMany(
+                { _id: { $in: docObjectIds } },
+                { $set: { applicationId: applicationId } }
+            );
+
+            // 6. Update NOCApplication (Embedded Array)
+            let newDocsAdded = 0;
+
+            // Create a set of existing doc IDs for O(1) lookup
+            const existingDocIds = new Set(application.documents.map(d => d.documentId));
+
+            for (const doc of documents) {
+                if (!existingDocIds.has(doc.documentId)) {
+                    application.documents.push({
+                        documentId: doc.documentId,
+                        documentType: doc.documentType,
+                        fileName: doc.originalFilename,
+                        uploadedAt: doc.uploadedAt,
+                        isVerified: false
+                    });
+                    newDocsAdded++;
+                }
+            }
+
+            if (newDocsAdded > 0) {
+                await application.save({ validateBeforeSave: false });
+            }
+
+            return {
+                message: `${newDocsAdded} document(s) linked successfully`,
+                linkedCount: newDocsAdded,
+                totalRequested: documentIds.length,
+                applicationId
+            };
+
+        } catch (error) {
+            logger.error("Error linking documents", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Verify document via AI
+     */
+    async verifyDocumentAI(documentId, verified, confidence = 1.0, remarks = "AI Verified") {
+        try {
+            const document = await Document.findOne({ documentId });
+
+            if (!document) {
+                throw {
+                    statusCode: 404,
+                    code: "DOCUMENT_NOT_FOUND",
+                    message: "Document not found"
+                };
+            }
+
+            // Update Document AI Verification
+            document.verification.ai = {
+                verified: verified,
+                confidence: confidence,
+                verifiedAt: new Date(),
+                remarks: remarks,
+                status: verified ? "APPROVED" : "REJECTED"
+            };
+
+            await document.save();
+
+            // Sync with NOCApplication if linked
+            // Since NOCApplication embeds documents, we need to update the embedded doc too
+            if (document.applicationId) {
+                const NOCApplication = require("../noc/noc-application.model");
+                // Find application that contains this document
+                // Note: applicationId in Document is a UUID, which might match applicationId in NOCApplication
+                // BUT NOCApplication actually stores documents in an array. 
+                // We need to find the application by its UUID or _id (if we stored it)
+                // However, simpler is to query by the documentId inside the documents array.
+
+                // Try to find the application containing this document
+                const app = await NOCApplication.findOne({ "documents.documentId": documentId });
+
+                if (app) {
+                    // Update the specific element in the array
+                    const docIndex = app.documents.findIndex(d => d.documentId === documentId);
+                    if (docIndex !== -1) {
+                        app.documents[docIndex].verification.ai = document.verification.ai;
+                        await app.save();
+                        logger.info(`Synced AI verification to Application ${app.applicationId}`, { documentId });
+                    }
+                }
+            }
+
+            logger.info(`Document AI Verification ${verified ? "Approved" : "Rejected"}: ${documentId}`);
+
+            return document;
+        } catch (error) {
+            logger.error("Error verifying document with AI", error);
             throw error;
         }
     }

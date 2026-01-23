@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const Document = require("../documents/document.model");
 const NOCApplication = require("./noc-application.model");
 const ApplicationQuery = require("./application-query.model");
 const NOCCertificate = require("./noc-certificate.model");
@@ -10,6 +11,45 @@ const notificationService = require("../notifications/notification.service");
 const logger = require("../utils/logger");
 
 class NOCService {
+    /**
+     * Internal helper to find an application and verify access
+     * Supports both MongoDB _id and custom applicationId
+     */
+    async _getAuthorizedApplication(id, userId, userType, populateOptions = null) {
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+        const query = isObjectId ? { _id: id } : { applicationId: id };
+
+        let queryBuilder = NOCApplication.findOne(query);
+        if (populateOptions) {
+            queryBuilder = queryBuilder.populate(populateOptions);
+        }
+
+        const application = await queryBuilder;
+
+        if (!application) {
+            throw {
+                statusCode: 404,
+                code: "APPLICATION_NOT_FOUND",
+                message: "Application not found",
+            };
+        }
+
+        // Access control: User is owner OR User is an Officer
+        const appUserId = application.userId?._id || application.userId;
+        const isOwner = appUserId && appUserId.toString() === userId.toString();
+        const isOfficer = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT"].includes(userType);
+
+        if (!isOwner && !isOfficer) {
+            throw {
+                statusCode: 403,
+                code: "UNAUTHORIZED_ACCESS",
+                message: "You do not have permission to access this application",
+            };
+        }
+
+        return application;
+    }
+
     /**
      * Create or update draft application
      */
@@ -75,9 +115,9 @@ class NOCService {
     /**
      * Submit application for review
      */
-    async submitApplication(applicationId, userId) {
+    async submitApplication(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -171,6 +211,10 @@ class NOCService {
 
             application.status = "SUBMITTED";
             application.submittedAt = new Date();
+
+            // Auto-assign to DGO based on district
+            await this.assignApplicationToOfficer(application);
+
             await application.save({ validateBeforeSave: false }); // This will trigger auto-generation of application number
 
             logger.info(`Application submitted: ${application.applicationNumber}`, { userId });
@@ -193,6 +237,59 @@ class NOCService {
         } catch (error) {
             logger.error("Error submitting application", error);
             throw error;
+        }
+    }
+
+    /**
+     * Auto-assign application to officer based on district
+     */
+    async assignApplicationToOfficer(application) {
+        try {
+            const User = require("../auth/user.model");
+
+            // Get district from application
+            // Ensure we handle case insensitivity and trimming
+            const district = application.location?.districtId?.trim();
+
+            if (!district) {
+                logger.warn(`Cannot auto-assign application ${application.applicationId}: No district specified`);
+                return;
+            }
+
+            // Find DGO for this district
+            // We look for a user with role 'DGO' and matching district in communication address
+            const officer = await User.findOne({
+                userType: "DGO",
+                "communicationAddress.district": { $regex: new RegExp(`^${district}$`, "i") }
+            });
+
+            if (officer) {
+                // Assign to officer
+                application.assignedTo = officer._id;
+                application.assignedAt = new Date();
+
+                // Update DGO flow
+                if (!application.approvalFlow) application.approvalFlow = {};
+                if (!application.approvalFlow.dgo) application.approvalFlow.dgo = {};
+
+                application.approvalFlow.dgo.assignedTo = officer._id;
+                application.approvalFlow.dgo.assignedAt = new Date();
+                application.approvalFlow.dgo.status = "PENDING";
+
+                // Ensure other stages are pending/not started
+                // SGWA and Enforcement should NOT be assigned yet
+                if (!application.approvalFlow.sgwa) application.approvalFlow.sgwa = { status: "PENDING" };
+                if (!application.approvalFlow.enforcement) application.approvalFlow.enforcement = { status: "PENDING" };
+
+                logger.info(`Auto-assigned application ${application.applicationNumber} to DGO ${officer.fullName} (${district})`);
+
+                // TODO: Notify officer (Email/SMS)
+            } else {
+                logger.warn(`No DGO found for district: ${district}. Application ${application.applicationNumber} remains unassigned.`);
+            }
+        } catch (error) {
+            logger.error("Error in auto-assignment", error);
+            // Don't block submission if assignment fails
         }
     }
 
@@ -243,41 +340,12 @@ class NOCService {
      */
     async getApplicationById(applicationId, userId, userType) {
         try {
-            // Check if applicationId is a valid MongoDB ObjectId
-            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
-
-            const query = {};
-            if (isObjectId) {
-                query._id = applicationId;
-            } else {
-                query.applicationId = applicationId;
-            }
-
-            const application = await NOCApplication.findOne(query).populate(
+            return await this._getAuthorizedApplication(
+                applicationId,
+                userId,
+                userType,
                 "nocCertificateId"
             );
-
-            if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found",
-                };
-            }
-
-            // Access control
-            const isOwner = application.userId.toString() === userId;
-            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT"].includes(userType);
-
-            if (!isOwner && !isOfficer) {
-                throw {
-                    statusCode: 403,
-                    code: "UNAUTHORIZED_ACCESS",
-                    message: "You do not have permission to view this application",
-                };
-            }
-
-            return application;
         } catch (error) {
             throw error;
         }
@@ -286,9 +354,9 @@ class NOCService {
     /**
      * Withdraw application
      */
-    async withdrawApplication(applicationId, userId) {
+    async withdrawApplication(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -410,9 +478,9 @@ class NOCService {
     /**
      * Update specific section of an application
      */
-    async updateSection(applicationId, sectionNumber, sectionData, userId) {
+    async updateSection(applicationId, sectionNumber, sectionData, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -511,7 +579,7 @@ class NOCService {
                     throw {
                         statusCode: 400,
                         code: "INVALID_SECTION",
-                        message: "Invalid section number. Must be between 1 and 6.",
+                        message: "Invalid section number. Supported sections: 1-6 and 9.",
                     };
             }
 
@@ -527,9 +595,9 @@ class NOCService {
     /**
      * Calculate application fees
      */
-    async calculateApplicationFees(applicationId, userId) {
+    async calculateApplicationFees(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -565,21 +633,19 @@ class NOCService {
     /**
      * Get application summary
      */
-    async getApplicationSummary(applicationId, userId) {
+    async getApplicationSummary(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId })
-                .populate('companyId', 'companyName registrationNumber gstNumber')
-                .populate('userId', 'firstName lastName email phone');
+            const application = await this._getAuthorizedApplication(
+                applicationId,
+                userId,
+                userType,
+                [
+                    { path: 'companyId', select: 'companyName registrationNumber gstNumber' },
+                    { path: 'userId', select: 'firstName lastName email phone' }
+                ]
+            );
 
-            if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found",
-                };
-            }
-
-            const fees = await this.calculateApplicationFees(applicationId, userId);
+            const fees = await this.calculateApplicationFees(applicationId, userId, userType);
 
             return {
                 applicationId: application.applicationId,
@@ -594,6 +660,8 @@ class NOCService {
                 drinkingDomesticUse: application.drinkingDomesticUse,
                 waterRequirementBreakup: application.waterRequirementBreakup,
                 groundWaterStructures: application.groundWaterStructures,
+                digitalFlowMeter: application.digitalFlowMeter,
+                documents: application.documents,
                 feeDetails: fees.feeCalculation,
                 companyDetails: application.companyId,
                 timestamps: {
@@ -610,9 +678,9 @@ class NOCService {
     /**
      * Get section completion status
      */
-    async getSectionCompletionStatus(applicationId) {
+    async getSectionCompletionStatus(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -667,9 +735,9 @@ class NOCService {
     /**
      * Validate specific section
      */
-    async validateSection(applicationId, sectionNumber) {
+    async validateSection(applicationId, sectionNumber, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
             if (!application) {
                 throw {
@@ -720,19 +788,11 @@ class NOCService {
     /**
      * Get application progress
      */
-    async getApplicationProgress(applicationId, userId) {
+    async getApplicationProgress(applicationId, userId, userType) {
         try {
-            const application = await NOCApplication.findOne({ applicationId, userId });
+            const application = await this._getAuthorizedApplication(applicationId, userId, userType);
 
-            if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found",
-                };
-            }
-
-            const sectionStatus = await this.getSectionCompletionStatus(applicationId);
+            const sectionStatus = await this.getSectionCompletionStatus(applicationId, userId, userType);
 
             return {
                 applicationId,
@@ -752,24 +812,20 @@ class NOCService {
     /**
      * Get application timeline
      */
-    async getApplicationTimeline(applicationId, userId) {
+    async getApplicationTimeline(applicationId, userId, userType) {
         try {
-            // Check if applicationId is a valid MongoDB ObjectId
-            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
-
-            const query = { userId };
-            if (isObjectId) {
-                query._id = applicationId;
-            } else {
-                query.applicationId = applicationId;
-            }
-
-            const application = await NOCApplication.findOne(query)
-                .populate("approvalFlow.dgo.reviewedBy", "firstName lastName role")
-                .populate("approvalFlow.sgwa.reviewedBy", "firstName lastName role")
-                .populate("approvalFlow.enforcement.reviewedBy", "firstName lastName role")
-                .populate("approvalFlow.dgo.assignedTo", "firstName lastName role")
-                .populate("userId", "firstName lastName");
+            const application = await this._getAuthorizedApplication(
+                applicationId,
+                userId,
+                userType,
+                [
+                    { path: "approvalFlow.dgo.reviewedBy", select: "firstName lastName role" },
+                    { path: "approvalFlow.sgwa.reviewedBy", select: "firstName lastName role" },
+                    { path: "approvalFlow.enforcement.reviewedBy", select: "firstName lastName role" },
+                    { path: "approvalFlow.dgo.assignedTo", select: "firstName lastName role" },
+                    { path: "userId", select: "firstName lastName" }
+                ]
+            );
 
             if (!application) {
                 throw {
@@ -921,23 +977,18 @@ class NOCService {
     /**
      * Get approval flow status only
      */
-    async getApprovalFlow(applicationId, userId) {
+    async getApprovalFlow(applicationId, userId, userType) {
         try {
-            // Check if applicationId is a valid MongoDB ObjectId
-            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
-
-            const query = { userId };
-            if (isObjectId) {
-                query._id = applicationId;
-            } else {
-                query.applicationId = applicationId;
-            }
-
-            const application = await NOCApplication.findOne(query)
-                .populate("approvalFlow.dgo.reviewedBy", "firstName lastName")
-                .populate("approvalFlow.sgwa.reviewedBy", "firstName lastName")
-                .populate("approvalFlow.enforcement.reviewedBy", "firstName lastName")
-                .select("applicationId applicationNumber status approvalFlow");
+            const application = await this._getAuthorizedApplication(
+                applicationId,
+                userId,
+                userType,
+                [
+                    { path: "approvalFlow.dgo.reviewedBy", select: "firstName lastName" },
+                    { path: "approvalFlow.sgwa.reviewedBy", select: "firstName lastName" },
+                    { path: "approvalFlow.enforcement.reviewedBy", select: "firstName lastName" }
+                ]
+            );
 
             if (!application) {
                 throw {
@@ -998,10 +1049,45 @@ class NOCService {
                 };
             }
 
-            application.documents = documentIds;
-            await application.save();
+            // Fetch actual document details from Document collection
+            const documents = await Document.find({ documentId: { $in: documentIds } });
 
-            logger.info(`Documents linked: ${applicationId}`, { userId, count: documentIds.length });
+            if (documents.length === 0) {
+                throw {
+                    statusCode: 404,
+                    code: "DOCUMENTS_NOT_FOUND",
+                    message: "No valid documents found for the provided IDs",
+                };
+            }
+
+            // Map to embedded schema format
+            const timestamp = new Date();
+            const embeddedDocs = documents.map(doc => ({
+                documentType: doc.documentType || "OTHER",
+                documentId: doc.documentId,
+                fileName: doc.originalFilename || doc.documentName,
+                uploadedAt: doc.uploadedAt || timestamp,
+                isVerified: false,
+                verification: {
+                    dgo: { status: 'PENDING', verified: false },
+                    sgwa: { status: 'PENDING', verified: false },
+                    enforcement: { status: 'PENDING', verified: false }
+                }
+            }));
+
+            // Check if documents already exist to avoid duplicates (optional, but good practice)
+            // For now, simpler to just push or replace. Let's merge.
+
+            // Filter out ones that are already linked
+            const existingIds = (application.documents || []).map(d => d.documentId);
+            const newDocs = embeddedDocs.filter(d => !existingIds.includes(d.documentId));
+
+            if (newDocs.length > 0) {
+                application.documents = [...(application.documents || []), ...newDocs];
+                await application.save();
+            }
+
+            logger.info(`Documents linked: ${applicationId}`, { userId, count: newDocs.length });
             return application;
         } catch (error) {
             logger.error("Error linking documents", error);
@@ -1012,16 +1098,25 @@ class NOCService {
     /**
      * Get application documents
      */
-    async getApplicationDocuments(applicationId, userId) {
+    async getApplicationDocuments(applicationId, user) {
         try {
+            const userId = user.id || user._id;
+            const userType = user.userType || user.role;
+
             // Check if applicationId is a valid MongoDB ObjectId
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
 
-            const query = { userId };
+            const query = {};
             if (isObjectId) {
                 query._id = applicationId;
             } else {
                 query.applicationId = applicationId;
+            }
+
+            // Only enforce userId ownership if NOT an authorized officer/admin
+            const authorizedRoles = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT", "ADMIN"];
+            if (authorizedRoles.indexOf(userType) === -1) {
+                query.userId = userId;
             }
 
             const application = await NOCApplication.findOne(query);
@@ -1030,7 +1125,7 @@ class NOCService {
                 throw {
                     statusCode: 404,
                     code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found",
+                    message: "Application not found or you do not have permission to view it",
                 };
             }
 

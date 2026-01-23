@@ -8,7 +8,19 @@ Use these standard cURL commands to test the Company APIs. These are equivalent 
 
 ## User Endpoints
 
-### 1. Register Company
+### 1. Register Company (Multipart/Form-Data)
+> Note: The `data` field must contain the JSON object as a string.
+```bash
+curl -X POST "{{BASE_URL}}/api/companies/register" \
+  -H "Authorization: Bearer {{TOKEN}}" \
+  -F "data={\"companyName\": \"ABC Industries Pvt Ltd\", \"companyType\": \"PRIVATE_LIMITED\", \"industryType\": \"MANUFACTURING\", \"incorporationId\": \"U12345RJ2023PTC123456\", \"gstNumber\": \"07AAKCS1234F1Z5\", \"panNumber\": \"AAKCS1234F\", \"email\": \"info@abcindustries.com\", \"phone\": \"9876543210\", \"registeredAddress\": {\"addressLine1\": \"Plot No. 123\", \"state\": \"Rajasthan\", \"district\": \"Jaipur\", \"pincode\": \"302013\", \"city\": \"Jaipur\"}, \"authorizedPerson\": {\"name\": \"Rajesh Kumar\", \"designation\": \"Managing Director\", \"email\": \"rajesh@example.com\", \"phone\": \"9876543210\"}}" \
+  -F "companyPan=@/path/to/pan.pdf" \
+  -F "gstCertificate=@/path/to/gst.pdf" \
+  -F "incorporationCertificate=@/path/to/incorp.pdf" \
+  -F "authorizationLetter=@/path/to/auth.pdf"
+```
+
+### 1a. Register Company (JSON only / No Documents)
 ```bash
 curl -X POST "{{BASE_URL}}/api/companies/register" \
   -H "Authorization: Bearer {{TOKEN}}" \
@@ -17,6 +29,7 @@ curl -X POST "{{BASE_URL}}/api/companies/register" \
     "companyName": "ABC Industries Pvt Ltd",
     "companyType": "PRIVATE_LIMITED",
     "industryType": "MANUFACTURING",
+    "incorporationId": "U12345RJ2023PTC123456",
     "gstNumber": "07AAKCS1234F1Z5",
     "panNumber": "AAKCS1234F",
     "email": "info@abcindustries.com",
@@ -25,13 +38,22 @@ curl -X POST "{{BASE_URL}}/api/companies/register" \
         "addressLine1": "Plot No. 123",
         "state": "Rajasthan",
         "district": "Jaipur",
-        "pincode": "302013"
+        "pincode": "302013",
+        "city": "Jaipur"
     },
     "authorizedPerson": {
         "name": "Rajesh Kumar",
-        "designation": "Managing Director"
+        "designation": "Managing Director",
+        "email": "rajesh@example.com",
+        "phone": "9876543210"
     }
   }'
+```
+
+### 2. Get Company Profile (Current User)
+```bash
+curl -X GET "{{BASE_URL}}/api/companies/profile" \
+  -H "Authorization: Bearer {{TOKEN}}"
 ```
 
 ### 2. Get All User Companies
