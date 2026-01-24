@@ -1117,12 +1117,13 @@ class NOCController {
     async calculatePumpDischarge(req, res, next) {
         try {
             const pumpCalculationService = require("./pump-calculation.service");
-            const { pumpCapacityHP, depthMeters, efficiency } = req.body;
+            const { pumpCapacityHP, depthMeters, efficiency, operatingHours } = req.body;
 
             const result = pumpCalculationService.calculateDischarge(
                 parseFloat(pumpCapacityHP),
                 parseFloat(depthMeters),
-                efficiency ? parseFloat(efficiency) : undefined
+                efficiency ? parseFloat(efficiency) : undefined,
+                operatingHours ? parseFloat(operatingHours) : undefined
             );
 
             res.status(200).json({

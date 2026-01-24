@@ -23,3 +23,56 @@ Thumbs.db
 # Build outputs
 dist/
 build/
+
+# Ignore all markdown files
+*.md
+
+# Scripts and Tools
+scripts/
+seeders/
+doc for sgwa/
+
+# Debug and Temp files
+create-applicant.js
+CGWA NOC.pdf
+debug-check-data.js
+debug-block.js
+debug_json.txt
+diagnose-inspection.js
+diagnose-noc.js
+diagnose-sgwa.js
+fix-data.js
+generate-verify-curl.js
+migrate-templates.js
+probe_server.js
+prove_stale.js
+reset-officers.js
+seed-master-data.js
+seed-officers.js
+temp_data.json
+user-dummy-flow-meter.json
+verify_routes.js
+
+# Test Scripts
+test_certificate_curl.ps1
+test_company_reg.js
+test_notifications.js
+test_whatsapp.js
+test-all-apis.sh
+test-all-channels.js
+test-all-emails.js
+test-all-sms.js
+test-all-whatsapp.js
+test-check-documents.js
+test-dashboard-full.ps1
+test-dashboard.ps1
+test-db-connection.js
+test-dgo-api.ps1
+test-dgo-flow.js
+test-dgo-full-flow.js
+test-eligibility.ps1
+test-email.js
+test-find-application.js
+test-registration.ps1
+test-sgwa-flow.js
+test-tracking.js
