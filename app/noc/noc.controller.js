@@ -177,7 +177,11 @@ class NOCController {
      */
     async trackApplication(req, res, next) {
         try {
-            const application = await nocService.trackApplication(req.params.applicationNumber);
+            // Support capturing ID with slashes
+            console.log("DEBUG: Raw Params:", req.params);
+            const appNum = req.params[0] || req.params.applicationNumber || req.params.id;
+            console.log(`DEBUG: Tracking Request. AppNum:`, appNum);
+            const application = await nocService.trackApplication(appNum);
 
             res.status(200).json({
                 success: true,
@@ -944,31 +948,74 @@ class NOCController {
                 return res.status(400).json({ success: false, message: "applicationId and step are required" });
             }
 
-            let newStatus = "";
-            switch (parseInt(step)) {
-                case 2: newStatus = "APPROVED_DGO"; break;
-                case 3: newStatus = "APPROVED_SGWA"; break;
-                case 4: newStatus = "APPROVED_ENFORCEMENT"; break;
-                case 5: newStatus = "NOC_ISSUED"; break;
-                default:
-                    return res.status(400).json({ success: false, message: "Invalid step (2-5)" });
-            }
-
             // Find by any ID
-            const application = await NOCApplication.findOne({
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+            const query = isObjectId ? { _id: applicationId } : {
                 $or: [
                     { applicationId: applicationId },
                     { applicationNumber: applicationId },
                     { trackingId: applicationId }
                 ]
-            });
+            };
+
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 return res.status(404).json({ success: false, message: "Application not found" });
             }
 
+            let newStatus = application.status;
+            const now = new Date();
+
+            switch (parseInt(step)) {
+                case 2: // Document Verification & DGO
+                    if (application.approvalFlow.dgo) {
+                        application.approvalFlow.dgo.status = "APPROVED";
+                        application.approvalFlow.dgo.documentsVerified = true;
+                        application.approvalFlow.dgo.reviewedAt = now;
+                    }
+                    newStatus = "IN_PROGRESS";
+                    break;
+                case 3: // SGWA
+                    if (application.approvalFlow.dgo && application.approvalFlow.dgo.status !== "APPROVED") {
+                        application.approvalFlow.dgo.status = "APPROVED";
+                        application.approvalFlow.dgo.documentsVerified = true;
+                        application.approvalFlow.dgo.reviewedAt = now;
+                    }
+                    if (application.approvalFlow.sgwa) {
+                        application.approvalFlow.sgwa.status = "APPROVED";
+                        application.approvalFlow.sgwa.reviewedAt = now;
+                    }
+                    newStatus = "IN_PROGRESS";
+                    break;
+                case 4: // Enforcement
+                    if (application.approvalFlow.sgwa && application.approvalFlow.sgwa.status !== "APPROVED") {
+                        application.approvalFlow.sgwa.status = "APPROVED";
+                        application.approvalFlow.sgwa.reviewedAt = now;
+                    }
+                    if (application.approvalFlow.enforcement) {
+                        application.approvalFlow.enforcement.status = "APPROVED";
+                        application.approvalFlow.enforcement.reviewedAt = now;
+                    }
+                    newStatus = "IN_PROGRESS";
+                    break;
+                case 5: // Final NOC
+                    if (application.approvalFlow.enforcement && application.approvalFlow.enforcement.status !== "APPROVED") {
+                        application.approvalFlow.enforcement.status = "APPROVED";
+                        application.approvalFlow.enforcement.reviewedAt = now;
+                    }
+                    newStatus = "NOC_ISSUED";
+                    break;
+                default:
+                    return res.status(400).json({ success: false, message: "Invalid step (2-5)" });
+            }
+
             application.status = newStatus;
-            await application.save({ validateBeforeSave: false }); // Skip other validation
+
+            // Mark modified for nested objects
+            application.markModified('approvalFlow');
+
+            await application.save({ validateBeforeSave: false });
 
             // Send notification
             notificationService.send(application.userId, newStatus, {
@@ -976,20 +1023,13 @@ class NOCController {
                 projectName: application.projectDetails?.projectName || 'Project',
             }).catch(err => console.error("Failed to send notification", err));
 
-            // Determine flags for UI
-            const allApproved = newStatus === "NOC_ISSUED";
-            const almostApproved = ["APPROVED_SGWA", "APPROVED_ENFORCEMENT"].includes(newStatus);
-            const maybeApproved = !allApproved && !almostApproved;
-
             res.status(200).json({
                 success: true,
                 message: `Application moved to step ${step} (Status: ${newStatus})`,
                 data: {
                     applicationId: application.applicationId,
                     status: application.status,
-                    allApproved,
-                    almostApproved,
-                    maybeApproved
+                    approvalFlow: application.approvalFlow
                 }
             });
 

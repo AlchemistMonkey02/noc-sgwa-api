@@ -38,6 +38,7 @@ class MasterDataController {
     getTelemetryProviders = (req, res, next) => this.getByType(req, res, next, "TELEMETRY_PROVIDER");
     getBISStandards = (req, res, next) => this.getByType(req, res, next, "BIS_STANDARD");
     getNABLLabs = (req, res, next) => this.getByType(req, res, next, "NABL_LAB");
+    getSectorTypes = (req, res, next) => this.getByType(req, res, next, "SECTOR_TYPE");
 
     getMeterModels = async (req, res, next) => {
         try {

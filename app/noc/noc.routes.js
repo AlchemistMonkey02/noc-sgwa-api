@@ -5,7 +5,7 @@ const companyMiddleware = require("../middleware/company.middleware");
 const nocValidator = require("./noc.validator");
 
 // Public Routes
-// Track Application - Uses RegExp to capture everything including slashes (Express 5 compatible)
+// Track Application - Uses regex capture group for ID with slashes
 router.get(/^\/track\/(.*)/, nocController.trackApplication);
 
 // Approve Timeline Step (Public - No Auth)

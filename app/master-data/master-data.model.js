@@ -24,7 +24,8 @@ const MasterDataSchema = new mongoose.Schema(
                 "METER_SERIAL_NUMBER",
                 "TELEMETRY_PROVIDER",
                 "BIS_STANDARD",
-                "NABL_LAB"
+                "NABL_LAB",
+                "SECTOR_TYPE"
             ],
             index: true,
         },
