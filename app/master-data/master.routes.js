@@ -67,5 +67,6 @@ router.get("/bis-standards", masterDataController.getBISStandards);
 router.get("/geology-types", masterDataController.getGeologyTypes);
 router.get("/area-categories", masterDataController.getAreaCategories);
 router.get("/nabl-labs", masterDataController.getNABLLabs);
+router.get("/sector-types", masterDataController.getSectorTypes);
 
 module.exports = router;

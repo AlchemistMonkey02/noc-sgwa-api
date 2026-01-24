@@ -180,6 +180,11 @@ class CompanyService {
             attachDocument("INCORPORATION_CERTIFICATE", "incorporationCertificate");
             attachDocument("PAN", "companyPan");
             attachDocument("GST_CERTIFICATE", "gstCertificate");
+
+            // Normalize field names for frontend compatibility
+            if (company.dateOfIncorporation) {
+                company.incorporationDate = company.dateOfIncorporation;
+            }
             // Authorization letter is already populated via mongoose populate, but we can also look it up here if needed
             // attachDocument("AUTHORIZATION_LETTER", "authorizationLetter"); 
 

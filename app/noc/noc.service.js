@@ -451,10 +451,13 @@ class NOCService {
     /**
      * Track application (public)
      */
-    async trackApplication(applicationNumber) {
+    async trackApplication(applicationNumberOrId) {
         try {
-            const application = await NOCApplication.findOne({ applicationNumber }).select(
-                "applicationNumber applicationType status submittedAt location.districtId projectDetails.projectName"
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationNumberOrId);
+            const query = isObjectId ? { _id: applicationNumberOrId } : { applicationNumber: applicationNumberOrId };
+
+            const application = await NOCApplication.findOne(query).select(
+                "applicationNumber applicationType status submittedAt approvalFlow rejectionReason createdAt"
             );
 
             if (!application) {
@@ -465,7 +468,141 @@ class NOCService {
                 };
             }
 
-            return application;
+            // Define Tracking Steps
+            const steps = [
+                {
+                    id: 1,
+                    label: "Application Created",
+                    status: "COMPLETED",
+                    timestamp: application.createdAt,
+                    description: "Application drafted successfully."
+                },
+                {
+                    id: 2,
+                    label: "Document Verification",
+                    status: "PENDING",
+                    description: "Waiting for document verification."
+                },
+                {
+                    id: 3,
+                    label: "Waiting for DGO Approval",
+                    status: "PENDING",
+                    description: "Pending review by District Ground Water Officer."
+                },
+                {
+                    id: 4,
+                    label: "Waiting for SGWA Approval",
+                    status: "PENDING",
+                    description: "Pending review by State Ground Water Authority."
+                },
+                {
+                    id: 5,
+                    label: "Waiting for Enforcement Wing Approval",
+                    status: "PENDING",
+                    description: "Pending final compliance check."
+                },
+                {
+                    id: 6,
+                    label: "NOC Issued",
+                    status: "PENDING",
+                    description: "Final certificate issuance."
+                }
+            ];
+
+            const { dgo, sgwa, enforcement } = application.approvalFlow || {};
+
+            // 1. Application Created (Already Set)
+
+            // 2. Document Verification
+            if (dgo?.documentsVerified) {
+                steps[1].status = "COMPLETED";
+                steps[1].timestamp = dgo.assignedAt || application.submittedAt; // Approx
+                steps[1].description = "Documents verified successfully.";
+            } else if (application.status !== "DRAFT") {
+                steps[1].status = "IN_PROGRESS";
+                steps[1].description = "Verification in progress.";
+            }
+
+            // 3. DGO Approval
+            if (steps[1].status === "COMPLETED") {
+                if (dgo?.status === "APPROVED") {
+                    steps[2].status = "COMPLETED";
+                    steps[2].timestamp = dgo.reviewedAt;
+                    steps[2].description = "Approved by DGO.";
+                } else if (dgo?.status === "REJECTED") {
+                    steps[2].status = "REJECTED";
+                    steps[2].timestamp = dgo.reviewedAt;
+                    steps[2].description = `Rejected by DGO: ${dgo.remarks || "Criteria not met"}`;
+                    // Fail subsequent steps
+                    steps[3].status = "SKIPPED";
+                    steps[4].status = "SKIPPED";
+                    steps[5].status = "SKIPPED";
+                } else {
+                    steps[2].status = "IN_PROGRESS";
+                }
+            }
+
+            // 4. SGWA Approval
+            if (steps[2].status === "COMPLETED") {
+                if (sgwa?.status === "APPROVED") {
+                    steps[3].status = "COMPLETED";
+                    steps[3].timestamp = sgwa.reviewedAt;
+                    steps[3].description = "Approved by SGWA.";
+                } else if (sgwa?.status === "REJECTED") {
+                    steps[3].status = "REJECTED";
+                    steps[3].timestamp = sgwa.reviewedAt;
+                    steps[3].description = `Rejected by SGWA: ${sgwa.remarks}`;
+                    steps[4].status = "SKIPPED";
+                    steps[5].status = "SKIPPED";
+                } else {
+                    steps[3].status = "IN_PROGRESS";
+                }
+            }
+
+            // 5. Enforcement Approval
+            if (steps[3].status === "COMPLETED") {
+                if (enforcement?.status === "APPROVED") {
+                    steps[4].status = "COMPLETED";
+                    steps[4].timestamp = enforcement.reviewedAt;
+                    steps[4].description = "Approved by Enforcement Wing.";
+                } else if (enforcement?.status === "REJECTED") {
+                    steps[4].status = "REJECTED";
+                    steps[4].timestamp = enforcement.reviewedAt;
+                    steps[4].description = `Rejected by Enforcement: ${enforcement.remarks}`;
+                    steps[5].status = "SKIPPED";
+                } else {
+                    steps[4].status = "IN_PROGRESS";
+                }
+            }
+
+            // 6. NOC Issued
+            if (steps[4].status === "COMPLETED") {
+                if (application.status === "NOC_ISSUED") {
+                    steps[5].status = "COMPLETED";
+                    steps[5].timestamp = application.updatedAt;
+                    steps[5].description = `NOC Issued. Certificate generated.`;
+                } else {
+                    steps[5].status = "IN_PROGRESS";
+                    steps[5].description = "Generating certificate...";
+                }
+            }
+
+            // Handle Global Rejection if not captured in flow
+            if (application.status.includes("REJECTED") && !steps.some(s => s.status === "REJECTED")) {
+                // Find the last in-progress or pending step and mark rejected
+                const lastActiveIndex = steps.findIndex(s => s.status === "IN_PROGRESS" || s.status === "PENDING");
+                if (lastActiveIndex !== -1) {
+                    steps[lastActiveIndex].status = "REJECTED";
+                    steps[lastActiveIndex].description = `Application Rejected: ${application.rejectionReason || "Unknown Reason"}`;
+                }
+            }
+
+
+            return {
+                applicationNumber: application.applicationNumber,
+                status: application.status,
+                trackingSteps: steps
+            };
         } catch (error) {
             throw error;
         }
