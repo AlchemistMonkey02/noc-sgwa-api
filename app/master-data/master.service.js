@@ -134,14 +134,61 @@ class MasterService {
                 };
             }
 
+            // Populate default criteria if missing
+            let categoryCriteria = block.categoryCriteria;
+            if (!categoryCriteria || !categoryCriteria.stageOfExtraction) {
+                switch (block.category) {
+                    case "SAFE":
+                        categoryCriteria = {
+                            stageOfExtraction: 60,
+                            description: "Stage of Ground Water Extraction is < 70%",
+                            dynamicGroundWaterResource: 1000,
+                            annualGroundWaterExtraction: 600
+                        };
+                        break;
+                    case "SEMI_CRITICAL":
+                        categoryCriteria = {
+                            stageOfExtraction: 80,
+                            description: "Stage of Ground Water Extraction is between 70% and 90%",
+                            dynamicGroundWaterResource: 1000,
+                            annualGroundWaterExtraction: 800
+                        };
+                        break;
+                    case "CRITICAL":
+                        categoryCriteria = {
+                            stageOfExtraction: 95,
+                            description: "Stage of Ground Water Extraction is between 90% and 100%",
+                            dynamicGroundWaterResource: 1000,
+                            annualGroundWaterExtraction: 950
+                        };
+                        break;
+                    case "OVER_EXPLOITED":
+                        categoryCriteria = {
+                            stageOfExtraction: 120,
+                            description: "Stage of Ground Water Extraction is > 100%",
+                            dynamicGroundWaterResource: 1000,
+                            annualGroundWaterExtraction: 1200
+                        };
+                        break;
+                    case "SALINE":
+                        categoryCriteria = {
+                            stageOfExtraction: 0,
+                            description: "Ground water is saline",
+                            dynamicGroundWaterResource: 0,
+                            annualGroundWaterExtraction: 0
+                        };
+                        break;
+                }
+            }
+
             return {
                 blockId: block.blockId,
                 blockName: block.blockName,
                 districtId: block.districtId,
                 category: block.category,
                 requiresNOC: block.requiresNOC,
-                categoryCriteria: block.categoryCriteria,
-                description: block.description,
+                categoryCriteria: categoryCriteria,
+                description: block.description || categoryCriteria.description,
             };
         } catch (error) {
             logger.error("Error fetching block category", error);

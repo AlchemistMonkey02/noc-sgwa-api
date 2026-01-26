@@ -39,7 +39,8 @@ class DocumentService {
                     description: options.description, // If schema supports it
                     originalFilename: file.originalname,
                     storedFilename: file.filename,
-                    filePath: file.path,
+                    // Store normalized path (always use forward slashes for DB consistency)
+                    filePath: file.path.replace(/\\/g, '/'),
                     fileSize: file.size,
                     mimeType: file.mimetype,
                     uploadedAt: new Date(),

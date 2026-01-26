@@ -19,8 +19,8 @@ router.get("/assessment-units", masterController.getAssessmentUnits);
 // GET /api/master/tehsils?districtId=JAIPUR
 router.get("/tehsils", masterController.getTehsils);
 
-// GET /api/master/blocks/:districtId/:blockId/category
-router.get("/blocks/:districtId/:blockId/category", masterController.getBlockCategory);
+// POST /api/master/blocks/category
+router.post("/blocks/category", masterController.getBlockCategory);
 
 // GET /api/master/industry-types?category=MANUFACTURING
 router.get("/industry-types", masterController.getIndustryTypes);
