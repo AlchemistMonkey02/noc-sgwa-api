@@ -787,6 +787,7 @@ class NOCService {
             return {
                 applicationId: application.applicationId,
                 applicationNumber: application.applicationNumber,
+                trackingId: application.trackingId,
                 status: application.status,
                 basicDetails: {
                     applicationType: application.applicationType,

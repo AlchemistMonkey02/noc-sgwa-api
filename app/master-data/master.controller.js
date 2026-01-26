@@ -105,7 +105,7 @@ class MasterController {
      */
     async getBlockCategory(req, res, next) {
         try {
-            const { districtId, blockId } = req.params;
+            const { districtId, blockId } = req.body;
             const blockCategory = await masterService.getBlockCategory(districtId, blockId);
 
             res.status(200).json({

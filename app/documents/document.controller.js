@@ -326,6 +326,25 @@ class DocumentController {
                 req.user.userType
             );
 
+            // Normalize path for cross-platform compatibility
+            // Replace backslashes with forward slashes to ensure Linux systems can resolve it
+            // path.resolve handles forward slashes correctly on Windows too
+            const normalizedPath = document.filePath.replace(/\\/g, '/');
+            const absolutePath = path.resolve(normalizedPath);
+
+            // Check if file exists before sending
+            const fs = require('fs');
+            if (!fs.existsSync(absolutePath)) {
+                logger.error(`File missing at path: ${absolutePath} (Original: ${document.filePath})`);
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        code: "FILE_NOT_FOUND",
+                        message: "Physical file not found on server"
+                    }
+                });
+            }
+
             // Set headers for download
             res.set({
                 "Content-Type": document.mimeType,
@@ -334,7 +353,7 @@ class DocumentController {
             });
 
             // Send file
-            res.sendFile(path.resolve(document.filePath));
+            res.sendFile(absolutePath);
         } catch (error) {
             next(error);
         }
@@ -354,6 +373,23 @@ class DocumentController {
                 req.user.userType
             );
 
+            // Normalize path for cross-platform compatibility
+            const normalizedPath = document.filePath.replace(/\\/g, '/');
+            const absolutePath = path.resolve(normalizedPath);
+
+            // Check if file exists before sending
+            const fs = require('fs');
+            if (!fs.existsSync(absolutePath)) {
+                logger.error(`File missing at path: ${absolutePath} (Original: ${document.filePath})`);
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        code: "FILE_NOT_FOUND",
+                        message: "Physical file not found on server"
+                    }
+                });
+            }
+
             // Set headers for inline view
             res.set({
                 "Content-Type": document.mimeType,
@@ -361,7 +397,7 @@ class DocumentController {
             });
 
             // Send file
-            res.sendFile(path.resolve(document.filePath));
+            res.sendFile(absolutePath);
         } catch (error) {
             next(error);
         }
