@@ -76,3 +76,6 @@ test-find-application.js
 test-registration.ps1
 test-sgwa-flow.js
 test-tracking.js
+
+# Uploads
+uploads/
