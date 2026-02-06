@@ -86,7 +86,25 @@ class DocumentService {
                 ? { $or: [{ _id: documentId }, { documentId: documentId }] }
                 : { documentId };
 
-            const document = await Document.findOne(query);
+            let document = await Document.findOne(query);
+
+            // Fallback: Check embedded documents in NOCApplication if not found
+            if (!document) {
+                const NOCApplication = require("../noc/noc-application.model");
+                const app = await NOCApplication.findOne({ "documents.documentId": documentId });
+
+                if (app && app.documents) {
+                    const embeddedDoc = app.documents.find(d => d.documentId === documentId);
+                    if (embeddedDoc) {
+                        // Create a temporary Mongoose document-like object or return raw object with extra props check
+                        document = {
+                            ...embeddedDoc.toObject ? embeddedDoc.toObject() : embeddedDoc,
+                            userId: app.userId, // Inherit ownership from application
+                            applicationId: app.applicationId
+                        };
+                    }
+                }
+            }
 
             if (!document) {
                 throw {
@@ -282,15 +300,62 @@ class DocumentService {
      * Get documents by application ID
      * Returns embedded documents from NOC application
      */
-    async getDocumentsByApplicationId(applicationId) {
+    async getDocumentsByApplicationId(applicationId, userId = null, userRole = null) {
         try {
-            // Directly query the Document collection
-            // This allows retrieving documents even if the NOCApplication record doesn't exist yet
-            const documents = await Document.find({ applicationId })
-                .select("-filePath") // Exclude sensitive/large paths
+            const query = { applicationId };
+
+            // Enforce ownership if userId is provided and not an officer
+            // List of officer roles who can see all documents
+            const officerRoles = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT", "ADMIN"]; // Added ADMIN just in case
+
+            // If we have user info, and they are NOT an officer, filter by userId
+            if (userId && userRole && !officerRoles.includes(userRole)) {
+                query.userId = userId;
+            }
+
+            // 1. Fetch from Document Collection
+            const standaloneDocs = await Document.find(query)
+                .select("-filePath")
                 .sort({ uploadedAt: -1 });
 
-            return documents;
+            // 2. Fetch from NOCApplication (Embedded) to catch legacy/embedded-only docs
+            const NOCApplication = require("../noc/noc-application.model");
+            const appQuery = { applicationId };
+
+            // Re-apply ownership check for application query
+            if (query.userId) {
+                appQuery.userId = query.userId;
+            }
+
+            const application = await NOCApplication.findOne(appQuery).select("documents");
+            const embeddedDocs = application && application.documents ? application.documents : [];
+
+            // 3. Merge Strategies
+            const docMap = new Map();
+
+            // A. Add embedded docs first (legacy source)
+            embeddedDocs.forEach(doc => {
+                docMap.set(doc.documentId, doc);
+            });
+
+            // B. Add/Overwrite with standalone docs (newer source)
+            standaloneDocs.forEach(doc => {
+                const existing = docMap.get(doc.documentId);
+                let merged = doc.toObject(); // Convert mongoose doc to object
+
+                if (existing) {
+                    // Sync verification if missing in standalone
+                    if (!merged.verification && existing.verification) {
+                        merged.verification = existing.verification;
+                    }
+                    if ((!merged.documentType || merged.documentType === 'OTHER') && existing.documentType) {
+                        merged.documentType = existing.documentType;
+                    }
+                }
+                docMap.set(doc.documentId, merged);
+            });
+
+            return Array.from(docMap.values());
         } catch (error) {
             logger.error("Error fetching documents by application ID", error);
             throw error;
@@ -537,6 +602,9 @@ class DocumentService {
                     // Update the specific element in the array
                     const docIndex = app.documents.findIndex(d => d.documentId === documentId);
                     if (docIndex !== -1) {
+                        if (!app.documents[docIndex].verification) {
+                            app.documents[docIndex].verification = {};
+                        }
                         app.documents[docIndex].verification.ai = document.verification.ai;
                         await app.save();
                         logger.info(`Synced AI verification to Application ${app.applicationId}`, { documentId });

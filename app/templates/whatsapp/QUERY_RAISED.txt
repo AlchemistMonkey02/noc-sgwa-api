@@ -1,0 +1,12 @@
+❓ *Query Raised on Your Application*
+
+Dear {{applicantName}},
+
+A query has been raised on your application *{{applicationId}}*.
+
+📝 *Action Required:*
+Login to the portal to view and respond to the query at the earliest.
+
+🌐 Respond now: {{portalUrl}}
+
+State Ground Water Authority

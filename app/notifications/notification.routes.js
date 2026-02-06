@@ -2,7 +2,13 @@ const router = require('express').Router();
 const notificationController = require('./notification.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 
-// All routes require authentication
+// POST /api/notifications/send - Send custom notification (no auth required)
+router.post('/send', notificationController.sendCustomNotification);
+
+// POST /api/notifications/send-application - Send template-based application notification
+router.post('/send-application', notificationController.sendApplicationNotification);
+
+// All other routes require authentication
 router.use(authMiddleware.authenticate);
 
 // GET /api/notifications - Get user notifications

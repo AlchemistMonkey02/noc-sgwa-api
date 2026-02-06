@@ -1,0 +1,15 @@
+🎉 *Application Approved*
+
+Dear {{applicantName}},
+
+✅ Congratulations! Your NOC application *{{applicationId}}* has been *APPROVED*.
+
+📄 *Next Steps:*
+• Download your NOC certificate from the portal
+• Keep the certificate for your records
+• Ensure compliance with all conditions
+
+🌐 Download certificate: {{portalUrl}}
+
+Thank you,
+State Ground Water Authority

@@ -19,7 +19,19 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*",
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : [];
+
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`Blocked by CORS: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -60,7 +72,7 @@ app.get("/", (req, res) => {
   res.json({
     success: true,
     message: "SGWA API is running",
-    version: "1.0.0",
+    version: "1.1.0",
     timestamp: new Date().toISOString(),
   });
 });
@@ -79,17 +91,21 @@ app.get("/health", (req, res) => {
 app.use("/api/public", require("./app/public/public.routes"));
 app.use("/api/tools", require("./app/calculators/calculator.routes"));
 app.use("/api/tools", require("./app/eligibility/eligibility.routes"));
+app.use("/api/tools", require("./app/document-requirements/document-requirements.routes"));
 
 // API Routes
+app.use("/api/noc/exemption", require("./app/noc/exemption.routes")); // Exemption NOC API (Public)
 app.use("/api/auth", require("./app/auth/auth.routes"));
 app.use("/api/users", require("./app/auth/user.routes")); // New: User listing
 app.use("/api/master", require("./app/master-data/master.routes"));
 app.use("/api/master-data", require("./app/master-data/master-data.routes"));
 app.use("/api/documents", require("./app/documents/document.routes"));
 app.use("/api/applications/noc", require("./app/noc/noc.routes"));
+
 app.use("/api/noc", require("./app/noc/compliance.routes")); // Compliance routes
 app.use("/api/self-compliance", require("./app/noc/self-compliance.routes")); // AI Auto-Compliance
 app.use("/api/queries", require("./app/noc/query.routes")); // Query Management
+
 app.use("/api/officer/common", require("./app/officers/common/common.routes"));
 app.use("/api/officer/sgwa", require("./app/officers/sgwa/sgwa.routes"));
 app.use("/api/officer/dgo", require("./app/officers/dgo/dgo.routes"));

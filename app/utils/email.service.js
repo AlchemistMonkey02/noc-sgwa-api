@@ -237,6 +237,87 @@ class EmailService {
         }
     }
 
+    /**
+     * Send custom email with plain message
+     */
+    async sendCustomEmail(email, subject, message) {
+        try {
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Custom email not sent to ${email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
+
+            const mailOptions = {
+                from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject: subject,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px;">
+                        <p>${message}</p>
+                        <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+                        <p style="font-size: 12px; color: #666;">
+                            This is an automated notification from SGWA Portal.<br>
+                            For support, contact: ${process.env.SUPPORT_EMAIL || 'support@sgwa.gov.in'}
+                        </p>
+                    </div>
+                `
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Custom email sent to ${email}`);
+
+            return { success: true, messageId: info.messageId };
+        } catch (error) {
+            logger.error(`Failed to send custom email to ${email}`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Send email using HTML template
+     */
+    async sendTemplateEmail(email, subject, data, templateName) {
+        try {
+            if (!transporter) {
+                logger.warn(`SMTP not configured. Template email not sent to ${email}`);
+                return { success: false, message: "SMTP not configured" };
+            }
+
+            const templatePath = path.join(__dirname, `../templates/emails/${templateName}`);
+
+            if (!fs.existsSync(templatePath)) {
+                logger.error(`Template not found: ${templateName}`);
+                return { success: false, error: `Template ${templateName} not found` };
+            }
+
+            let htmlContent = fs.readFileSync(templatePath, "utf8");
+
+            // Replace all placeholders
+            htmlContent = htmlContent
+                .replace(/{{applicantName}}/g, data.applicantName || '')
+                .replace(/{{applicationId}}/g, data.applicationId || '')
+                .replace(/{{customMessage}}/g, data.customMessage || '')
+                .replace(/{{date}}/g, data.date || new Date().toLocaleDateString())
+                .replace(/{{portalUrl}}/g, data.portalUrl || process.env.PORTAL_URL || 'http://localhost:3000')
+                .replace(/{{supportEmail}}/g, data.supportEmail || process.env.SUPPORT_EMAIL || 'support@sgwa.gov.in');
+
+            const mailOptions = {
+                from: `"SGWA Portal" <${process.env.SMTP_USER}>`,
+                to: email,
+                subject: subject,
+                html: htmlContent
+            };
+
+            const info = await transporter.sendMail(mailOptions);
+            logger.info(`Template email sent to ${email} using ${templateName}`);
+
+            return { success: true, messageId: info.messageId };
+        } catch (error) {
+            logger.error(`Failed to send template email to ${email}`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
     formatGenericMessage(event, data) {
         // Use the SMS formatter since we externalized the templates
         const smsService = require('../notifications/sms.service');
