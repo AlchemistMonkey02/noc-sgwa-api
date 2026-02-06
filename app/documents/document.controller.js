@@ -373,6 +373,16 @@ class DocumentController {
                 req.user.userType
             );
 
+            if (!document.filePath) {
+                return res.status(404).json({
+                    success: false,
+                    error: {
+                        code: "FILE_PATH_MISSING",
+                        message: "Document file path is missing from records"
+                    }
+                });
+            }
+
             // Normalize path for cross-platform compatibility
             const normalizedPath = document.filePath.replace(/\\/g, '/');
             const absolutePath = path.resolve(normalizedPath);
@@ -499,8 +509,10 @@ class DocumentController {
     async getDocumentsByApplicationId(req, res, next) {
         try {
             const { applicationId } = req.params;
+            const userId = req.user.id;
+            const userRole = req.user.role || req.user.userType; // Handle both potential property names
 
-            const documents = await documentService.getDocumentsByApplicationId(applicationId);
+            const documents = await documentService.getDocumentsByApplicationId(applicationId, userId, userRole);
 
             res.status(200).json({
                 success: true,
@@ -593,27 +605,56 @@ class DocumentController {
     async verifyDocumentAI(req, res, next) {
         try {
             const { id } = req.params;
-            const { verified } = req.body;  // true/false
+            let { verified, valid, confidence, remarks } = req.body;  // verified/valid: boolean, confidence: number (opt), remarks: string (opt)
+
+            // Allow 'valid' as alias for 'verified'
+            if (verified === undefined && valid !== undefined) {
+                verified = valid;
+            }
 
             if (typeof verified !== 'boolean') {
                 return res.status(400).json({
                     success: false,
                     error: {
                         code: "INVALID_INPUT",
-                        message: "The 'verified' field must be a boolean (true/false)."
+                        message: "The 'verified' (or 'valid') field must be a boolean (true/false)."
                     }
                 });
             }
 
             const document = await documentService.verifyDocumentAI(
                 id,
-                verified
+                verified,
+                confidence,
+                remarks
             );
 
             res.status(200).json({
                 success: true,
                 data: document,
                 message: `Document AI verification ${verified ? "successful" : "failed"}`
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+    /**
+     * GET /api/documents/:id/verify-ai
+     * Trigger AI Verification Process (Action)
+     */
+    async triggerAIVerification(req, res, next) {
+        try {
+            const { id } = req.params;
+            const aiVerificationService = require('./ai-verification.service');
+
+            // Trigger the verification process (this might be async/long-running)
+            // For now, we await it, but for production, this should be offloaded to a queue
+            const result = await aiVerificationService.performVerification(id);
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "AI Verification process triggered successfully"
             });
         } catch (error) {
             next(error);

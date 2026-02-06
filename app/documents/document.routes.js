@@ -4,7 +4,11 @@ const authMiddleware = require("../middleware/auth.middleware");
 const { upload, handleMulterError } = require("./upload.middleware");
 
 // POST /api/documents/:id/verify-ai - Public AI Verification (No Auth Token Required)
+// POST /api/documents/:id/verify-ai - Public AI Verification Callback (Update Status)
 router.post("/:id/verify-ai", documentController.verifyDocumentAI);
+
+// GET /api/documents/:id/verify-ai - Trigger AI Verification Process (Action)
+router.get("/:id/verify-ai", documentController.triggerAIVerification);
 
 // All routes AFTER this line require authentication
 router.use(authMiddleware.authenticate);

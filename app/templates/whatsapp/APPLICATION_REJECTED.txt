@@ -1,0 +1,15 @@
+❌ *Application Rejected*
+
+Dear {{applicantName}},
+
+Your NOC application *{{applicationId}}* has been *REJECTED*.
+
+📝 *Check portal for:*
+• Detailed rejection reason
+• Required corrections
+• Resubmission guidelines
+
+🌐 View details: {{portalUrl}}
+📧 Support: {{supportEmail}}
+
+State Ground Water Authority

@@ -1,0 +1,1 @@
+Dear {{applicantName}}, Your documents for Application ID: {{applicationId}} have been successfully verified. Next steps will be communicated shortly. - SGWA

@@ -1,0 +1,1 @@
+Dear {{applicantName}}, Your documents for Application ID: {{applicationId}} could not be verified. Reason: Please resubmit correct documents. Login to portal to upload. - SGWA

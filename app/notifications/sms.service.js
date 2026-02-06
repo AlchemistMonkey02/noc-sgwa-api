@@ -202,6 +202,27 @@ class SMSService {
     }
 
     /**
+     * Send custom SMS with plain message
+     */
+    async sendCustomSMS(phone, message) {
+        if (!this.enabled) {
+            logger.info("SMS notifications are disabled");
+            return { success: false, reason: "SMS_DISABLED" };
+        }
+
+        try {
+            const formattedPhone = this.formatPhoneNumber(phone);
+            const result = await this.sendSMS(formattedPhone, message);
+
+            logger.info(`Custom SMS sent to ${formattedPhone}`);
+            return { success: true, phone: formattedPhone, provider: this.provider };
+        } catch (error) {
+            logger.error(`Failed to send custom SMS to ${phone}`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Format phone number (ensure +91 prefix for India)
      */
     formatPhoneNumber(phone) {

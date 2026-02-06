@@ -3,7 +3,7 @@
 // TRANSITION MODE CONFIGURATION
 // Based on Act dated 10-09-2025 and interim directions.
 
-export const TRANSITION_CONFIG = {
+const TRANSITION_CONFIG = {
     // A. LEGAL AUTHORITY
     LEGAL_AUTHORITY: {
         ACT_NAME: "Rajasthan Ground Water (Conservation and Management) Authority Act, 2025",
@@ -72,3 +72,6 @@ export const TRANSITION_CONFIG = {
         }
     }
 };
+
+module.exports = { TRANSITION_CONFIG };
+

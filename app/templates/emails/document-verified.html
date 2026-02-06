@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .success-badge {
+            background-color: #2563eb;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 40px 30px;
+            background-color: #f8fafc;
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            margin: 20px 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-row {
+            margin: 10px 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .info-value {
+            color: #1e293b;
+            font-size: 16px;
+        }
+
+        .message-box {
+            background-color: #dbeafe;
+            border: 1px solid #93c5fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            padding: 30px 20px;
+            border-top: 1px solid #e2e8f0;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✓ Documents Verified</h1>
+            <div class="success-badge">Verification Successful</div>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Dear {{applicantName}},</p>
+
+            <div class="message-box">
+                <strong>Great news!</strong> Your documents have been successfully verified and approved.
+            </div>
+
+            <div class="info-box">
+                <div class="info-row">
+                    <div class="info-label">Application ID</div>
+                    <div class="info-value">{{applicationId}}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Status</div>
+                    <div class="info-value" style="color: #2563eb;">Documents Verified ✓</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Verified On</div>
+                    <div class="info-value">{{date}}</div>
+                </div>
+            </div>
+
+            <p>Your application is now proceeding to the next stage. You will receive further updates via email and SMS.
+            </p>
+
+            <div style="text-align: center;">
+                <a href="{{portalUrl}}" class="btn">View Application Status</a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This is an automated notification from State Ground Water Authority</p>
+            <p>For support, contact: {{supportEmail}}</p>
+            <p>&copy; 2026 State Ground Water Authority. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+
+</html>

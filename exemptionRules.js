@@ -1,10 +1,12 @@
 // Comprehensive Exemption Rules Engine for SGWA NOC Portal
 // Based on 10-02-2025 Notification and Annexures
 
+const { TRANSITION_CONFIG } = require('./transitionRules');
+
 /**
  * Exemption Categories as per SGWA Regulations
  */
-export const EXEMPTION_CATEGORIES = {
+const EXEMPTION_CATEGORIES = {
     AGRICULTURE: {
         code: 'AGR',
         name: 'Agricultural Activities',
@@ -61,16 +63,7 @@ export const EXEMPTION_CATEGORIES = {
  * @param {Object} formData - Application form data
  * @returns {Object} - Exemption status and details
  */
-import { TRANSITION_CONFIG } from '../../../config/transitionRules';
-
-// ... (Existing EXEMPTION_CATEGORIES object remains same, it is just for display) ...
-
-/**
- * Check if applicant qualifies for exemption
- * @param {Object} formData - Application form data
- * @returns {Object} - Exemption status and details
- */
-export const checkExemption = (formData) => {
+const checkExemption = (formData) => {
     const result = {
         isExempt: false,
         exemptionType: null,
@@ -165,7 +158,7 @@ export const checkExemption = (formData) => {
  * Get exemption eligibility explanation
  * @returns {Array} - List of exemption categories with descriptions
  */
-export const getExemptionCategories = () => {
+const getExemptionCategories = () => {
     return Object.values(EXEMPTION_CATEGORIES).map(cat => ({
         name: cat.name,
         description: cat.description,
@@ -180,7 +173,7 @@ export const getExemptionCategories = () => {
  * @param {string} claimedExemptionCode - Claimed exemption code
  * @returns {boolean} - Whether claim is valid
  */
-export const validateExemptionClaim = (formData, claimedExemptionCode) => {
+const validateExemptionClaim = (formData, claimedExemptionCode) => {
     const exemptionCheck = checkExemption(formData);
     return exemptionCheck.isExempt && exemptionCheck.exemptionCode === claimedExemptionCode;
 };
@@ -190,7 +183,7 @@ export const validateExemptionClaim = (formData, claimedExemptionCode) => {
  * @param {Object} exemptionResult - Result from checkExemption
  * @returns {Object} - Display configuration
  */
-export const getExemptionDisplayConfig = (exemptionResult) => {
+const getExemptionDisplayConfig = (exemptionResult) => {
     if (!exemptionResult.isExempt) {
         return {
             show: false,
@@ -215,3 +208,12 @@ export const getExemptionDisplayConfig = (exemptionResult) => {
         ]
     };
 };
+
+module.exports = {
+    EXEMPTION_CATEGORIES,
+    checkExemption,
+    getExemptionCategories,
+    validateExemptionClaim,
+    getExemptionDisplayConfig
+};
+

@@ -3,12 +3,15 @@ const masterDataController = require("./master-data.controller");
 
 router.get("/application-types", masterDataController.getApplicationTypes);
 router.get("/application-sub-types", masterDataController.getApplicationSubTypes);
+router.get("/project-categories", masterDataController.getProjectCategories);
+
+// Legacy or future placeholders
 router.get("/project-types", masterDataController.getProjectTypes);
 router.get("/water-quality-types", masterDataController.getWaterQualityTypes);
 router.get("/utilization-purposes", masterDataController.getUtilizationPurposes);
 router.get("/msme-types", masterDataController.getMSMETypes);
 router.get("/organization-types", masterDataController.getOrganizationTypes);
-router.get("/project-categories", masterDataController.getProjectCategories);
+// router.get("/project-categories", masterDataController.getProjectCategories); // Consolidated above
 router.get("/geology-types", masterDataController.getGeologyTypes);
 router.get("/geology-types", masterDataController.getGeologyTypes);
 router.get("/meter-types", masterDataController.getMeterTypes);

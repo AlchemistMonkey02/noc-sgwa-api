@@ -1,4 +1,11 @@
 const MasterData = require("./master-data.model");
+const mongoose = require("mongoose");
+
+// Define loose schemas for the imported collections to avoid strict validation errors
+// or assume they are stored in "applicationtypes", "applicationsubtypes", "projectcategories"
+const ApplicationType = mongoose.model('ApplicationType', new mongoose.Schema({ id: Number, name: String, isActive: Boolean }), 'applicationtypes');
+const ApplicationSubType = mongoose.model('ApplicationSubType', new mongoose.Schema({ appSubTypeCode: Number, appTypeCode: Number, name: String, isActive: Boolean }), 'applicationsubtypes');
+const ProjectCategory = mongoose.model('ProjectCategory', new mongoose.Schema({ categoryCode: Number, appSubTypeCode: Number, appTypeCode: Number, name: String, waterBased: Boolean, exemptionAllow: Boolean, isActive: Boolean }), 'projectcategories');
 
 class MasterDataController {
     async getByType(req, res, next, type) {
@@ -16,17 +23,52 @@ class MasterDataController {
         }
     }
 
-    getApplicationTypes = (req, res, next) => this.getByType(req, res, next, "APPLICATION_TYPE");
-    getApplicationSubTypes = (req, res, next) => this.getByType(req, res, next, "APPLICATION_SUB_TYPE");
-    getProjectTypes = (req, res, next) => this.getByType(req, res, next, "PROJECT_TYPE");
+    getApplicationTypes = async (req, res, next) => {
+        try {
+            const data = await ApplicationType.find({ isActive: true }).sort({ id: 1 });
+            res.status(200).json({ success: true, data });
+        } catch (error) { next(error); }
+    }
+
+    getApplicationSubTypes = async (req, res, next) => {
+        try {
+            const { appTypeCode } = req.query;
+            const query = { isActive: true };
+            if (appTypeCode) query.appTypeCode = appTypeCode;
+
+            const data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
+            res.status(200).json({ success: true, data });
+        } catch (error) { next(error); }
+    }
+
+    getProjectCategories = async (req, res, next) => {
+        try {
+            const { appSubTypeCode, appTypeCode } = req.query;
+            const query = { isActive: true };
+            if (appSubTypeCode) query.appSubTypeCode = appSubTypeCode;
+            if (appTypeCode) query.appTypeCode = appTypeCode;
+
+            const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            res.status(200).json({ success: true, data });
+        } catch (error) { next(error); }
+    }
+    getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
     getWaterQualityTypes = (req, res, next) => this.getByType(req, res, next, "WATER_QUALITY_TYPE");
+    // Link "Project Types" to the new Project Categories data
+    getProjectTypes = async (req, res, next) => {
+        try {
+            const { appSubTypeCode, appTypeCode } = req.query;
+            const query = { isActive: true };
+            if (appSubTypeCode) query.appSubTypeCode = appSubTypeCode;
+            if (appTypeCode) query.appTypeCode = appTypeCode;
+
+            const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            res.status(200).json({ success: true, data });
+        } catch (error) { next(error); }
+    }
     getUtilizationPurposes = (req, res, next) => this.getByType(req, res, next, "UTILIZATION_PURPOSE");
     getMSMETypes = (req, res, next) => this.getByType(req, res, next, "MSME_TYPE");
     getOrganizationTypes = (req, res, next) => this.getByType(req, res, next, "ORGANIZATION_TYPE");
-    getProjectCategories = (req, res, next) => this.getByType(req, res, next, "PROJECT_CATEGORY");
-    getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
-    getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
-    getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
 
     // Updated to return static data for consistency
     getMeterTypes = (req, res, next) => this.getByType(req, res, next, "METER_TYPE");

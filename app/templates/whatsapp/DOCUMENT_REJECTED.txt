@@ -1,0 +1,14 @@
+⚠️ *Document Verification Failed*
+
+Dear {{applicantName}},
+
+❌ Your documents for Application ID: *{{applicationId}}* could not be verified.
+
+📝 *Action Required:*
+Please review and resubmit correct documents through the portal.
+
+🌐 Upload documents: {{portalUrl}}
+
+For support: {{supportEmail}}
+
+State Ground Water Authority

@@ -177,6 +177,27 @@ class WhatsAppService {
     }
 
     /**
+     * Send custom WhatsApp message
+     */
+    async sendCustomWhatsApp(phone, message) {
+        if (!this.enabled) {
+            logger.info("WhatsApp notifications are disabled");
+            return { success: false, reason: "WHATSAPP_DISABLED" };
+        }
+
+        try {
+            const formattedPhone = this.formatPhoneNumber(phone);
+            const result = await this.sendWhatsApp(formattedPhone, message);
+
+            logger.info(`Custom WhatsApp sent to ${formattedPhone}`);
+            return { success: true, phone: formattedPhone, provider: this.provider };
+        } catch (error) {
+            logger.error(`Failed to send custom WhatsApp to ${phone}`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Format phone number for WhatsApp
      */
     formatPhoneNumber(phone) {

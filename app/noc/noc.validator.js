@@ -3,7 +3,7 @@ const Joi = require("joi");
 // Draft create/update (section-wise flow): allow partial payloads
 // NOTE: Full validation should happen at submit-time (or via /validate).
 const nocDraftSchema = Joi.object({
-    applicationType: Joi.string().valid("NEW", "RENEWAL", "AMENDMENT").optional(),
+    applicationType: Joi.string().optional(),
     applicationSubType: Joi.string().optional(),
     projectType: Joi.string().optional(),
     waterQualityType: Joi.string().optional(),
@@ -46,11 +46,11 @@ const nocDraftSchema = Joi.object({
 
 // Create/Update NOC Application
 const nocApplicationSchema = Joi.object({
-    applicationType: Joi.string().valid("NEW", "RENEWAL", "AMENDMENT").required(),
+    applicationType: Joi.string().required(),
     applicationSubType: Joi.string().required(),
-    projectType: Joi.string().required(),
+    projectType: Joi.string().optional(),
     waterQualityType: Joi.string().required(),
-    groundWaterUtilizationFor: Joi.string().required(),
+    groundWaterUtilizationFor: Joi.string().valid("NEW", "EXISTING").required(),
     dateOfCommencement: Joi.date().required(),
     existingNOCStatus: Joi.string().valid("YES", "NO").required(),
     oldNOCNumber: Joi.when("existingNOCStatus", {
