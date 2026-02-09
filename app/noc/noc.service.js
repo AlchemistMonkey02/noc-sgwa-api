@@ -670,6 +670,14 @@ class NOCService {
                             ...sectionData.projectDetails
                         };
                     }
+
+                    // Update Hydrogeology Details (e.g., Aquifer Type) if provided
+                    if (sectionData.hydrogeology) {
+                        application.hydrogeology = {
+                            ...application.hydrogeology,
+                            ...sectionData.hydrogeology
+                        };
+                    }
                     break;
 
                 case 3: // Drinking & Domestic Use
@@ -782,15 +790,51 @@ class NOCService {
                 ]
             );
 
-            const fees = await this.calculateApplicationFees(applicationId, userId, userType);
+            // Fetch Application Type Name
+            let applicationTypeName = "";
+            try {
+                const mongoose = require("mongoose");
+                const ApplicationType = mongoose.models.ApplicationType || mongoose.model('ApplicationType', new mongoose.Schema({ id: Number, name: String, isActive: Boolean }), 'applicationtypes');
+
+                if (application.applicationType) {
+                    const typeId = parseInt(application.applicationType);
+                    if (!isNaN(typeId)) {
+                        const typeObj = await ApplicationType.findOne({ id: typeId }).select("name");
+                        if (typeObj) {
+                            applicationTypeName = typeObj.name;
+                        }
+                    }
+                }
+            } catch (err) {
+                logger.warn("Failed to fetch application type name for summary", err);
+            }
+
+            // Calculate fees only if needed or just use current structure
+            // Using existing method but handling potential errors gracefully
+            let fees = {};
+            try {
+                // Fee calculation might fail if data is incomplete, which is fine for summary
+                // We can just return basic fee info or specific fee details if they exist
+                if (application.feeDetails) {
+                    fees = application.feeDetails;
+                } else {
+                    const feeCalc = await this.calculateApplicationFees(applicationId, userId, userType);
+                    fees = feeCalc.feeCalculation;
+                }
+            } catch (ignore) {
+                // If calculation fails, just ignore
+            }
 
             return {
                 applicationId: application.applicationId,
                 applicationNumber: application.applicationNumber,
                 trackingId: application.trackingId,
                 status: application.status,
+                rejectionReason: application.rejectionReason,
+                approvalFlow: application.approvalFlow,
                 basicDetails: {
                     applicationType: application.applicationType,
+                    applicationTypeName: applicationTypeName, // Added Name
                     sectorType: application.sectorType,
                     projectDetails: application.projectDetails
                 },
@@ -800,15 +844,14 @@ class NOCService {
                 groundWaterStructures: application.groundWaterStructures,
                 digitalFlowMeter: application.digitalFlowMeter,
                 documents: application.documents,
-                feeDetails: fees.feeCalculation,
-                companyDetails: application.companyId,
-                timestamps: {
-                    createdAt: application.createdAt,
-                    updatedAt: application.updatedAt
-                }
+                feeDetails: fees,
+                submittedAt: application.submittedAt,
+                createdAt: application.createdAt,
+                updatedAt: application.updatedAt,
+                companyDetails: application.companyId
             };
         } catch (error) {
-            logger.error("Error getting application summary", error);
+            logger.error("Error fetching application summary", error);
             throw error;
         }
     }

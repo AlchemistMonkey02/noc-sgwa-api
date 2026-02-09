@@ -660,6 +660,26 @@ class DocumentController {
             next(error);
         }
     }
+    /**
+     * POST /api/documents/:id/claim
+     * Claim a temporary document and link to current user
+     */
+    async claimDocument(req, res, next) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.id;
+
+            const document = await documentService.linkDocumentToUser(id, userId);
+
+            res.status(200).json({
+                success: true,
+                data: document,
+                message: "Document claimed successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 module.exports = new DocumentController();

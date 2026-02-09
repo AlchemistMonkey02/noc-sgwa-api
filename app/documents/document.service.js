@@ -12,6 +12,9 @@ class DocumentService {
         try {
             const uploadedDocs = [];
 
+            // If userId is null/undefined, this is a public upload
+            const isPublicUpload = !userId;
+
             // Parse documentTypes (can be single string, array, or comma-separated string)
             let typesArray = [];
             if (Array.isArray(documentTypes)) {
@@ -55,7 +58,7 @@ class DocumentService {
                     documentType: document.documentType,
                     fileSize: document.fileSize,
                     uploadedAt: document.uploadedAt,
-                    userId: document.userId,
+                    userId: document.userId || null,
                     companyId: document.companyId,
                     filePath: document.filePath,
                     mimeType: document.mimeType,
@@ -617,6 +620,84 @@ class DocumentService {
             return document;
         } catch (error) {
             logger.error("Error verifying document with AI", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Link a temporary (public) document to a user
+     */
+    async linkDocumentToUser(documentId, userId) {
+        try {
+            const document = await Document.findOne({ documentId });
+
+            if (!document) {
+                throw {
+                    statusCode: 404,
+                    code: "DOCUMENT_NOT_FOUND",
+                    message: "Document not found"
+                };
+            }
+
+            // Check if document is already linked
+            if (document.userId) {
+                // If it's already linked to the SAME user, return success (idempotent)
+                if (document.userId.toString() === userId.toString()) {
+                    return document;
+                }
+
+                throw {
+                    statusCode: 400,
+                    code: "DOCUMENT_ALREADY_LINKED",
+                    message: "Document is already linked to a user"
+                };
+            }
+
+            // Move file from temp to user folder
+            const oldPath = document.filePath;
+            const fileName = path.basename(oldPath);
+            const documentType = document.documentType || "OTHER";
+
+            // Construct new path: uploads/{userId}/{documentType}/{fileName}
+            const newDir = path.join("uploads", userId.toString(), documentType);
+            const newPath = path.join(newDir, fileName);
+
+            // Create user directory if not exists
+            await fs.mkdir(newDir, { recursive: true });
+
+            // Move file
+            // Note: filePath in DB uses forward slashes, but fs needs OS specific separators
+            // newPath (via path.join) is OS specific.
+            // oldPath might strictly be forward slashes from DB.
+            const oldPathOS = path.resolve(oldPath);
+
+            // Check if old file exists
+            try {
+                await fs.rename(oldPathOS, newPath);
+            } catch (err) {
+                logger.warn(`Failed to move file from ${oldPathOS} to ${newPath}: ${err.message}`);
+                // If file move fails, we might still want to link the DB record? 
+                // Or maybe just update the path if the move failed but we can't recover?
+                // For now, let's assume if move fails, we throw.
+                throw {
+                    statusCode: 500,
+                    code: "FILE_MOVE_ERROR",
+                    message: "Failed to move document file"
+                };
+            }
+
+            // Update Document Record
+            document.userId = userId;
+            // Store normalized path
+            document.filePath = newPath.replace(/\\/g, '/');
+
+            await document.save();
+
+            logger.info(`Document linked to user: ${documentId} -> ${userId}`);
+
+            return document;
+        } catch (error) {
+            logger.error("Error linking document to user", error);
             throw error;
         }
     }
