@@ -63,11 +63,43 @@ class DashboardService {
      * @param {number} limit 
      */
     async getRecentApplications(userId, limit = 5) {
-        return await NOCApplication.find({ userId })
+        let applications = await NOCApplication.find({ userId })
             .sort({ updatedAt: -1 })
             .limit(limit)
             .select("applicationNumber projectDetails.projectName status updatedAt applicationType trackingId")
             .lean();
+
+        // Map applicationType (numeric ID) to Name using ApplicationType model
+        // Define model if not already defined (using loose schema as in master-data.controller.js)
+        if (applications.length > 0) {
+            try {
+                // Use existing model if registered, or define it (schema must match database)
+                const ApplicationType = mongoose.models.ApplicationType || mongoose.model('ApplicationType', new mongoose.Schema({ id: Number, name: String, isActive: Boolean }), 'applicationtypes');
+
+                // Get unique IDs (ensure they are numbers)
+                const typeIds = [...new Set(applications.map(app => parseInt(app.applicationType)).filter(id => !isNaN(id)))];
+
+                if (typeIds.length > 0) {
+                    const types = await ApplicationType.find({ id: { $in: typeIds } }).select("id name");
+
+                    const typeMap = {};
+                    types.forEach(t => {
+                        typeMap[t.id] = t.name;
+                    });
+
+                    applications.forEach(app => {
+                        const typeId = parseInt(app.applicationType);
+                        if (!isNaN(typeId) && typeMap[typeId]) {
+                            app.applicationTypeName = typeMap[typeId];
+                        }
+                    });
+                }
+            } catch (err) {
+                logger.error("Error fetching application types for dashboard", err);
+            }
+        }
+
+        return applications;
     }
 }
 

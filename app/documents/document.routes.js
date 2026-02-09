@@ -20,6 +20,9 @@ router.post(
     documentController.uploadSingleDocument
 );
 
+// POST /api/documents/:id/claim - Claim a temporary document
+router.post("/:id/claim", documentController.claimDocument);
+
 // POST /api/documents/link - Link document to application
 router.post("/link", documentController.linkDocumentToApplication);
 
