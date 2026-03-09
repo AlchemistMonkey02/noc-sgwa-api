@@ -10,7 +10,6 @@ const NotificationSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
         ref: 'User',
-        index: true
     },
     type: {
         type: String,
@@ -56,13 +55,11 @@ const NotificationSchema = new mongoose.Schema({
     isRead: {
         type: Boolean,
         default: false,
-        index: true
     },
     readAt: Date,
     createdAt: {
         type: Date,
         default: Date.now,
-        index: true
     },
     expiresAt: {
         type: Date,

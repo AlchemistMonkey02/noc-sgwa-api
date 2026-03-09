@@ -78,8 +78,7 @@ class AuthService {
             }
 
             // Verify OTP
-            // Allow test OTP '1234'
-            if (otp !== "1234" && otpRecord.otp !== otp) {
+            if (otpRecord.otp !== otp) {
                 otpRecord.attempts += 1;
                 await otpRecord.save();
                 return false;
@@ -160,11 +159,17 @@ class AuthService {
             // Hash password
             const hashedPassword = await bcrypt.hash(userData.password, 10);
 
+            // Determine account status based on user role
+            const officerRoles = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "INSPECTION"];
+            const assignedUserType = userData.userType || "APPLICANT";
+            const initialAccountStatus = officerRoles.includes(assignedUserType) ? "INACTIVE" : "ACTIVE";
+
             // Create new user
             const user = new User({
                 ...userData,
                 password: hashedPassword,
-                userType: userData.userType || "APPLICANT",
+                userType: assignedUserType,
+                accountStatus: initialAccountStatus,
             });
 
             await user.save();
@@ -729,6 +734,46 @@ class AuthService {
             }).catch(err => logger.error("Password change notification failed", err)); */
 
             return { message: "Password changed successfully" };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Approve officer registration (Super Admin only)
+     */
+    async approveOfficer(officerId, adminId) {
+        try {
+            const officer = await User.findById(officerId);
+
+            if (!officer) {
+                throw {
+                    statusCode: 404,
+                    code: "USER_NOT_FOUND",
+                    message: "Officer not found",
+                };
+            }
+
+            const officerRoles = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "INSPECTION"];
+            if (!officerRoles.includes(officer.userType)) {
+                throw {
+                    statusCode: 400,
+                    code: "INVALID_OPERATION",
+                    message: "User is not an officer",
+                };
+            }
+
+            officer.accountStatus = "ACTIVE";
+            officer.verificationStatus = "VERIFIED";
+            await officer.save();
+
+            // Notify officer
+            notificationService.send(officer._id, 'ACCOUNT_APPROVED', {
+                applicationNumber: 'N/A',
+                message: 'Your officer account has been approved by the Super Admin.'
+            }).catch(err => logger.error("Account approval notification failed", err));
+
+            return officer;
         } catch (error) {
             throw error;
         }

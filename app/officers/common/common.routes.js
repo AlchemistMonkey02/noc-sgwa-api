@@ -5,7 +5,7 @@ const { upload } = require("../../documents/upload.middleware");
 
 router.use(authMiddleware.authenticate);
 // Authorize any officer role
-router.use(authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT"));
+router.use(authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"));
 
 // Profile
 router.get("/profile", commonController.getProfile);

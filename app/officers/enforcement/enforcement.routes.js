@@ -7,9 +7,12 @@ router.use(authMiddleware.authorize("ENFORCEMENT"));
 
 // Approval Queue
 router.get("/approval-queue", enforcementController.getApprovalQueue);
+router.get("/applications/queue", enforcementController.getApprovalQueue); // Alias for frontend compatibility
+router.get("/applications/:id", enforcementController.getApplicationById);
 
 router.post("/applications/:id/issue-noc", enforcementController.issueNOC);
 router.post("/applications/:id/approve", enforcementController.issueNOC); // Alias
+router.post("/applications/:id/assign", enforcementController.assignApplication); // New Assignment Route
 
 router.post("/applications/:id/reject", enforcementController.rejectApplication);
 

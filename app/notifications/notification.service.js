@@ -27,7 +27,6 @@ class NotificationService {
             }
 
             // 2. Create In-App Notification
-            // We map the system 'event' to the 'type' and 'message' fields expected by the model
             const notificationData = {
                 type: this.getNotificationType(event),
                 title: this.getNotificationTitle(event),
@@ -56,7 +55,51 @@ class NotificationService {
 
         } catch (error) {
             logger.error('Error in notification dispatch', error);
-            // Don't throw, notifications shouldn't break the main flow
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Notify all users of a specific type (e.g., all SGWA officers)
+     */
+    async notifyRole(userType, event, data) {
+        try {
+            const User = require('../auth/user.model');
+            const officers = await User.find({ userType, accountStatus: 'ACTIVE' });
+
+            logger.info(`Sending ${event} to ${officers.length} officers of type ${userType}`);
+
+            const promises = officers.map(officer => this.send(officer._id, event, data));
+            await Promise.allSettled(promises);
+
+            return { success: true, count: officers.length };
+        } catch (error) {
+            logger.error(`Error notifying role ${userType}`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Notify all DGOs of a specific district
+     */
+    async notifyDistrictOfficers(district, event, data) {
+        try {
+            const User = require('../auth/user.model');
+            const query = {
+                userType: 'DGO',
+                accountStatus: 'ACTIVE',
+                "communicationAddress.district": { $regex: new RegExp(`^${district}$`, 'i') }
+            };
+
+            const officers = await User.find(query);
+            logger.info(`Sending ${event} to ${officers.length} DGOs in district ${district}`);
+
+            const promises = officers.map(officer => this.send(officer._id, event, data));
+            await Promise.allSettled(promises);
+
+            return { success: true, count: officers.length };
+        } catch (error) {
+            logger.error(`Error notifying district officers in ${district}`, error);
             return { success: false, error: error.message };
         }
     }
@@ -75,14 +118,10 @@ class NotificationService {
     }
 
     getNotificationMessage(event, data) {
-        // Reuse format logic from SMS/WhatsApp or have a centralized one
         const smsService = require('./sms.service');
         return smsService.formatMessage(event, data);
     }
 
-    /**
-     * Create a new notification for a user (DB only)
-     */
     async createNotification(userId, data) {
         try {
             const notification = new Notification({
@@ -98,24 +137,12 @@ class NotificationService {
         }
     }
 
-    /**
-     * Get user notifications with filters
-     */
     async getUserNotifications(userId, filters = {}) {
         try {
             const query = { userId };
-
-            if (filters.isRead !== undefined) {
-                query.isRead = filters.isRead;
-            }
-
-            if (filters.type) {
-                query.type = filters.type;
-            }
-
-            if (filters.priority) {
-                query.priority = filters.priority;
-            }
+            if (filters.isRead !== undefined) query.isRead = filters.isRead;
+            if (filters.type) query.type = filters.type;
+            if (filters.priority) query.priority = filters.priority;
 
             const notifications = await Notification.find(query)
                 .sort({ createdAt: -1 })
@@ -128,17 +155,11 @@ class NotificationService {
         }
     }
 
-    /**
-     * Mark a notification as read
-     */
     async markAsRead(notificationId, userId) {
         try {
             const notification = await Notification.findOneAndUpdate(
                 { notificationId, userId },
-                {
-                    isRead: true,
-                    readAt: new Date()
-                },
+                { isRead: true, readAt: new Date() },
                 { new: true }
             );
 
@@ -149,7 +170,6 @@ class NotificationService {
                     message: 'Notification not found'
                 };
             }
-
             return notification;
         } catch (error) {
             logger.error('Error marking notification as read', error);
@@ -157,19 +177,12 @@ class NotificationService {
         }
     }
 
-    /**
-     * Mark all notifications as read for a user
-     */
     async markAllAsRead(userId) {
         try {
             const result = await Notification.updateMany(
                 { userId, isRead: false },
-                {
-                    isRead: true,
-                    readAt: new Date()
-                }
+                { isRead: true, readAt: new Date() }
             );
-
             logger.info(`Marked ${result.modifiedCount} notifications as read for user ${userId}`);
             return result;
         } catch (error) {
@@ -178,9 +191,6 @@ class NotificationService {
         }
     }
 
-    /**
-     * Get unread notification count
-     */
     async getUnreadCount(userId) {
         try {
             return await Notification.countDocuments({ userId, isRead: false });
@@ -190,13 +200,9 @@ class NotificationService {
         }
     }
 
-    /**
-     * Delete a notification
-     */
     async deleteNotification(notificationId, userId) {
         try {
             const result = await Notification.deleteOne({ notificationId, userId });
-
             if (result.deletedCount === 0) {
                 throw {
                     statusCode: 404,
@@ -204,8 +210,6 @@ class NotificationService {
                     message: 'Notification not found'
                 };
             }
-
-            logger.info(`Notification ${notificationId} deleted for user ${userId}`);
             return { message: 'Notification deleted successfully' };
         } catch (error) {
             logger.error('Error deleting notification', error);
@@ -213,15 +217,11 @@ class NotificationService {
         }
     }
 
-    /**
-     * Delete old notifications (cleanup)
-     */
     async deleteExpiredNotifications() {
         try {
             const result = await Notification.deleteMany({
                 expiresAt: { $lte: new Date() }
             });
-
             logger.info(`Deleted ${result.deletedCount} expired notifications`);
             return result;
         } catch (error) {

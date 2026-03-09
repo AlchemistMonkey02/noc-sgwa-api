@@ -62,12 +62,24 @@ class SMSService {
      */
     async sendViaTwilio(phone, message) {
         try {
+            console.log(`[TWILIO_PROBE_V3] Attempting to send SMS to ${phone}`);
             const accountSid = process.env.TWILIO_ACCOUNT_SID;
             const authToken = process.env.TWILIO_AUTH_TOKEN;
             const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
-            if (!accountSid || !authToken || !fromNumber) {
-                throw new Error("Twilio credentials not configured");
+            if (!accountSid || accountSid === 'CHANGE_ME' || !accountSid.startsWith('AC')) {
+                console.warn(`[TWILIO_PROBE_V3] Twilio ACCOUNT_SID missing or invalid. SID: ${accountSid ? (accountSid.startsWith('AC') ? 'Starts with AC' : 'MALFORMED') : 'MISSING'}. SMS sending skipped.`);
+                return { success: false, reason: "INVALID_CREDENTIALS" };
+            }
+
+            if (!authToken || authToken === 'CHANGE_ME') {
+                console.warn("[TWILIO_PROBE_V3] Twilio AUTH_TOKEN missing or invalid. SMS sending skipped.");
+                return { success: false, reason: "MISSING_CREDENTIALS" };
+            }
+
+            if (!fromNumber || fromNumber === '+1234567890' || fromNumber === 'CHANGE_ME') {
+                console.warn("[TWILIO_PROBE_V3] Twilio phone number not configured. SMS sending skipped.");
+                return { success: false, reason: "INVALID_PHONE_NUMBER" };
             }
 
             // In production, use actual Twilio SDK

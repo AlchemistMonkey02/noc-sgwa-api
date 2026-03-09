@@ -6,12 +6,10 @@ const ComplianceReportSchema = new mongoose.Schema(
             type: String,
             required: true,
             unique: true,
-            index: true,
         },
         nocId: {
             type: String,
             required: true,
-            index: true,
         },
         applicationId: {
             type: mongoose.Schema.Types.ObjectId,

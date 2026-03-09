@@ -101,6 +101,49 @@ class DashboardService {
 
         return applications;
     }
+    /**
+     * Get system announcements
+     */
+    async getAnnouncements() {
+        // This could be fetched from an Announcements model in the future
+        return [
+            {
+                type: "NEW",
+                title: "Revised Water Extraction Charges",
+                description: "New tariff rates effective from January 1, 2026",
+                date: "2026-01-01"
+            },
+            {
+                type: "IMPORTANT",
+                title: "Mandatory Piezometer Installation",
+                description: "Required for all industries in semi-critical blocks",
+                date: "2025-12-15"
+            }
+        ];
+    }
+
+    /**
+     * Get upcoming deadlines for the user
+     * @param {string} userId
+     */
+    async getUpcomingDeadlines(userId) {
+        // This could fetch pending compliance reports, query responses etc.
+        // For now, returning a realistic mock-dynamic set
+        return [
+            {
+                task: "Q4 2025 Compliance Report",
+                dueDate: "2026-01-15",
+                daysLeft: 7,
+                type: "COMPLIANCE"
+            },
+            {
+                task: "Meter Reading Submission",
+                dueDate: "2026-01-10",
+                daysLeft: 2,
+                type: "METER"
+            }
+        ];
+    }
 }
 
 const mongoose = require("mongoose");

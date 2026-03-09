@@ -9,18 +9,14 @@ const DocumentSchema = new mongoose.Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            index: true,
         },
         // Company reference (documents linked to company)
         companyId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company",
-            index: true,
         },
         applicationId: {
             type: String,
-            // ref: "NOCApplication", // Relationship is based on UUID string, not ObjectId
-            index: true,
         },
 
         // Document details
@@ -108,7 +104,6 @@ const DocumentSchema = new mongoose.Schema(
 );
 
 // Indexes
-DocumentSchema.index({ documentId: 1 });
 DocumentSchema.index({ userId: 1, documentType: 1 });
 DocumentSchema.index({ applicationId: 1 });
 DocumentSchema.index({ status: 1 });

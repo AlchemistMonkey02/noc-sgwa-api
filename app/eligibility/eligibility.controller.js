@@ -13,7 +13,8 @@ class EligibilityController {
                 success: true,
                 data: {
                     districts
-                }
+                },
+                message: "Metadata retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -31,7 +32,8 @@ class EligibilityController {
                 success: true,
                 data: {
                     blocks
-                }
+                },
+                message: "Blocks retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -66,7 +68,8 @@ class EligibilityController {
                         message: "Projects located in Notified Wetland Areas are strictly prohibited from groundwater extraction.",
                         details: [],
                         blockInfo: null
-                    }
+                    },
+                    message: "Eligibility check completed"
                 });
             }
 
@@ -104,7 +107,8 @@ class EligibilityController {
                             "You are not required to obtain an NOC."
                         ],
                         blockInfo
-                    }
+                    },
+                    message: "Eligibility check completed: Exempted"
                 });
             }
 
@@ -122,7 +126,8 @@ class EligibilityController {
                         message: eligibilityCheck.reason,
                         details: [],
                         blockInfo
-                    }
+                    },
+                    message: "Eligibility check completed: Not Eligible"
                 });
             }
 
@@ -138,7 +143,8 @@ class EligibilityController {
                         `Validity: ${eligibilityCheck.validityYears} Years`
                     ],
                     blockInfo
-                }
+                },
+                message: "Eligibility check completed: Eligible"
             });
 
         } catch (error) {

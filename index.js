@@ -12,31 +12,32 @@ const dbConfig = require("./app/config/db.config");
 const errorMiddleware = require("./app/middleware/error.middleware");
 const logger = require("./app/utils/logger");
 
+const http = require("http");
+const { Server } = require("socket.io");
+const webrtcStream = require("./app/sockets/webrtc.socket");
+
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Adjust in production
+    methods: ["GET", "POST"]
+  }
+});
+
+// Setup WebRTC signaling stream namespace
+io.of('/stream').on('connection', webrtcStream);
 
 // Security middleware
-app.use(helmet());
+// app.use(helmet());
 
-// CORS configuration
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : [];
-
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.warn(`Blocked by CORS: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true
-}));
+// CORS configuration - Simplified for debugging
+app.use(cors());
 
 // Compression
-app.use(compression());
+// app.use(compression());
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
@@ -129,13 +130,14 @@ app.use((req, res) => {
 // Global error handler (must be last)
 app.use(errorMiddleware);
 
-// Start server
+// Start server via HTTP module, not Express directly, to support websockets
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server started on port ${PORT}`);
   console.log(`\n🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📱 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`📧 Email configured: ${process.env.SMTP_USER ? "Yes" : "No"}`);
+  console.log(`🔌 WebRTC Socket.io initialized on /stream`);
   console.log(`\n✅ API Ready!\n`);
   console.log(`🔄 Server reloaded at ${new Date().toISOString()}`);
 });

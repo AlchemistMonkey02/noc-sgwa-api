@@ -17,7 +17,11 @@ class HealthController {
             version: process.env.npm_package_version || '1.0.0'
         };
 
-        res.status(200).json(healthCheck);
+        res.status(200).json({
+            success: true,
+            data: healthCheck,
+            message: "Health check completed"
+        });
     }
 
     /**
@@ -59,7 +63,11 @@ class HealthController {
         };
 
         const statusCode = healthCheck.status === 'healthy' ? 200 : 503;
-        res.status(statusCode).json(healthCheck);
+        res.status(statusCode).json({
+            success: healthCheck.status === 'healthy',
+            data: healthCheck,
+            message: healthCheck.status === 'healthy' ? "Detailed health check completed" : "System is unhealthy"
+        });
     }
 
     /**
@@ -70,9 +78,17 @@ class HealthController {
         const isReady = mongoose.connection.readyState === 1;
 
         if (isReady) {
-            res.status(200).json({ status: 'ready' });
+            res.status(200).json({
+                success: true,
+                data: { status: 'ready' },
+                message: "System is ready"
+            });
         } else {
-            res.status(503).json({ status: 'not ready' });
+            res.status(503).json({
+                success: false,
+                data: { status: 'not ready' },
+                message: "System is not ready"
+            });
         }
     }
 
@@ -81,7 +97,11 @@ class HealthController {
      * Liveness probe for Kubernetes
      */
     async live(req, res) {
-        res.status(200).json({ status: 'alive' });
+        res.status(200).json({
+            success: true,
+            data: { status: 'alive' },
+            message: "System is live"
+        });
     }
 }
 

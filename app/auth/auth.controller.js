@@ -1,6 +1,7 @@
 const authService = require("./auth.service");
 const logger = require("../utils/logger");
 const User = require("./user.model");
+const { AppError, BadRequestError } = require("../utils/custom-errors");
 
 class AuthController {
     /**
@@ -12,13 +13,7 @@ class AuthController {
             const { phone } = req.body;
 
             if (!phone) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_PHONE",
-                        message: "Please provide a valid 10-digit mobile number",
-                    },
-                });
+                return next(new BadRequestError("Please provide a valid 10-digit mobile number"));
             }
 
             await authService.sendOTP(phone, "MOBILE");
@@ -42,13 +37,7 @@ class AuthController {
             const { email } = req.body;
 
             if (!email) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_EMAIL",
-                        message: "Please provide a valid email address",
-                    },
-                });
+                return next(new BadRequestError("Please provide a valid email address"));
             }
 
             await authService.sendOTP(email, "EMAIL");
@@ -74,31 +63,20 @@ class AuthController {
             console.log('📥 OTP Verification Request:', { identifier, otp: otp?.substring(0, 2) + '****', type });
 
             if (!identifier || !otp || !type) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "MISSING_PARAMETERS",
-                        message: "Identifier, OTP, and type are required",
-                    },
-                });
+                return next(new AppError("MISSING_PARAMETERS", "Identifier, OTP, and type are required", 400));
             }
 
             const isValid = await authService.verifyOTP(identifier, otp, type);
 
             if (!isValid) {
                 console.log('❌ OTP Verification Failed:', { identifier, type });
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_OTP",
-                        message: "Invalid or expired OTP",
-                    },
-                });
+                return next(new AppError("INVALID_OTP", "Invalid or expired OTP", 400));
             }
 
             console.log('✅ OTP Verified Successfully:', { identifier, type });
             res.status(200).json({
                 success: true,
+                data: null,
                 message: "OTP verified successfully",
             });
         } catch (error) {
@@ -115,20 +93,18 @@ class AuthController {
             const { username } = req.params;
 
             if (!username) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_USERNAME",
-                        message: "Username must be at least 4 characters",
-                    },
-                });
+                return next(new BadRequestError("Username is required"));
+            }
+
+            if (username.length < 4) {
+                return next(new BadRequestError("Username must be at least 4 characters"));
             }
 
             const exists = await User.findOne({ username: username.toLowerCase() });
 
             res.status(200).json({
                 success: true,
-                available: !exists,
+                data: { available: !exists },
                 message: exists ? "Username is already taken" : "Username is available",
             });
         } catch (error) {
@@ -179,9 +155,15 @@ class AuthController {
                 // CGWA BhuNeer format - transform to flat structure
                 const { applicantInfo = {}, communicationAddress = {}, loginCredentials = {}, declaration } = rawData;
 
-                // Skip OTP pre-verification - allow direct registration
-                // The OTP verification endpoints are still available but not mandatory
-                console.log('📋 Skipping OTP pre-verification for direct registration:', {
+                // Enforce OTP pre-verification for registration
+                const isMobileVerified = await authService.checkPreVerified(applicantInfo.mobileNumber, "MOBILE");
+                const isEmailVerified = await authService.checkPreVerified(applicantInfo.emailId, "EMAIL");
+
+                if (!isMobileVerified || !isEmailVerified) {
+                    return next(new BadRequestError("Please verify your mobile and email OTP before registration"));
+                }
+
+                console.log('✅ OTP pre-verification successful for:', {
                     mobile: applicantInfo.mobileNumber,
                     email: applicantInfo.emailId
                 });
@@ -387,6 +369,10 @@ class AuthController {
                 message: "Login successful",
             });
         } catch (error) {
+            // Unified secure message for auth failures
+            if (error.code === 'INVALID_CREDENTIALS' || error.code === 'USER_NOT_FOUND' || error.code === 'INVALID_PASSWORD') {
+                return next(new AppError("INVALID_CREDENTIALS", "Invalid username or password", 401));
+            }
             next(error);
         }
     }
@@ -410,6 +396,7 @@ class AuthController {
 
             res.status(200).json({
                 success: true,
+                data: null,
                 message: "Logout successful",
             });
         } catch (error) {
@@ -426,13 +413,7 @@ class AuthController {
             const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
 
             if (!refreshToken) {
-                return res.status(401).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_TOKEN",
-                        message: "Refresh token is required",
-                    },
-                });
+                return next(new UnauthorizedError("Refresh token is required"));
             }
 
             const result = await authService.refreshToken(refreshToken);
@@ -451,6 +432,7 @@ class AuthController {
                     token: result.token,
                     expiresIn: result.expiresIn,
                 },
+                message: "Token refreshed successfully",
             });
         } catch (error) {
             next(error);
@@ -503,6 +485,7 @@ class AuthController {
             res.status(200).json({
                 success: true,
                 data: user,
+                message: "Profile retrieved successfully",
             });
         } catch (error) {
             next(error);
@@ -583,13 +566,8 @@ class AuthController {
 
             res.status(200).json({
                 success: true,
-                message,
                 data: validatedData,
-            });
-            res.status(200).json({
-                success: true,
                 message,
-                data: validatedData,
             });
         } catch (error) {
             logger.error("Error validating registration step", error);
@@ -607,10 +585,7 @@ class AuthController {
             const userId = req.user.id;
 
             if (!type || !value || !["EMAIL", "PHONE"].includes(type)) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid type or value. Type must be EMAIL or PHONE."
-                });
+                return next(new BadRequestError("Invalid type or value. Type must be EMAIL or PHONE."));
             }
 
             // Check if value is already in use by ANOTHER user
@@ -618,10 +593,7 @@ class AuthController {
             const existingUser = await User.findOne({ ...query, _id: { $ne: userId } });
 
             if (existingUser) {
-                return res.status(400).json({
-                    success: false,
-                    message: `${type === "EMAIL" ? "Email" : "Phone number"} is already in use by another account.`
-                });
+                return next(new ConflictError(`${type === "EMAIL" ? "Email" : "Phone number"} is already in use by another account.`));
             }
 
             await authService.sendOTP(value, type === "EMAIL" ? "EMAIL" : "MOBILE");
@@ -646,10 +618,7 @@ class AuthController {
             const userId = req.user.id;
 
             if (!type || !value || !otp) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Type, value, and OTP are required"
-                });
+                return next(new BadRequestError("Type, value, and OTP are required"));
             }
 
             // Verify OTP
@@ -657,10 +626,7 @@ class AuthController {
             const isValid = await authService.verifyOTP(value, otp, otpType);
 
             if (!isValid) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Invalid or expired OTP"
-                });
+                return next(new BadRequestError("Invalid or expired OTP"));
             }
 
             // Update User Profile
@@ -696,13 +662,7 @@ class AuthController {
             const { action, reason } = req.body;
 
             if (!["approve", "reject"].includes(action)) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_ACTION",
-                        message: "Action must be 'approve' or 'reject'",
-                    },
-                });
+                return next(new BadRequestError("Action must be 'approve' or 'reject'"));
             }
 
             const user = await authService.verifyUser(userId, officerId, action, reason);
@@ -723,13 +683,7 @@ class AuthController {
     async uploadProfilePicture(req, res, next) {
         try {
             if (!req.file) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "NO_FILE_UPLOADED",
-                        message: "Please upload an image file",
-                    },
-                });
+                return next(new BadRequestError("Please upload an image file"));
             }
 
             const result = await authService.uploadProfilePicture(req.user.id, req.file);
@@ -752,23 +706,11 @@ class AuthController {
             const { currentPassword, newPassword } = req.body;
 
             if (!currentPassword || !newPassword) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "MISSING_PARAMETERS",
-                        message: "Current password and new password are required",
-                    },
-                });
+                return next(new BadRequestError("Current password and new password are required"));
             }
 
             if (newPassword.length < 6) {
-                return res.status(400).json({
-                    success: false,
-                    error: {
-                        code: "INVALID_PASSWORD",
-                        message: "New password must be at least 6 characters long",
-                    },
-                });
+                return next(new BadRequestError("New password must be at least 6 characters long"));
             }
 
             const result = await authService.changePassword(req.user.id, currentPassword, newPassword);
@@ -804,6 +746,29 @@ class AuthController {
                 success: true,
                 message: "Digital signature uploaded successfully",
                 data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/auth/admin/officers/:id/approve
+     * Approve an officer account (Super Admin only)
+     */
+    async approveOfficer(req, res, next) {
+        try {
+            const officer = await authService.approveOfficer(req.params.id, req.user.id);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    id: officer._id,
+                    email: officer.email,
+                    userType: officer.userType,
+                    accountStatus: officer.accountStatus
+                },
+                message: "Officer account approved successfully",
             });
         } catch (error) {
             next(error);

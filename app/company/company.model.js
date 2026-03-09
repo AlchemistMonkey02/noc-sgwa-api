@@ -5,14 +5,12 @@ const CompanySchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        index: true,
     },
 
     // Company Basic Information
     companyName: {
         type: String,
         trim: true,
-        index: true,
     },
     companyType: {
         type: String,
@@ -210,7 +208,6 @@ const CompanySchema = new mongoose.Schema({
 
 // Indexes
 CompanySchema.index({ userId: 1, status: 1 });
-CompanySchema.index({ gstNumber: 1 });
 CompanySchema.index({ companyName: 1 });
 CompanySchema.index({ verificationStatus: 1 });
 

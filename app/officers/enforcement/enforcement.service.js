@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const NOCApplication = require("../../noc/noc-application.model");
 const NOCCertificate = require("../../noc/noc-certificate.model");
 const notificationService = require("../../notifications/notification.service");
@@ -125,11 +126,11 @@ class EnforcementService {
     async getApplications(officerId, filters = {}) {
         try {
             const query = {
-                status: { $in: ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "INSPECTION_SCHEDULED", "INSPECTED", "UNDER_REVIEW_ENFORCEMENT"] }
+                status: { $in: ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "UNDER_REVIEW_ENFORCEMENT", "PENDING_FINAL_APPROVAL"] }
             };
 
             if (filters.status) {
-                query.status = filters.status;
+                query.$and[1].status = filters.status;
             }
 
             const page = parseInt(filters.page) || 1;
@@ -160,7 +161,9 @@ class EnforcementService {
      */
     async scheduleInspection(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -174,7 +177,10 @@ class EnforcementService {
             application.approvalFlow.enforcement.inspectionScheduledAt = data.inspectionDate;
             await application.save();
 
-            await this.sendNotifications(application, "INSPECTION_SCHEDULED");
+            await this.sendNotifications(application, "INSPECTION_SCHEDULED", {
+                notifyOfficer: true,
+                remarks: `Scheduled for ${data.inspectionDate}`
+            });
 
             logger.info(`Inspection scheduled for application ${applicationId}`, { officerId });
 
@@ -189,29 +195,93 @@ class EnforcementService {
      * Final approval and issue NOC
      */
     /**
-     * Get Approval Queue (Pending Final Approval)
+     * Assign application to an enforcement officer
+     */
+    async assignApplication(id, currentOfficerId, data) {
+        try {
+            const isObjectId = mongoose.Types.ObjectId.isValid(id);
+            const query = isObjectId ? { _id: id } : { applicationId: id };
+            const application = await NOCApplication.findOne(query);
+            const { officerId, remarks } = data;
+
+            if (!application) throw { statusCode: 404, message: "Application not found" };
+
+            if (!application.approvalFlow.enforcement) application.approvalFlow.enforcement = {};
+
+            application.assignedTo = officerId;
+            application.approvalFlow.enforcement.assignedTo = officerId;
+            application.approvalFlow.enforcement.assignedAt = new Date();
+            application.approvalFlow.enforcement.remarks = remarks;
+
+            // Update status if it's the first assignment
+            if (application.status === 'PENDING_FINAL_APPROVAL') {
+                application.status = 'UNDER_REVIEW_ENFORCEMENT';
+            }
+
+            await application.save();
+            logger.info(`Application ${id} assigned to enforcement officer ${officerId}`);
+            return application;
+        } catch (error) {
+            logger.error("Error assigning application in enforcement", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get Approval Queue (State-wide Pool of pending applications)
      */
     async getApprovalQueue(officerId, filters = {}) {
+        // Show all PENDING_FINAL_APPROVAL applications regardless of assignment
+        // OR filter by status if provided (e.g. for Approved list)
         const query = {
-            status: { $in: ["APPROVED_SGWA", "PENDING_FINAL_APPROVAL"] }
+            status: filters.status ? filters.status : { $in: ["APPROVED_SGWA", "PENDING_FINAL_APPROVAL"] }
         };
-        return await NOCApplication.find(query)
-            .populate("userId", "firstName lastName")
-            .populate("companyId", "companyName");
+        const applications = await NOCApplication.find(query)
+            .populate("userId", "firstName lastName email")
+            .populate("companyId", "companyName")
+            .sort({ updatedAt: -1 });
+
+        // Format each application for the queue view
+        const queue = applications.map(app => ({
+            id: app.applicationId,
+            applicationNumber: app.applicationNumber,
+            status: app.status,
+            applicantDetails: { name: app.projectDetails?.applicantName || app.userId?.firstName },
+            projectDetails: { projectName: app.projectDetails?.projectName },
+            locationDetails: { district: app.location?.districtId },
+            waterRequirement: { total: app.waterRequirement?.dailyRequirement },
+            submittedAt: app.submittedAt,
+            reviewHistory: [
+                app.approvalFlow?.dgo?.status === 'APPROVED' ? { role: 'DGO', action: 'APPROVED' } : null,
+                app.approvalFlow?.sgwa?.status === 'APPROVED' ? { role: 'SGWA', action: 'APPROVED' } : null
+            ].filter(Boolean),
+            daysInQueue: app.submittedAt ? Math.floor((Date.now() - new Date(app.submittedAt)) / (1000 * 60 * 60 * 24)) : 0
+        }));
+
+        return { queue, total: applications.length };
     }
 
     /**
      * Final approval and issue NOC (issueNOC)
      */
-    async issueNOC(applicationId, officerId, data) {
+    async issueNOC(id, officerId, data) {
         try {
-            // Find by _id (route param) OR applicationId (custom ID)
-            const application = await NOCApplication.findOne({
-                $or: [{ _id: applicationId }, { applicationId: applicationId }]
-            });
+            const isObjectId = mongoose.Types.ObjectId.isValid(id);
+            const query = isObjectId ? { _id: id } : { applicationId: id };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw { statusCode: 404, message: "Application not found" };
+            }
+
+            // Assignment Check: Allow unassigned (pool) OR if explicitly assigned to this officer
+            // DEVELOPMENT/DEMO: Allow any enforcement officer to issue NOC from the pool
+            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
+                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
+            }
+            // Auto-assign to this officer if unassigned
+            if (!application.assignedTo) {
+                application.assignedTo = officerId;
             }
 
             // Generate NOC Number
@@ -256,9 +326,12 @@ class EnforcementService {
 
             await application.save();
 
-            await this.sendNotifications(application, "NOC_ISSUED");
+            await this.sendNotifications(application, "NOC_ISSUED", {
+                notifyOfficer: true,
+                remarks: data.remarks
+            });
 
-            logger.info(`NOC issued for application ${applicationId}`, { officerId, nocNumber });
+            logger.info(`NOC issued for application ${id}`, { officerId, nocNumber });
 
             return { application, certificate };
         } catch (error) {
@@ -271,7 +344,9 @@ class EnforcementService {
     async approveApplication(appId, offId, data) { return this.issueNOC(appId, offId, data); }
 
     async returnToSGWA(applicationId, officerId, data) {
-        const application = await NOCApplication.findOne({ applicationId });
+        const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+        const query = isObjectId ? { _id: applicationId } : { applicationId };
+        const application = await NOCApplication.findOne(query);
         if (!application) throw { statusCode: 404, message: "Application not found" };
 
         application.status = "RETURNED_TO_SGWA";
@@ -442,7 +517,9 @@ class EnforcementService {
      */
     async rejectApplication(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -450,6 +527,11 @@ class EnforcementService {
                     code: "APPLICATION_NOT_FOUND",
                     message: "Application not found"
                 };
+            }
+
+            // Allow unassigned pool apps OR own-assigned apps
+            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
+                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
             }
 
             application.approvalFlow.enforcement = {
@@ -479,7 +561,9 @@ class EnforcementService {
      */
     async raiseQuery(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const appQuery = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(appQuery);
 
             if (!application) {
                 throw {
@@ -487,6 +571,11 @@ class EnforcementService {
                     code: "APPLICATION_NOT_FOUND",
                     message: "Application not found"
                 };
+            }
+
+            // Allow unassigned pool apps OR own-assigned apps
+            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
+                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
             }
 
             const ApplicationQuery = require("../../noc/application-query.model");
@@ -511,7 +600,10 @@ class EnforcementService {
             application.approvalFlow.enforcement.remarks = data.query;
             await application.save();
 
-            await this.sendNotifications(application, "ENFORCEMENT_QUERY_RAISED");
+            await this.sendNotifications(application, "ENFORCEMENT_QUERY_RAISED", {
+                notifyOfficer: true,
+                remarks: data.query
+            });
 
             logger.info(`Query raised by Enforcement for application ${applicationId}`, { officerId });
 
@@ -549,8 +641,8 @@ class EnforcementService {
             // Fetch Location Names directly or from application if stored
             // Assuming application.location has IDs. 
             // Better to fetch names for the certificate.
-            let blockName = application.location.blockId;
-            let districtName = application.location.districtId;
+            let blockName = application?.location?.blockId || "N/A";
+            let districtName = application?.location?.districtId || "N/A";
 
             try {
                 // Try to find block/district names if they are IDs
@@ -612,18 +704,15 @@ class EnforcementService {
             }
 
             // Load Emblem Image
-            try {
-                const fs = require('fs');
-                const path = require('path');
-                // Adjust path to where you saved the emblem.png
-                // Assuming app/assets/emblem.png based on previous command
-                const emblemPath = path.join(__dirname, '../../../assets/emblem.png');
-                if (fs.existsSync(emblemPath)) {
-                    const emblemBuffer = fs.readFileSync(emblemPath);
-                    emblemImage = `data:image/png;base64,${emblemBuffer.toString('base64')}`;
-                }
-            } catch (embErr) {
-                logger.warn("Error loading emblem image", embErr);
+            const fs = require('fs');
+            const path = require('path');
+            // Absolute path from the root of the project to be safe
+            const emblemPath = path.resolve(process.cwd(), 'assets', 'emblem.png');
+            if (fs.existsSync(emblemPath)) {
+                const emblemBuffer = fs.readFileSync(emblemPath);
+                emblemImage = `data:image/png;base64,${emblemBuffer.toString('base64')}`;
+            } else {
+                logger.warn(`Emblem not found at: ${emblemPath}`);
             }
 
             // Helper to count structures
@@ -680,15 +769,15 @@ class EnforcementService {
                 submittedDate: formatDate(application.submittedAt || application.createdAt),
 
                 // Header & Applicant Info
-                projectStatus: application.projectDetails.projectStatus || "New",
+                projectStatus: application.projectDetails?.projectStatus || "New",
                 nocType: application.applicationType || "New",
                 category: application.assessmentUnit || "Safe",
 
-                companyName: application.projectDetails.organizationName || application.projectDetails.applicantName,
-                projectAddress: `${application.location.address || ''} ${application.location.village || ''}`,
-                town: application.location.tehsil || application.location.blockId,
-                block: application.location.blockId,
-                district: application.location.districtId,
+                companyName: application.projectDetails?.organizationName || application.projectDetails?.applicantName || "Project",
+                projectAddress: `${application.location?.address || ''} ${application.location?.village || ''}`,
+                town: application.location?.tehsil || application.location?.blockId || "N/A",
+                block: application.location?.blockId || "N/A",
+                district: application.location?.districtId || "N/A",
                 state: "Rajasthan",
                 communicationAddress: commAddress,
                 pinCode: comm.pincode || application.location.pincode,
@@ -734,36 +823,59 @@ class EnforcementService {
         }
     }
 
-    /**
-     * Get dashboard statistics
-     */
     async getDashboardStats(officerId) {
         try {
-            const [total, pending, inspectionScheduled, inspected, approved, rejected] = await Promise.all([
-                NOCApplication.countDocuments({ status: { $in: ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "INSPECTION_SCHEDULED", "INSPECTED", "UNDER_REVIEW_ENFORCEMENT"] } }),
-                NOCApplication.countDocuments({ status: { $in: ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW"] } }),
-                NOCApplication.countDocuments({ status: "INSPECTION_SCHEDULED" }),
-                NOCApplication.countDocuments({ status: "INSPECTED" }),
-                NOCApplication.countDocuments({ status: "NOC_ISSUED" }),
-                NOCApplication.countDocuments({ status: "REJECTED_ENFORCEMENT" })
+            // Pool-Based Visibility: Enforcement Wing sees all pending final approvals
+            const poolStatuses = ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "PENDING_FINAL_APPROVAL", "UNDER_REVIEW_ENFORCEMENT"];
+
+            const [totalDecisions, pendingApproval, approved, rejected, nocIssued] = await Promise.all([
+                NOCApplication.countDocuments({ status: { $in: [...poolStatuses, "NOC_ISSUED", "REJECTED_ENFORCEMENT"] } }),
+                NOCApplication.countDocuments({ status: { $in: ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "PENDING_FINAL_APPROVAL"] } }),
+                NOCApplication.countDocuments({ status: { $in: ["NOC_ISSUED", "APPROVED_ENFORCEMENT"] } }),
+                NOCApplication.countDocuments({ status: { $in: ["REJECTED_ENFORCEMENT", "REJECTED"] } }),
+                NOCApplication.countDocuments({ status: "NOC_ISSUED" })
             ]);
 
-            return { total, pending, inspectionScheduled, inspected, approved, rejected };
+            return {
+                stats: {
+                    totalDecisions,
+                    pendingApproval,
+                    approved,
+                    rejected,
+                    nocIssued
+                }
+            };
         } catch (error) {
             logger.error("Error fetching Enforcement stats", error);
             throw error;
         }
     }
 
-    async sendNotifications(application, event) {
+    async sendNotifications(application, event, options = {}) {
         try {
-            // Use centralized notification service
-            await notificationService.send(application.userId, event, {
+            const data = {
                 applicationNumber: application.applicationNumber,
                 projectName: application.projectDetails?.projectName || 'Project',
-                // Include NOC number if issued
-                nocNumber: application.approvalFlow?.enforcement?.nocNumber
-            });
+                remarks: options.remarks,
+                nocNumber: application.approvalFlow?.enforcement?.nocNumber,
+                ...options.data
+            };
+
+            // 1. Notify Applicant (Always)
+            await notificationService.send(application.userId, event, data);
+
+            // 2. Notify Assigned Officer (If any)
+            if (application.assignedTo && options.notifyOfficer) {
+                await notificationService.send(application.assignedTo, event, {
+                    ...data,
+                    isOfficerSide: true
+                });
+            }
+
+            // 3. Notify Roles (For pool transitions)
+            if (options.notifyRole) {
+                await notificationService.notifyRole(options.notifyRole, event, data);
+            }
         } catch (error) {
             logger.error("Error sending notifications", error);
         }

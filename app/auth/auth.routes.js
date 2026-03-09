@@ -74,8 +74,15 @@ router.post("/reset-password", authValidator.validateResetPassword, authControll
 // Officer Routes
 router.put(
     "/officer/users/:id/verify",
-    authMiddleware.authorize(["DGO", "RSGWA", "ENFORCEMENT"]),
+    authMiddleware.authorize(["DGO", "SGWA", "ENFORCEMENT"]),
     authController.verifyUser
+);
+
+// Admin / Super Admin Routes
+router.put(
+    "/admin/officers/:id/approve",
+    authMiddleware.authorize(["ADMIN", "SUPER_ADMIN"]),
+    authController.approveOfficer
 );
 
 module.exports = router;

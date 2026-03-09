@@ -16,8 +16,29 @@ class NOCService {
      * Supports both MongoDB _id and custom applicationId
      */
     async _getAuthorizedApplication(id, userId, userType, populateOptions = null) {
+        let queryId = id;
+
+        // Normalize consultation room slugs (e.g., NOC-2026-2602-NOC0001-DGO or REF-20260305-1234-SGWA)
+        if (typeof id === 'string') {
+            // 1. Remove suffixes (e.g. -DGO, -SGWA, -ENFORCEMENT)
+            queryId = id.replace(/-(DGO|SGWA|ENFORCEMENT)$/i, '');
+            // 2. If it's an NOC application format with dashes, convert to slashes
+            if (queryId.toUpperCase().includes('NOC-')) {
+                queryId = queryId.replace(/-/g, '/');
+            }
+        }
+
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
-        const query = isObjectId ? { _id: id } : { applicationId: id };
+        const query = isObjectId ? { _id: id } : {
+            $or: [
+                { applicationId: id },
+                { applicationId: queryId },
+                { applicationNumber: id },
+                { applicationNumber: { $regex: new RegExp(`^${queryId}$`, 'i') } },
+                { trackingId: id },
+                { trackingId: queryId }
+            ]
+        };
 
         let queryBuilder = NOCApplication.findOne(query);
         if (populateOptions) {
@@ -37,7 +58,7 @@ class NOCService {
         // Access control: User is owner OR User is an Officer
         const appUserId = application.userId?._id || application.userId;
         const isOwner = appUserId && appUserId.toString() === userId.toString();
-        const isOfficer = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT"].includes(userType);
+        const isOfficer = ["DGO", "SGWA", "ENFORCEMENT"].includes(userType);
 
         if (!isOwner && !isOfficer) {
             throw {
@@ -219,18 +240,26 @@ class NOCService {
 
             logger.info(`Application submitted: ${application.applicationNumber}`, { userId });
 
-            // Send email notification (async)
-            const user = await require("../auth/user.model").findById(userId);
-            if (user) {
-                emailService
-                    .sendApplicationSubmitted(user, {
-                        applicationNumber: application.applicationNumber,
-                        applicationType: application.applicationType,
-                        projectDetails: application.projectDetails,
-                        submittedDate: application.submittedAt,
-                        applicationId: application.applicationId,
-                    })
-                    .catch((err) => logger.error("Failed to send application submitted email", err));
+            // Send multi-channel notifications
+            const notificationData = {
+                applicationNumber: application.applicationNumber,
+                applicationType: application.applicationType,
+                projectName: application.projectDetails?.projectName || 'Project',
+                submittedDate: application.submittedAt,
+                applicationId: application.applicationId
+            };
+
+            // 1. Notify Applicant
+            notificationService.send(userId, 'APPLICATION_SUBMITTED', notificationData)
+                .catch(err => logger.error("Failed to send applicant notification", err));
+
+            // 2. Notify District DGOs
+            const district = application.location?.districtId;
+            if (district) {
+                notificationService.notifyDistrictOfficers(district, 'NEW_APPLICATION_SUBMITTED', {
+                    ...notificationData,
+                    message: `A new application ${application.applicationNumber} has been submitted in your district.`
+                }).catch(err => logger.error("Failed to notify district officers", err));
             }
 
             return application;
@@ -301,7 +330,21 @@ class NOCService {
             const query = { userId };
 
             if (filters.status) {
-                query.status = filters.status;
+                if (filters.status === 'IN_PROCESS') {
+                    // "In Process" means active. User wants to see them even if approved.
+                    // We only exclude truly finalized/removed states if any exist.
+                    // For now, let's just make it show everything except WITHDRAWN/ARCHIVED
+                    query.status = {
+                        $nin: ["WITHDRAWN", "ARCHIVED"]
+                    };
+                } else if (filters.status === 'APPROVED_ALL') {
+                    // "Approved All" includes both APPROVED and NOC_ISSUED
+                    query.status = {
+                        $in: ["APPROVED", "NOC_ISSUED"]
+                    };
+                } else {
+                    query.status = filters.status;
+                }
             }
 
             if (filters.applicationType) {
@@ -312,7 +355,7 @@ class NOCService {
             const limit = parseInt(filters.limit) || 10;
             const skip = (page - 1) * limit;
 
-            const applications = await NOCApplication.find(query)
+            const cursor = await NOCApplication.find(query)
                 .select("-documents")
                 .sort({ createdAt: -1 })
                 .skip(skip)
@@ -320,8 +363,26 @@ class NOCService {
 
             const total = await NOCApplication.countDocuments(query);
 
+            // Enhance applications with stage info
+            const enhancedApplications = cursor.map(app => {
+                const { dgo, sgwa, enforcement } = app.approvalFlow || {};
+
+                let currentStage = "Submitted";
+                if (app.status === "DRAFT") currentStage = "Draft";
+                else if (dgo?.status === "PENDING") currentStage = "DGO Review";
+                else if (sgwa?.status === "PENDING") currentStage = "SGWA Review";
+                else if (enforcement?.status === "PENDING") currentStage = "Enforcement";
+                else if (app.status === "APPROVED" || app.status === "NOC_ISSUED") currentStage = "Completed";
+
+                return {
+                    ...app.toObject(),
+                    currentStage,
+                    projectName: app.projectDetails?.projectName || "N/A"
+                };
+            });
+
             return {
-                applications,
+                applications: enhancedApplications,
                 pagination: {
                     page,
                     limit,
@@ -391,8 +452,17 @@ class NOCService {
      */
     async getApplicationQueries(applicationId) {
         try {
-            const queries = await ApplicationQuery.find({ applicationId })
-                .populate("raisedBy", "firstName lastName")
+            // Resolve application first to handle both _id and custom applicationId
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationId);
+            let appQuery = isObjectId ? { _id: applicationId } : { applicationId };
+
+            const application = await NOCApplication.findOne(appQuery);
+            if (!application) {
+                return [];
+            }
+
+            const queries = await ApplicationQuery.find({ applicationId: application._id })
+                .populate("raisedBy", "firstName lastName userType")
                 .populate("respondedBy", "firstName lastName")
                 .sort({ raisedAt: -1 });
 
@@ -437,6 +507,13 @@ class NOCService {
             if (application && application.status === "QUERY_RAISED") {
                 application.status = "QUERY_RESPONDED";
                 await application.save();
+
+                // Notify officer who raised the query
+                notificationService.send(query.raisedBy, 'QUERY_RESPONDED', {
+                    applicationNumber: application.applicationNumber,
+                    projectName: application.projectDetails?.projectName,
+                    remarks: response
+                }).catch(err => logger.error("Failed to notify officer of query response", err));
             }
 
             logger.info(`Query responded: ${queryId}`, { userId });
@@ -456,9 +533,11 @@ class NOCService {
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationNumberOrId);
             const query = isObjectId ? { _id: applicationNumberOrId } : { applicationNumber: applicationNumberOrId };
 
-            const application = await NOCApplication.findOne(query).select(
-                "applicationNumber applicationType status submittedAt approvalFlow rejectionReason createdAt"
-            );
+            const application = await NOCApplication.findOne(query)
+                .populate("userId", "firstName lastName")
+                .select(
+                    "applicationNumber applicationType status submittedAt approvalFlow rejectionReason createdAt projectDetails location trackingId"
+                );
 
             if (!application) {
                 throw {
@@ -472,38 +551,38 @@ class NOCService {
             const steps = [
                 {
                     id: 1,
-                    label: "Application Created",
+                    title: "Application Created",
                     status: "COMPLETED",
-                    timestamp: application.createdAt,
+                    date: application.createdAt,
                     description: "Application drafted successfully."
                 },
                 {
                     id: 2,
-                    label: "Document Verification",
+                    title: "Document Verification",
                     status: "PENDING",
                     description: "Waiting for document verification."
                 },
                 {
                     id: 3,
-                    label: "Waiting for DGO Approval",
+                    title: "Waiting for DGO Approval",
                     status: "PENDING",
                     description: "Pending review by District Ground Water Officer."
                 },
                 {
                     id: 4,
-                    label: "Waiting for SGWA Approval",
+                    title: "Waiting for SGWA Approval",
                     status: "PENDING",
                     description: "Pending review by State Ground Water Authority."
                 },
                 {
                     id: 5,
-                    label: "Waiting for Enforcement Wing Approval",
+                    title: "Waiting for Enforcement Wing Approval",
                     status: "PENDING",
                     description: "Pending final compliance check."
                 },
                 {
                     id: 6,
-                    label: "NOC Issued",
+                    title: "NOC Issued",
                     status: "PENDING",
                     description: "Final certificate issuance."
                 }
@@ -516,7 +595,7 @@ class NOCService {
             // 2. Document Verification
             if (dgo?.documentsVerified) {
                 steps[1].status = "COMPLETED";
-                steps[1].timestamp = dgo.assignedAt || application.submittedAt; // Approx
+                steps[1].date = dgo.assignedAt || application.submittedAt; // Approx
                 steps[1].description = "Documents verified successfully.";
             } else if (application.status !== "DRAFT") {
                 steps[1].status = "IN_PROGRESS";
@@ -527,11 +606,11 @@ class NOCService {
             if (steps[1].status === "COMPLETED") {
                 if (dgo?.status === "APPROVED") {
                     steps[2].status = "COMPLETED";
-                    steps[2].timestamp = dgo.reviewedAt;
+                    steps[2].date = dgo.reviewedAt;
                     steps[2].description = "Approved by DGO.";
                 } else if (dgo?.status === "REJECTED") {
                     steps[2].status = "REJECTED";
-                    steps[2].timestamp = dgo.reviewedAt;
+                    steps[2].date = dgo.reviewedAt;
                     steps[2].description = `Rejected by DGO: ${dgo.remarks || "Criteria not met"}`;
                     // Fail subsequent steps
                     steps[3].status = "SKIPPED";
@@ -546,11 +625,11 @@ class NOCService {
             if (steps[2].status === "COMPLETED") {
                 if (sgwa?.status === "APPROVED") {
                     steps[3].status = "COMPLETED";
-                    steps[3].timestamp = sgwa.reviewedAt;
+                    steps[3].date = sgwa.reviewedAt;
                     steps[3].description = "Approved by SGWA.";
                 } else if (sgwa?.status === "REJECTED") {
                     steps[3].status = "REJECTED";
-                    steps[3].timestamp = sgwa.reviewedAt;
+                    steps[3].date = sgwa.reviewedAt;
                     steps[3].description = `Rejected by SGWA: ${sgwa.remarks}`;
                     steps[4].status = "SKIPPED";
                     steps[5].status = "SKIPPED";
@@ -563,11 +642,11 @@ class NOCService {
             if (steps[3].status === "COMPLETED") {
                 if (enforcement?.status === "APPROVED") {
                     steps[4].status = "COMPLETED";
-                    steps[4].timestamp = enforcement.reviewedAt;
+                    steps[4].date = enforcement.reviewedAt;
                     steps[4].description = "Approved by Enforcement Wing.";
                 } else if (enforcement?.status === "REJECTED") {
                     steps[4].status = "REJECTED";
-                    steps[4].timestamp = enforcement.reviewedAt;
+                    steps[4].date = enforcement.reviewedAt;
                     steps[4].description = `Rejected by Enforcement: ${enforcement.remarks}`;
                     steps[5].status = "SKIPPED";
                 } else {
@@ -579,7 +658,7 @@ class NOCService {
             if (steps[4].status === "COMPLETED") {
                 if (application.status === "NOC_ISSUED") {
                     steps[5].status = "COMPLETED";
-                    steps[5].timestamp = application.updatedAt;
+                    steps[5].date = application.updatedAt;
                     steps[5].description = `NOC Issued. Certificate generated.`;
                 } else {
                     steps[5].status = "IN_PROGRESS";
@@ -588,7 +667,7 @@ class NOCService {
             }
 
             // Handle Global Rejection if not captured in flow
-            if (application.status.includes("REJECTED") && !steps.some(s => s.status === "REJECTED")) {
+            if (application.status?.includes("REJECTED") && !steps.some(s => s.status === "REJECTED")) {
                 // Find the last in-progress or pending step and mark rejected
                 const lastActiveIndex = steps.findIndex(s => s.status === "IN_PROGRESS" || s.status === "PENDING");
                 if (lastActiveIndex !== -1) {
@@ -597,11 +676,32 @@ class NOCService {
                 }
             }
 
+            // Determine current pending location
+            let pendingWith = "Pending Processing";
+            if (application.status === "DRAFT") pendingWith = "Draft (Unsubmitted)";
+            else if (application.status === "SUBMITTED") pendingWith = "Document Verification";
+            else if (dgo?.status === "PENDING") pendingWith = "District Officer (DGO)";
+            else if (sgwa?.status === "PENDING") pendingWith = "State Authority (SGWA)";
+            else if (enforcement?.status === "PENDING") pendingWith = "Enforcement Wing";
+            else if (application.status === "APPROVED") pendingWith = "Final Issuance";
+            else if (application.status === "NOC_ISSUED") pendingWith = "Completed";
 
             return {
+                applicationId: application._id,
                 applicationNumber: application.applicationNumber,
+                trackingId: application.trackingId,
                 status: application.status,
-                trackingSteps: steps
+                projectName: application.projectDetails?.projectName || "N/A",
+                applicantDetails: {
+                    name: application.userId ? `${application.userId.firstName} ${application.userId.lastName}` : "Applicant"
+                },
+                applicationType: application.applicationType || "NOC",
+                submittedDate: application.submittedAt || application.createdAt,
+                pendingWith: pendingWith,
+                currentLocation: pendingWith,
+                remarks: application.rejectionReason,
+                timeline: steps, // Match frontend expectation
+                trackingSteps: steps // Keep for compatibility
             };
         } catch (error) {
             throw error;
@@ -610,6 +710,16 @@ class NOCService {
 
     // ============================================
     // SECTION-WISE UPDATE METHODS (CGWA 8-Section Workflow)
+    // ============================================
+
+    async updateSection1(appId, data, userId, userType) { return this.updateSection(appId, 1, data, userId, userType); }
+    async updateSection2(appId, data, userId, userType) { return this.updateSection(appId, 2, data, userId, userType); }
+    async updateSection3(appId, data, userId, userType) { return this.updateSection(appId, 3, data, userId, userType); }
+    async updateSection4(appId, data, userId, userType) { return this.updateSection(appId, 4, data, userId, userType); }
+    async updateSection5(appId, data, userId, userType) { return this.updateSection(appId, 5, data, userId, userType); }
+    async updateSection6(appId, data, userId, userType) { return this.updateSection(appId, 6, data, userId, userType); }
+    async updateSection7(appId, data, userId, userType) { return this.updateSection(appId, 7, data, userId, userType); }
+
     // ============================================
 
     /**
@@ -683,23 +793,57 @@ class NOCService {
                 case 3: // Drinking & Domestic Use
                     application.drinkingDomesticUse = sectionData.drinkingDomesticUse;
                     // Auto-calculate totals
-                    const { numberOfWorkers, numberOfResidents, dailyRequirementPerPerson } = sectionData.drinkingDomesticUse;
-                    const totalDailyDomestic = (numberOfWorkers + numberOfResidents) * dailyRequirementPerPerson / 1000 // Convert to KL
-                    application.drinkingDomesticUse.totalDailyDomestic = totalDailyDomestic;
-                    application.drinkingDomesticUse.totalAnnualDomestic = totalDailyDomestic * 365;
+                    if (sectionData.drinkingDomesticUse) {
+                        const { numberOfWorkers = 0, numberOfResidents = 0, dailyRequirementPerPerson = 135 } = sectionData.drinkingDomesticUse;
+                        const totalDailyDomestic = ((numberOfWorkers * 45) + (numberOfResidents * dailyRequirementPerPerson)) / 1000; // Convert to KL/m3
+                        application.drinkingDomesticUse.totalRequirement = totalDailyDomestic;
+                        application.drinkingDomesticUse.totalDailyDomestic = totalDailyDomestic;
+                        application.drinkingDomesticUse.totalAnnualDomestic = totalDailyDomestic * 365;
+                    }
                     break;
 
                 case 4: // Water Requirement Breakup
                     application.waterRequirementBreakup = sectionData.waterRequirementBreakup || [];
                     application.stpEtpDetails = sectionData.stpEtpDetails || {};
+                    // Also update the main waterRequirement object if provided
+                    if (sectionData.waterRequirement) {
+                        application.waterRequirement = {
+                            ...application.waterRequirement,
+                            ...sectionData.waterRequirement,
+                            breakup: {
+                                ...application.waterRequirement?.breakup,
+                                ...sectionData.waterRequirement.breakup
+                            }
+                        };
+                    }
                     break;
 
-                case 5: // Ground Water Structures
-                    application.groundWaterStructures = sectionData.groundWaterStructures || [];
+                case 5: // Ground Water Structures & Hydrogeology
+                    if (sectionData.groundWaterStructures) {
+                        application.groundWaterStructures = sectionData.groundWaterStructures;
+                    }
+                    if (sectionData.hydrogeology) {
+                        application.hydrogeology = {
+                            ...application.hydrogeology,
+                            ...sectionData.hydrogeology
+                        };
+                    }
+                    if (sectionData.waterRequirement?.proposedExtraction) {
+                        application.waterRequirement = {
+                            ...application.waterRequirement,
+                            proposedExtraction: {
+                                ...application.waterRequirement?.proposedExtraction,
+                                ...sectionData.waterRequirement.proposedExtraction
+                            }
+                        };
+                    }
                     break;
 
                 case 6: // Document Attachments
                     application.documentsReviewed = sectionData.documentsReviewed || false;
+                    if (sectionData.documents && Array.isArray(sectionData.documents)) {
+                        application.documents = sectionData.documents;
+                    }
                     break;
 
                 case 9: // Digital Flow Meter (New Section)
@@ -753,7 +897,22 @@ class NOCService {
             }
 
             const baseFee = 1000;
-            const waterRequirement = application.waterRequirement?.dailyRequirement || 0;
+
+            // Reconstruct Domestic Total if missing
+            let domesticTotal = application.drinkingDomesticUse?.totalRequirement || 0;
+            if (domesticTotal === 0 && application.drinkingDomesticUse) {
+                const residents = application.drinkingDomesticUse.numberOfResidents || 0;
+                const workers = application.drinkingDomesticUse.numberOfWorkers || 0;
+                const dailyReq = application.drinkingDomesticUse.dailyRequirementPerPerson || 135;
+                // Convert Liters to Cubic Meters (1 m3 = 1000 L)
+                domesticTotal = ((residents * dailyReq) + (workers * 45)) / 1000;
+            }
+
+            const waterReqData = application.waterRequirement?.totalRequirement !== undefined
+                ? application.waterRequirement.totalRequirement
+                : domesticTotal;
+
+            const waterRequirement = waterReqData;
             const ratePerCubicMeter = 10;
             const abstractionCharge = waterRequirement * ratePerCubicMeter * 365;
             const subtotal = baseFee + abstractionCharge;
@@ -775,11 +934,12 @@ class NOCService {
         }
     }
 
-    /**
-     * Get application summary
-     */
     async getApplicationSummary(applicationId, userId, userType) {
         try {
+            // Ensure models required for population are registered
+            require('../auth/user.model');
+            require('../company/company.model');
+
             const application = await this._getAuthorizedApplication(
                 applicationId,
                 userId,
@@ -815,14 +975,14 @@ class NOCService {
             try {
                 // Fee calculation might fail if data is incomplete, which is fine for summary
                 // We can just return basic fee info or specific fee details if they exist
-                if (application.feeDetails) {
+                if (application.feeDetails && application.feeDetails.totalAmount > 0) {
                     fees = application.feeDetails;
                 } else {
                     const feeCalc = await this.calculateApplicationFees(applicationId, userId, userType);
                     fees = feeCalc.feeCalculation;
                 }
-            } catch (ignore) {
-                // If calculation fails, just ignore
+            } catch (err) {
+                logger.warn(`Failed to calculate fees for application summary: ${applicationId}`, err);
             }
 
             return {
@@ -841,6 +1001,7 @@ class NOCService {
                 locationDetails: application.location,
                 drinkingDomesticUse: application.drinkingDomesticUse,
                 waterRequirementBreakup: application.waterRequirementBreakup,
+                waterRequirement: application.waterRequirement,
                 groundWaterStructures: application.groundWaterStructures,
                 digitalFlowMeter: application.digitalFlowMeter,
                 documents: application.documents,
@@ -1294,10 +1455,21 @@ class NOCService {
                 query.applicationId = applicationId;
             }
 
-            // Only enforce userId ownership if NOT an authorized officer/admin
-            const authorizedRoles = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT", "ADMIN"];
+            const authorizedRoles = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"];
             if (authorizedRoles.indexOf(userType) === -1) {
                 query.userId = userId;
+            } else if (userType !== 'ADMIN') {
+                // Strict Officer Isolation: Must be assigned OR same district (DGO)
+                const officerQuery = [
+                    { assignedTo: userId },
+                    { "location.districtId": user.districtId }
+                ];
+                if (query.$or) {
+                    query.$and = [{ $or: query.$or }, { $or: officerQuery }];
+                    delete query.$or;
+                } else {
+                    query.$or = officerQuery;
+                }
             }
 
             const application = await NOCApplication.findOne(query);
@@ -1318,8 +1490,49 @@ class NOCService {
     }
 
     /**
-     * Get NOC Certificate details
+     * Save Payment Details (Section 8)
      */
+    async savePaymentDetails(applicationId, data, userId) {
+        try {
+            const application = await this.getAccessibleApplication(applicationId, userId);
+
+            // Update Fee and Payment Details
+            if (data.feeDetails) {
+                application.feeDetails = {
+                    ...application.feeDetails,
+                    ...data.feeDetails,
+                    isPaid: data.feeDetails.isPaid !== undefined ? data.feeDetails.isPaid : true
+                };
+            }
+            if (data.feeStructure) {
+                application.feeStructure = data.feeStructure;
+            }
+            if (data.digitalFlowMeter) {
+                application.digitalFlowMeter = data.digitalFlowMeter;
+            }
+            if (data.documents && Array.isArray(data.documents)) {
+                // Ensure payment receipt or other final docs are appended/updated
+                const existingDocs = application.documents || [];
+                const newDocsMap = new Map(existingDocs.map(d => [d.documentType, d]));
+
+                data.documents.forEach(doc => {
+                    newDocsMap.set(doc.documentType, doc);
+                });
+
+                application.documents = Array.from(newDocsMap.values());
+            }
+
+            await application.save();
+
+            return {
+                applicationId: application._id,
+                message: "Payment and final details saved successfully"
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     /**
      * Get NOC Certificate details
      */
@@ -1445,7 +1658,7 @@ class NOCService {
             }
 
             // Access Control Logic
-            const userType = user.userType; // APPLICANT, DGO, RSGWA, ENFORCEMENT
+            const userType = user.userType; // APPLICANT, DGO, SGWA, ENFORCEMENT
 
             // 1. Applicant/Owner Access
             if (userType === 'APPLICANT' || userType === 'USER') {
@@ -1462,7 +1675,7 @@ class NOCService {
                 // DGO can generally see everything submitted
             }
             // 3. SGWA Access (Only after DGO Approval)
-            else if (userType === 'RSGWA') { // RSGWA is the system role for SGWA
+            else if (userType === 'SGWA') { // Standardized SGWA role
                 // Check if application has passed DGO stage
                 const dgoPendingStatuses = [
                     "DRAFT", "SUBMITTED",
@@ -1495,6 +1708,18 @@ class NOCService {
                         message: "Application documents are not visible to Enforcement until SGWA approval.",
                     };
                 }
+            }
+
+            // 5. Strict Assigned Officer Check
+            const isAssigned = application.assignedTo && application.assignedTo.toString() === user.id;
+            const isDistrictDGO = userType === 'DGO' && user.districtId && (application.location?.districtId === user.districtId);
+
+            if (['DGO', 'SGWA', 'ENFORCEMENT'].includes(userType) && !isAssigned && !isDistrictDGO) {
+                throw {
+                    statusCode: 403,
+                    code: "UNAUTHORIZED_OFFICER",
+                    message: "You are not the assigned officer for this application.",
+                };
             }
 
             // Return formatted documents

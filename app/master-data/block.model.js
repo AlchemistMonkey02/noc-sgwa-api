@@ -58,7 +58,6 @@ const BlockSchema = new mongoose.Schema(
 );
 
 // Indexes
-BlockSchema.index({ blockId: 1 });
 BlockSchema.index({ districtId: 1 });
 BlockSchema.index({ category: 1 });
 BlockSchema.index({ isActive: 1 });

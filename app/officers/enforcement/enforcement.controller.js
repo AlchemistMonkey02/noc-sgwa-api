@@ -8,7 +8,8 @@ class EnforcementController {
             res.status(200).json({
                 success: true,
                 data: result.applications,
-                pagination: result.pagination
+                pagination: result.pagination,
+                message: "Applications retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -31,7 +32,8 @@ class EnforcementController {
 
             res.status(200).json({
                 success: true,
-                data: application
+                data: application,
+                message: "Application details retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -113,7 +115,11 @@ class EnforcementController {
     async getActiveNOCs(req, res, next) {
         try {
             const results = await enforcementService.getActiveNOCs(req.query);
-            res.json({ success: true, data: results });
+            res.status(200).json({
+                success: true,
+                data: results,
+                message: "Active NOCs retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -128,14 +134,22 @@ class EnforcementController {
     async submitComplianceReport(req, res, next) {
         try {
             const result = await enforcementService.submitComplianceReport(req.params.id, req.user.id, req.body);
-            res.json({ success: true, message: "Compliance report submitted", data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Compliance report submitted"
+            });
         } catch (err) { next(err); }
     }
 
     async issueWarning(req, res, next) {
         try {
             const result = await enforcementService.issueWarning(req.user.id, req.body);
-            res.json({ success: true, message: "Warning issued", data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Warning issued"
+            });
         } catch (err) { next(err); }
     }
 
@@ -163,7 +177,11 @@ class EnforcementController {
     async getComplaint(req, res, next) {
         try {
             const result = await enforcementService.getComplaint(req.params.id);
-            res.json({ success: true, data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Complaint details retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -177,7 +195,11 @@ class EnforcementController {
     async getApprovalQueue(req, res, next) {
         try {
             const results = await enforcementService.getApprovalQueue(req.user.id, req.query);
-            res.json({ success: true, data: results });
+            res.status(200).json({
+                success: true,
+                data: results,
+                message: "Approval queue retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -210,7 +232,11 @@ class EnforcementController {
     async getComplianceStats(req, res, next) {
         try {
             const stats = await enforcementService.getComplianceStats(req.user.id);
-            res.status(200).json({ success: true, data: stats });
+            res.status(200).json({
+                success: true,
+                data: stats,
+                message: "Compliance statistics retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -227,7 +253,8 @@ class EnforcementController {
 
             res.status(200).json({
                 success: true,
-                data: stats
+                data: stats,
+                message: "Dashboard statistics retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -237,7 +264,11 @@ class EnforcementController {
     async getComplianceList(req, res, next) {
         try {
             const result = await enforcementService.getComplianceList(req.query);
-            res.json({ success: true, data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Compliance list retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -252,6 +283,20 @@ class EnforcementController {
                 success: true,
                 message: "Violation notice issued successfully",
                 data: result
+            });
+        } catch (err) { next(err); }
+    }
+    async assignApplication(req, res, next) {
+        try {
+            const result = await enforcementService.assignApplication(
+                req.params.id,
+                req.user.id,
+                req.body
+            );
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Application assigned successfully"
             });
         } catch (err) { next(err); }
     }

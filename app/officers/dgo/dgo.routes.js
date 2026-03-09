@@ -65,8 +65,8 @@ router.post("/queries/:id/reject", dgoController.rejectQueryResponse);
 router.get("/compliance-report", dgoController.getComplianceReport); // New Endpoint
 router.post("/reports/generate", dgoController.generateReport); // New Endpoint
 
-// GET /api/officers/dgo/stats - Dashboard statistics
-router.get("/dashboard", dgoController.getDashboardStats); // Primary endpoint logic updated
+// GET /api/officers/dgo/dashboard - Dashboard statistics and recent applications
+router.get("/dashboard", dgoController.getDashboardStats);
 
 // GET /api/officers/dgo/officers - Get officers list (Moved to top)
 

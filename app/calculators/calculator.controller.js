@@ -28,6 +28,7 @@ class CalculatorController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "EC charges calculated successfully"
             });
         } catch (error) {
             next(error);
@@ -61,6 +62,7 @@ class CalculatorController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "Abstraction charges calculated successfully"
             });
         } catch (error) {
             next(error);
@@ -94,6 +96,7 @@ class CalculatorController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "Water budget calculated successfully"
             });
         } catch (error) {
             next(error);
@@ -151,6 +154,7 @@ class CalculatorController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "Fees calculated successfully"
             });
         } catch (error) {
             next(error);
@@ -183,6 +187,7 @@ class CalculatorController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "Pump discharge calculated successfully"
             });
         } catch (error) {
             next(error);

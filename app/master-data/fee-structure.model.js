@@ -69,7 +69,6 @@ const FeeStructureSchema = new mongoose.Schema(
 );
 
 // Indexes
-FeeStructureSchema.index({ feeId: 1 });
 FeeStructureSchema.index({ applicationType: 1, blockCategory: 1 });
 FeeStructureSchema.index({ isActive: 1 });
 FeeStructureSchema.index({ effectiveFrom: 1, effectiveTo: 1 });

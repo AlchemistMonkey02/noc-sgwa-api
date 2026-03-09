@@ -30,7 +30,6 @@ const TehsilSchema = new mongoose.Schema(
 );
 
 // Indexes
-TehsilSchema.index({ tehsilId: 1 });
 TehsilSchema.index({ districtId: 1 });
 TehsilSchema.index({ isActive: 1 });
 

@@ -11,7 +11,6 @@ const ApplicationQuerySchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: "NOCApplication",
-            index: true,
         },
 
         // Query
@@ -35,6 +34,18 @@ const ApplicationQuerySchema = new mongoose.Schema(
             required: true,
         },
 
+        // New fields for classification
+        category: {
+            type: String,
+            enum: ["Technical", "Documentation", "Legal", "Environmental", "Compliance", "Other", "TECHNICAL", "DOCUMENT_CLARIFICATION", "LEGAL", "ENVIRONMENTAL", "COMPLIANCE", "OTHER"],
+            default: "Other",
+        },
+        priority: {
+            type: String,
+            enum: ["Critical", "High", "Medium", "Low", "CRITICAL", "HIGH", "MEDIUM", "LOW"],
+            default: "Medium",
+        },
+
         // Response
         response: String,
         responseDocument: {
@@ -53,7 +64,6 @@ const ApplicationQuerySchema = new mongoose.Schema(
             type: String,
             enum: ["OPEN", "RESPONDED", "CLOSED"],
             default: "OPEN",
-            index: true,
         },
     },
     {

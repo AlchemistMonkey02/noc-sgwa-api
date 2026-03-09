@@ -79,15 +79,14 @@ router.delete("/:id", documentController.deleteDocument);
 // PUT /api/documents/:id/verify - Verify document (Officer only)
 router.put(
     "/:id/verify",
-    authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT"),
-    authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT"),
+    authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"),
     documentController.verifyDocument
 );
 
 // POST /api/documents/:id/verify-officer - Three-way Officer Verification
 router.post(
     "/:id/verify-officer",
-    authMiddleware.authorize("DGO", "RSGWA", "SGWA", "ENFORCEMENT"),
+    authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"),
     documentController.verifyDocumentThreeWay
 );
 
@@ -95,9 +94,6 @@ router.post(
 router.get("/tracking/:trackingId", documentController.getDocumentsByTrackingId);
 
 // GET /api/documents/application/:applicationId - Get documents by application ID
-// GET /api/documents/application/:applicationId - Get documents by application ID
 router.get("/application/:applicationId", documentController.getDocumentsByApplicationId);
-
-
 
 module.exports = router;

@@ -31,7 +31,6 @@ const StateSchema = new mongoose.Schema(
 );
 
 // Indexes
-StateSchema.index({ stateId: 1 });
 StateSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model("State", StateSchema);

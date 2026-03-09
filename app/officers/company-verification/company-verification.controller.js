@@ -15,7 +15,8 @@ class CompanyVerificationController {
             res.status(200).json({
                 success: true,
                 data: result.companies,
-                pagination: result.pagination
+                pagination: result.pagination,
+                message: "Pending companies retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -32,7 +33,8 @@ class CompanyVerificationController {
 
             res.status(200).json({
                 success: true,
-                data: company
+                data: company,
+                message: "Company details retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -93,7 +95,8 @@ class CompanyVerificationController {
 
             res.status(200).json({
                 success: true,
-                data: stats
+                data: stats,
+                message: "Verification statistics retrieved successfully"
             });
         } catch (error) {
             next(error);

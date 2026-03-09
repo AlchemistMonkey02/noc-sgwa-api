@@ -15,5 +15,9 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
+      - uploads:/usr/src/app/uploads # Persist uploads outside container
     command: npm start
     restart: unless-stopped
+
+volumes:
+  uploads: # Named volume for persistent file storage
