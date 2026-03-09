@@ -161,8 +161,6 @@ const UserSchema = new mongoose.Schema(
 );
 
 // Create indexes for faster queries
-UserSchema.index({ email: 1 });
-UserSchema.index({ phone: 1 });
 UserSchema.index({ userType: 1 });
 UserSchema.index({ verificationStatus: 1 });
 
@@ -174,6 +172,23 @@ UserSchema.virtual("fullName").get(function () {
 // Ensure virtuals are included in JSON
 UserSchema.set("toJSON", { virtuals: true });
 UserSchema.set("toObject", { virtuals: true });
+
+// Auto-generate username on creation if not provided
+UserSchema.pre("save", async function () {
+    if (this.isNew && !this.username) {
+        const rolePrefixMap = {
+            'APPLICANT': 'usernoc',
+            'DGO': 'dgonoc',
+            'RSGWA': 'sgwanoc',
+            'ENFORCEMENT': 'enfnoc',
+            'INSPECTION': 'inspnoc'
+        };
+
+        const prefix = rolePrefixMap[this.userType] || 'usernoc';
+        const count = await this.constructor.countDocuments({ userType: this.userType });
+        this.username = `${prefix}${String(count + 1).padStart(3, "0")}`;
+    }
+});
 
 const User = mongoose.model("User", UserSchema);
 

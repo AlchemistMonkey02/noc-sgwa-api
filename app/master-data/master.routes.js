@@ -69,4 +69,7 @@ router.get("/area-categories", masterDataController.getAreaCategories);
 router.get("/nabl-labs", masterDataController.getNABLLabs);
 router.get("/sector-types", masterDataController.getSectorTypes);
 
+// Common Officer Master Data
+router.get("/rejection-reasons", masterController.getRejectionReasons);
+
 module.exports = router;

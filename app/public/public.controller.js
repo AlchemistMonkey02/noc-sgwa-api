@@ -88,7 +88,8 @@ class PublicController {
                         "Final calculated Enivronmental Compensation will be communicated and NOC will be issued subject to payment of same.",
                         "For Saline Water, EC Rates for Safe category shall be applied, irrespective of actual category of Block/Sub District."
                     ]
-                }
+                },
+                message: "Environmental Compensation calculated successfully"
             });
 
         } catch (error) {

@@ -12,7 +12,7 @@ class QueryController {
     async raiseQuery(req, res, next) {
         try {
             const { applicationId } = req.params;
-            const { subject, query } = req.body;
+            const { subject, query, category, priority } = req.body;
 
             if (!subject || !query) {
                 return res.status(400).json({
@@ -49,12 +49,14 @@ class QueryController {
             }
 
             // Create query
-            const queryId = uuidv4();
+            const queryId = `QRY-${Date.now()}`;
             const newQuery = await ApplicationQuery.create({
                 queryId,
                 applicationId: application._id,
                 subject,
                 query,
+                category: category || 'Other',
+                priority: priority || 'Medium',
                 raisedBy: req.user?.id || null, // Officer ID
                 status: 'OPEN'
             });
@@ -157,7 +159,8 @@ class QueryController {
                         respondedBy: q.respondedBy ? `${q.respondedBy.firstName} ${q.respondedBy.lastName}` : null,
                         respondedAt: q.respondedAt
                     }))
-                }
+                },
+                message: "Queries retrieved successfully"
             });
         } catch (error) {
             logger.error('Error getting queries', error);
@@ -206,7 +209,8 @@ class QueryController {
                     responseDocument: query.responseDocument,
                     respondedBy: query.respondedBy ? `${query.respondedBy.firstName} ${query.respondedBy.lastName}` : null,
                     respondedAt: query.respondedAt
-                }
+                },
+                message: "Query details retrieved successfully"
             });
         } catch (error) {
             logger.error('Error getting query details', error);
@@ -264,10 +268,14 @@ class QueryController {
                 };
             }
 
+            // If user reply, capture user ID
+            if (req.user) {
+                query.respondedBy = req.user.id;
+            }
+
             query.response = response;
-            query.respondedBy = req.user?.id || null;
+            query.status = "RESPONDED";
             query.respondedAt = new Date();
-            query.status = 'RESPONDED';
 
             await query.save();
 
@@ -328,6 +336,101 @@ class QueryController {
             });
         } catch (error) {
             logger.error('Error closing query', error);
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/queries/user
+     * Get all queries for the logged-in applicant
+     */
+    async getUserQueries(req, res, next) {
+        try {
+            const userId = req.user.id;
+            logger.info(`getUserQueries called for user: ${userId}`);
+
+            // Find all applications for this user
+            // We search by userId AND projectDetails.email to handle cases where 
+            // the user might have logged in with a different account but same email.
+            const applications = await NOCApplication.find({
+                $or: [
+                    { userId },
+                    { "projectDetails.email": req.user.email }
+                ]
+            }).select('_id applicationId applicationNumber projectDetails.projectName projectDetails.email');
+
+            logger.info(`getUserQueries: Found ${applications.length} applications for user ${userId} and email ${req.user.email}`);
+
+            if (applications.length > 0) {
+                logger.info(`Application IDs found: ${applications.map(a => a._id).join(', ')}`);
+            }
+
+            const applicationIds = applications.map(app => app._id);
+            const customAppIds = applications.map(app => app.applicationId).filter(Boolean);
+
+            logger.info(`Searching queries for appIds: [${applicationIds}] and customIds: [${customAppIds}]`);
+
+            // FIXED: Filter to ensure only valid ObjectIds are used in the query to prevent CastError
+            console.log("[VALIDATION_PROBE_V3] Filtering applicationIds. Original count:", applicationIds.length);
+            const validObjectIdAppIds = applicationIds
+                .filter(id => mongoose.Types.ObjectId.isValid(id))
+                .map(id => new mongoose.Types.ObjectId(id));
+
+            console.log("[VALIDATION_PROBE_V3] Filtered validObjectIdAppIds count:", validObjectIdAppIds.length);
+
+            // Find all queries for these applications OR raised by this user (to support officers)
+            const filter = {
+                $or: [
+                    { applicationId: { $in: validObjectIdAppIds } },
+                    { raisedBy: userId }
+                ]
+            };
+
+            console.log("[VALIDATION_PROBE_V3] Executing ApplicationQuery.find with filter:", JSON.stringify(filter));
+            const queries = await ApplicationQuery.find(filter)
+                .populate("applicationId", "applicationNumber projectDetails.projectName")
+                .populate("raisedBy", "firstName lastName email")
+                .sort({ raisedAt: -1 });
+
+            console.log("[VALIDATION_PROBE_V3] Queries found:", queries.length);
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    queries: queries.map(q => {
+                        // In case populate failed because the ID was a string in the DB
+                        const appInfo = q.applicationId && typeof q.applicationId === 'object'
+                            ? q.applicationId
+                            : applications.find(a => a._id.toString() === q.applicationId?.toString() || a.applicationId === q.applicationId?.toString());
+
+                        return {
+                            queryId: q.queryId,
+                            applicationId: appInfo?._id || q.applicationId,
+                            applicationNumber: appInfo?.applicationNumber || "N/A",
+                            projectName: appInfo?.projectDetails?.projectName || "N/A",
+                            subject: q.subject,
+                            query: q.query,
+                            message: q.query, // Alias for frontend compatibility
+                            category: q.category || 'Other',
+                            priority: q.priority || 'Medium',
+                            status: q.status,
+                            raisedBy: q.raisedBy ? {
+                                name: `${q.raisedBy.firstName} ${q.raisedBy.lastName}`,
+                                email: q.raisedBy.email
+                            } : { name: 'Evaluation Officer' },
+                            raisedAt: q.raisedAt,
+                            createdAt: q.raisedAt || q.createdAt, // Compatibility
+                            response: q.response,
+                            responseDocument: q.responseDocument,
+                            respondedAt: q.respondedAt
+                        };
+                    })
+                },
+                count: queries.length,
+                message: "User queries retrieved successfully"
+            });
+        } catch (error) {
+            logger.error('Error getting user queries', error);
             next(error);
         }
     }

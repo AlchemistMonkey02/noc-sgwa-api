@@ -304,8 +304,11 @@ class DocumentController {
 
             res.status(200).json({
                 success: true,
-                count: documents.length,
-                data: documents,
+                data: {
+                    count: documents.length,
+                    documents: documents
+                },
+                message: "Documents retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -430,6 +433,7 @@ class DocumentController {
             res.status(200).json({
                 success: true,
                 data: document,
+                message: "Document details retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -495,7 +499,8 @@ class DocumentController {
 
             res.status(200).json({
                 success: true,
-                data: result
+                data: result,
+                message: "Documents by tracking ID retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -516,7 +521,8 @@ class DocumentController {
 
             res.status(200).json({
                 success: true,
-                data: documents
+                data: documents,
+                message: "Documents by application ID retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -675,6 +681,53 @@ class DocumentController {
                 success: true,
                 data: document,
                 message: "Document claimed successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/documents/tracking/:trackingId
+     * Get documents by tracking ID
+     */
+    async getDocumentsByTrackingId(req, res, next) {
+        try {
+            const { trackingId } = req.params;
+            const documents = await documentService.getDocumentsByTrackingId(trackingId);
+
+            res.status(200).json({
+                success: true,
+                data: documents,
+                message: "Documents retrieved successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/documents/application/:applicationId
+     * Get documents by application ID
+     */
+    async getDocumentsByApplicationId(req, res, next) {
+        try {
+            const { applicationId } = req.params;
+
+            // Pass user details for access control
+            const userId = req.user ? req.user.id : null;
+            const userRole = req.user ? req.user.userType : null;
+
+            const documents = await documentService.getDocumentsByApplicationId(
+                applicationId,
+                userId,
+                userRole
+            );
+
+            res.status(200).json({
+                success: true,
+                data: documents,
+                message: "Documents retrieved successfully"
             });
         } catch (error) {
             next(error);

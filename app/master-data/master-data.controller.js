@@ -16,7 +16,8 @@ class MasterDataController {
 
             res.status(200).json({
                 success: true,
-                data
+                data,
+                message: "Master data retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -26,7 +27,11 @@ class MasterDataController {
     getApplicationTypes = async (req, res, next) => {
         try {
             const data = await ApplicationType.find({ isActive: true }).sort({ id: 1 });
-            res.status(200).json({ success: true, data });
+            res.status(200).json({
+                success: true,
+                data,
+                message: "Application types retrieved successfully"
+            });
         } catch (error) { next(error); }
     }
 
@@ -37,7 +42,11 @@ class MasterDataController {
             if (appTypeCode) query.appTypeCode = appTypeCode;
 
             const data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
-            res.status(200).json({ success: true, data });
+            res.status(200).json({
+                success: true,
+                data,
+                message: "Application sub-types retrieved successfully"
+            });
         } catch (error) { next(error); }
     }
 
@@ -49,7 +58,11 @@ class MasterDataController {
             if (appTypeCode) query.appTypeCode = appTypeCode;
 
             const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
-            res.status(200).json({ success: true, data });
+            res.status(200).json({
+                success: true,
+                data,
+                message: "Project categories retrieved successfully"
+            });
         } catch (error) { next(error); }
     }
     getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
@@ -63,7 +76,11 @@ class MasterDataController {
             if (appTypeCode) query.appTypeCode = appTypeCode;
 
             const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
-            res.status(200).json({ success: true, data });
+            res.status(200).json({
+                success: true,
+                data,
+                message: "Project types retrieved successfully"
+            });
         } catch (error) { next(error); }
     }
     getUtilizationPurposes = (req, res, next) => this.getByType(req, res, next, "UTILIZATION_PURPOSE");
@@ -98,7 +115,8 @@ class MasterDataController {
 
             res.status(200).json({
                 success: true,
-                data
+                data,
+                message: "Meter models retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -121,7 +139,8 @@ class MasterDataController {
 
             res.status(200).json({
                 success: true,
-                data
+                data,
+                message: "Sample serial numbers retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -157,8 +176,9 @@ class MasterDataController {
                     meterTypes: finalMeterTypes,
                     serialNumbers,
                     meterModels,
-                    nablLabs // Added NABL Labs
-                }
+                    nablLabs
+                },
+                message: "Flow meter configuration retrieved successfully"
             });
         } catch (error) {
             next(error);

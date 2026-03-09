@@ -51,7 +51,6 @@ const IndustryTypeSchema = new mongoose.Schema(
 );
 
 // Indexes
-IndustryTypeSchema.index({ industryTypeId: 1 });
 IndustryTypeSchema.index({ category: 1 });
 IndustryTypeSchema.index({ isActive: 1 });
 

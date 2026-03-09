@@ -60,13 +60,19 @@ class WhatsAppService {
      */
     async sendViaTwilio(phone, messageOrData) {
         try {
+            console.log(`[TWILIO_PROBE_V3] Attempting to send WhatsApp to ${phone}`);
             // Use provided credentials or env vars
             const accountSid = process.env.TWILIO_ACCOUNT_SID;
             const authToken = process.env.TWILIO_AUTH_TOKEN;
             const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
 
-            if (!authToken) {
-                logger.warn("Twilio AUTH_TOKEN missing. WhatsApp sending skipped.", { accountSid });
+            if (!accountSid || accountSid === 'CHANGE_ME' || !accountSid.startsWith('AC')) {
+                console.warn(`[TWILIO_PROBE_V3] Twilio ACCOUNT_SID missing or invalid. SID: ${accountSid ? (accountSid.startsWith('AC') ? 'Starts with AC' : 'MALFORMED') : 'MISSING'}. WhatsApp sending skipped.`);
+                return { success: false, reason: "INVALID_CREDENTIALS" };
+            }
+
+            if (!authToken || authToken === 'CHANGE_ME') {
+                console.warn("[TWILIO_PROBE_V3] Twilio AUTH_TOKEN missing or invalid. WhatsApp sending skipped.");
                 return { success: false, reason: "MISSING_CREDENTIALS" };
             }
 

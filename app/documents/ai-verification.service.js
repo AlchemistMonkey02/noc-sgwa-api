@@ -1,6 +1,9 @@
 const Document = require('./document.model');
 const NOCApplication = require('../noc/noc-application.model');
 const logger = require('../utils/logger');
+const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 class AIVerificationService {
     /**
@@ -72,31 +75,62 @@ class AIVerificationService {
      */
     async performVerification(documentId) {
         try {
-            const Document = require('./document.model');
             const document = await Document.findOne({ documentId });
 
             if (!document) {
                 throw { statusCode: 404, message: "Document not found" };
             }
 
-            // TODO: Call actual Python/AI Service here
-            // const aiResponse = await axios.post('http://localhost:8000/verify', { file: document.filePath ... })
+            const absolutePath = path.resolve(document.filePath);
+            if (!fs.existsSync(absolutePath)) {
+                logger.error(`Physical file missing for AI verification: ${absolutePath}`);
+                throw { statusCode: 404, message: "Physical file not found on server" };
+            }
 
-            // For now, SIMULATE the AI response for demonstration
-            logger.info(`Simulating AI verification for ${documentId}`);
+            // Construct form data for AI service
+            // Note: Since form-data might not be in package.json, we use native stream and headers
+            const FormData = require('form-data'); // Usually available in Node environments or as sub-dep
+            const form = new FormData();
+            form.append('file', fs.createReadStream(absolutePath));
+            form.append('documentType', document.documentType || 'OTHER');
 
-            const isMockValid = Math.random() > 0.2; // 80% pass rate
-            const mockResult = {
-                verified: isMockValid,
-                confidence: parseFloat((0.8 + Math.random() * 0.19).toFixed(2)),
-                remarks: isMockValid ? "Document verified successfully (AI)" : "Document unclear or invalid (AI)"
-            };
+            // Add metadata if available (using application info)
+            const application = await NOCApplication.findOne({ 'documents.documentId': documentId });
+            if (application) {
+                const metadata = {
+                    applicantName: application.projectDetails?.applicantName,
+                    applicationNumber: application.applicationNumber
+                };
+                form.append('inputText', JSON.stringify(metadata));
+            }
 
-            // Reuse the existing update method logic
-            return await this.updateVerificationStatus(documentId, mockResult);
+            logger.info(`Triggering real AI verification for ${documentId} (${document.documentType})`);
+
+            const aiServiceUrl = process.env.AI_SERVICE_URL || 'https://ocr.geoplanetsolution.in';
+            const response = await axios.post(`${aiServiceUrl}/verify-document`, form, {
+                headers: {
+                    ...form.getHeaders()
+                },
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity
+            });
+
+            if (response.data) {
+                const aiResult = response.data;
+                const verificationResult = {
+                    verified: aiResult.success && (aiResult.verified || aiResult.valid),
+                    confidence: aiResult.confidence || 0.9,
+                    remarks: aiResult.remarks || (aiResult.success ? "AI Verified" : "AI Verification Failed"),
+                    extractedText: aiResult.extracted_text || aiResult.text
+                };
+
+                return await this.updateVerificationStatus(documentId, verificationResult);
+            } else {
+                throw new Error("AI Service returned empty response");
+            }
 
         } catch (error) {
-            logger.error('Error performing AI verification:', error);
+            logger.error('Error performing AI verification:', error.message);
             throw error;
         }
     }

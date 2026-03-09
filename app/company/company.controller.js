@@ -43,6 +43,7 @@ class CompanyController {
             res.status(200).json({
                 success: true,
                 data: types,
+                message: "Company types fetched successfully"
             });
         } catch (error) {
             next(error);
@@ -69,6 +70,7 @@ class CompanyController {
                     companies,
                     count: companies.length,
                 },
+                message: "User companies retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -87,6 +89,7 @@ class CompanyController {
             res.status(200).json({
                 success: true,
                 data: stats,
+                message: "Company statistics retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -121,7 +124,7 @@ class CompanyController {
             const userId = req.user.id;
 
             // Allow officers to bypass ownership check
-            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+            const isOfficer = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
 
             const documents = await companyService.getCompanyDocuments(
                 companyId,
@@ -131,6 +134,7 @@ class CompanyController {
             res.status(200).json({
                 success: true,
                 data: documents,
+                message: "Company documents retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -193,7 +197,7 @@ class CompanyController {
             const userId = req.user.id;
 
             // Allow officers to view any company
-            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+            const isOfficer = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
 
             // If officer, pass null for userId to skip ownership check
             // If applicant, pass userId to enforce ownership
@@ -243,6 +247,7 @@ class CompanyController {
 
             res.status(200).json({
                 success: true,
+                data: null,
                 message: result.message,
             });
         } catch (error) {
@@ -272,6 +277,7 @@ class CompanyController {
             res.status(200).json({
                 success: true,
                 data: result,
+                message: "All companies retrieved successfully"
             });
         } catch (error) {
             next(error);

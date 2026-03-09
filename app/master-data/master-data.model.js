@@ -27,7 +27,6 @@ const MasterDataSchema = new mongoose.Schema(
                 "NABL_LAB",
                 "SECTOR_TYPE"
             ],
-            index: true,
         },
         code: {
             type: String,

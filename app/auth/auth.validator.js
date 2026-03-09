@@ -276,7 +276,7 @@ const loginSchema = Joi.object({
             "string.empty": "Password is required",
         }),
 
-    userType: Joi.string().valid("APPLICANT", "DGO", "RSGWA", "ENFORCEMENT").optional(),
+    userType: Joi.string().valid("APPLICANT", "DGO", "SGWA", "ENFORCEMENT").optional(),
 
     captcha: Joi.string().optional(),
 });

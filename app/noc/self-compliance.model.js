@@ -6,7 +6,6 @@ const SelfComplianceSchema = new mongoose.Schema(
             type: String,
             required: true,
             unique: true,
-            index: true,
         },
         applicationId: {
             type: mongoose.Schema.Types.ObjectId,

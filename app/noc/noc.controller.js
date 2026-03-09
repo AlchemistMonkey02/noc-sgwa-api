@@ -43,7 +43,9 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                ...result,
+                data: result.applications || result,
+                pagination: result.pagination,
+                message: "Applications retrieved successfully",
             });
         } catch (error) {
             next(error);
@@ -66,6 +68,164 @@ class NOCController {
                 success: true,
                 data: application,
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/:id/summary
+     * Get compiled application summary (with calculated fees and populated fields)
+     */
+    async getApplicationSummary(req, res, next) {
+        try {
+            const summary = await nocService.getApplicationSummary(
+                req.params.id,
+                req.user.id,
+                req.user.userType
+            );
+
+            res.status(200).json({
+                success: true,
+                data: summary,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/:id/download
+     * Download application details as PDF
+     */
+    async downloadApplication(req, res, next) {
+        try {
+            const application = await nocService.getApplicationById(
+                req.params.id,
+                req.user.id,
+                req.user.userType
+            );
+
+            if (!application) {
+                return res.status(404).json({ success: false, message: "Application not found" });
+            }
+
+            res.status(200).json({
+                success: true,
+                data: application,
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/applications/noc/:id/payment
+     * Save Payment and Final Fee Details
+     */
+    async savePaymentDetails(req, res, next) {
+        try {
+            const result = await nocService.savePaymentDetails(
+                req.params.id,
+                req.body,
+                req.user.id
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Payment details saved successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/applications/noc/:id/download
+            const path = require('path');
+            const fs = require('fs');
+
+            // Construct simple HTML summary
+            const htmlContent = `
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 40px; color: #333; }
+                        h1 { text-align: center; color: #1a56db; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+                        h2 { color: #4b5563; margin-top: 30px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+                        .flex-row { display: flex; flex-wrap: wrap; margin-bottom: 10px; }
+                        .label { font-weight: bold; width: 250px; color: #6b7280; }
+                        .value { flex: 1; color: #111827; }
+                        .section { margin-bottom: 25px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb; }
+                    </style>
+                </head>
+                <body>
+                    <h1>NOC Application Summary</h1>
+                    
+                    <div class="section">
+                        <h2>General Details</h2>
+                        <div class="flex-row"><div class="label">Application No.:</div><div class="value">${application.applicationNumber || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Status:</div><div class="value">${application.status || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Applied Date:</div><div class="value">${application.appliedDate ? new Date(application.appliedDate).toLocaleDateString('en-IN') : 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Industry/Project:</div><div class="value">${application.projectDetails?.projectName || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Category:</div><div class="value">${application.projectDetails?.projectCategory || 'N/A'}</div></div>
+                    </div>
+
+                    <div class="section">
+                        <h2>Location Details</h2>
+                        <div class="flex-row"><div class="label">Address:</div><div class="value">${application.locationDetails?.address || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">State:</div><div class="value">${application.locationDetails?.state || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">District:</div><div class="value">${application.locationDetails?.district || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Block:</div><div class="value">${application.locationDetails?.block || 'N/A'}</div></div>
+                        <div class="flex-row"><div class="label">Coordinates:</div><div class="value">${application.locationDetails?.latitude || 'N/A'}, ${application.locationDetails?.longitude || 'N/A'}</div></div>
+                    </div>
+
+                    <div class="section">
+                        <h2>Water Requirement</h2>
+                        <div class="flex-row"><div class="label">Industrial Use (m3/day):</div><div class="value">${application.waterRequirement?.industrialUse || 0}</div></div>
+                        <div class="flex-row"><div class="label">Domestic Use (m3/day):</div><div class="value">${application.waterRequirement?.domesticUse || 0}</div></div>
+                        <div class="flex-row"><div class="label">Total Ground Water Req.:</div><div class="value">${application.waterRequirement?.totalGroundWater || 0}</div></div>
+                    </div>
+
+                    <p style="text-align: center; margin-top: 50px; font-size: 0.9em; color: #9ca3af;">
+                        Generated securely via SGWA Portal at ${new Date().toLocaleString('en-IN')}
+                    </p>
+                </body>
+                </html>
+            `;
+
+            // Prepare output path
+            const uploadDir = path.join(__dirname, '../../uploads/temp');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const fileName = `Application_${application.applicationNumber || req.params.id}.pdf`;
+            const filePath = path.join(uploadDir, fileName);
+
+            // Generate PDF
+            await pdfService.generatePDF(htmlContent, filePath, {
+                format: 'A4',
+                printBackground: true,
+                margin: { top: '30px', bottom: '30px', left: '30px', right: '30px' }
+            });
+
+            // Stream response and cleanup
+            res.download(filePath, fileName, (err) => {
+                if (err) {
+                    if (!res.headersSent) {
+                        next(err);
+                    }
+                }
+                // Cleanup temp file after sending
+                setTimeout(() => {
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                    }
+                }, 5000);
+            });
+
         } catch (error) {
             next(error);
         }
@@ -141,8 +301,9 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                count: queries.length,
                 data: queries,
+                count: queries.length,
+                message: "Queries retrieved successfully",
             });
         } catch (error) {
             next(error);
@@ -180,7 +341,7 @@ class NOCController {
             // Support capturing ID with slashes
             console.log("DEBUG: Raw Params:", req.params);
             const appNum = req.params[0] || req.params.applicationNumber || req.params.id;
-            console.log(`DEBUG: Tracking Request. AppNum:`, appNum);
+            console.log(`DEBUG: Tracking Request.AppNum: `, appNum);
             const application = await nocService.trackApplication(appNum);
 
             res.status(200).json({
@@ -238,8 +399,9 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                count: documents.length,
                 data: documents,
+                count: documents.length,
+                message: "Documents retrieved successfully",
             });
         } catch (error) {
             next(error);
@@ -481,7 +643,8 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                data: summary
+                data: summary,
+                message: "Application summary fetched successfully"
             });
         } catch (error) {
             next(error);
@@ -520,7 +683,8 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                data: status
+                data: status,
+                message: "Section status retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -560,7 +724,8 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                data: progress
+                data: progress,
+                message: "Application progress retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -581,7 +746,8 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                data: timeline
+                data: timeline,
+                message: "Application timeline retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -602,7 +768,8 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
-                data: approvalFlow
+                data: approvalFlow,
+                message: "Approval flow status retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -646,8 +813,9 @@ class NOCController {
 
             res.status(200).json({
                 success: true,
+                data: documents,
                 count: documents.length,
-                data: documents
+                message: "Application documents retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -1031,6 +1199,45 @@ class NOCController {
                     status: application.status,
                     approvalFlow: application.approvalFlow
                 }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/applications/noc/:id/payment
+     * Save payment details
+     */
+    async savePaymentDetails(req, res, next) {
+        try {
+            // Right now, this acts as a stub that saves the payment data to the application's 'payment' or 'step7' field
+            // if needed. The actual submission happens later.
+            const application = await NOCApplication.findOne({
+                $or: [
+                    { _id: req.params.id },
+                    { applicationId: req.params.id },
+                    { trackingId: req.params.id }
+                ]
+            });
+
+            if (!application) {
+                return res.status(404).json({ success: false, message: "Application not found" });
+            }
+
+            // You could save this data to a 'payments' collection or update the application doc directly
+            application.feeDetails = {
+                ...application.feeDetails,
+                ...req.body,
+                paymentDate: new Date()
+            };
+
+            await application.save({ validateBeforeSave: false });
+
+            res.status(200).json({
+                success: true,
+                message: "Payment details saved successfully",
+                data: application.feeDetails
             });
 
         } catch (error) {

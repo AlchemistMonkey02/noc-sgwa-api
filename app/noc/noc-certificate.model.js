@@ -16,13 +16,11 @@ const NOCCertificateSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: "NOCApplication",
-            index: true,
         },
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: "User",
-            index: true,
         },
 
         // Certificate Details
@@ -64,7 +62,6 @@ const NOCCertificateSchema = new mongoose.Schema(
             type: String,
             enum: ["ACTIVE", "EXPIRED", "SUSPENDED", "CANCELLED"],
             default: "ACTIVE",
-            index: true,
         },
 
         // QR Code & PDF
@@ -77,7 +74,6 @@ const NOCCertificateSchema = new mongoose.Schema(
 );
 
 // Indexes
-NOCCertificateSchema.index({ nocNumber: 1 });
 NOCCertificateSchema.index({ userId: 1, status: 1 });
 NOCCertificateSchema.index({ validUpto: 1 });
 

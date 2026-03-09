@@ -1,0 +1,1 @@
+Alert: New NOC application *{{applicationNumber}}* has been submitted.*Project:* {{projectName}}Please review the application in the officer portal.Track status at: https://sgwa.raj.in/officer/dashboard

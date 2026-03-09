@@ -90,19 +90,19 @@ router.delete("/:id", companyController.deleteCompany);
 // Officer Routes (require officer role)
 router.get(
     "/officer/all",
-    authMiddleware.authorize(["DGO", "RSGWA"]),
+    authMiddleware.authorize(["DGO", "SGWA"]),
     companyController.getAllCompanies
 );
 
 router.put(
     "/officer/:id/verify",
-    authMiddleware.authorize(["DGO", "RSGWA"]),
+    authMiddleware.authorize(["DGO", "SGWA"]),
     companyController.verifyCompany
 );
 
 router.put(
     "/officer/:id/verify-document",
-    authMiddleware.authorize(["DGO", "RSGWA"]),
+    authMiddleware.authorize(["DGO", "SGWA"]),
     companyController.verifyCompanyDocument
 );
 

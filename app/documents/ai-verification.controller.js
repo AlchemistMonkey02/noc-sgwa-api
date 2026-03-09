@@ -20,10 +20,10 @@ class AIVerificationController {
                 remarks
             });
 
-            return res.json({
+            return res.status(200).json({
                 success: true,
-                message: "AI Verification status updated",
-                data: result
+                data: result,
+                message: "AI Verification status updated"
             });
 
         } catch (error) {

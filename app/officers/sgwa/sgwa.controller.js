@@ -8,7 +8,8 @@ class SGWAController {
             res.status(200).json({
                 success: true,
                 data: result.applications,
-                pagination: result.pagination
+                pagination: result.pagination,
+                message: "Applications retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -24,7 +25,8 @@ class SGWAController {
             res.status(200).json({
                 success: true,
                 data: result.applications,
-                pagination: result.pagination
+                pagination: result.pagination,
+                message: "Technical review applications retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -53,7 +55,8 @@ class SGWAController {
             const result = await sgwaService.getApplicationById(req.params.id);
             res.status(200).json({
                 success: true,
-                data: result
+                data: result,
+                message: "Application details retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -120,7 +123,8 @@ class SGWAController {
 
             res.status(200).json({
                 success: true,
-                data: stats
+                data: stats,
+                message: "Dashboard statistics retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -152,7 +156,7 @@ class SGWAController {
     async getMetrics(req, res, next) {
         try {
             // Stub implementation for metrics
-            res.json({
+            res.status(200).json({
                 success: true,
                 data: {
                     period: req.query.period || "monthly",
@@ -162,7 +166,8 @@ class SGWAController {
                         totalRejected: 10,
                         averageProcessingTime: "14 days"
                     }
-                }
+                },
+                message: "Metrics retrieved successfully"
             });
         } catch (err) { next(err); }
     }
@@ -180,12 +185,13 @@ class SGWAController {
     async getNotifications(req, res, next) {
         try {
             // Stub
-            res.json({
+            res.status(200).json({
                 success: true,
                 data: {
                     notifications: [],
                     unreadCount: 0
-                }
+                },
+                message: "Notifications retrieved successfully"
             });
         } catch (err) { next(err); }
     }
@@ -229,35 +235,55 @@ class SGWAController {
     async getQueries(req, res, next) {
         try {
             const result = await sgwaService.getQueries(req.user.id, req.query);
-            res.json({ success: true, data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Queries retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
     async viewQuery(req, res, next) {
         try {
             const result = await sgwaService.viewQuery(req.params.queryId);
-            res.json({ success: true, data: result });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Query details retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
     async acceptQuery(req, res, next) {
         try {
             const result = await sgwaService.acceptQuery(req.params.queryId, req.user.id, req.body);
-            res.json({ success: true, message: result.message });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: result.message
+            });
         } catch (err) { next(err); }
     }
 
     async rejectQuery(req, res, next) {
         try {
             const result = await sgwaService.rejectQuery(req.params.queryId, req.user.id, req.body);
-            res.json({ success: true, message: result.message });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: result.message
+            });
         } catch (err) { next(err); }
     }
 
     async addInternalNote(req, res, next) {
         try {
             const result = await sgwaService.addInternalNote(req.params.id, req.user.id, req.body);
-            res.json({ success: true, message: result.message });
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: result.message
+            });
         } catch (err) { next(err); }
     }
 
@@ -267,7 +293,11 @@ class SGWAController {
             // Assuming notificationService has markAsRead
             const notificationService = require("../../notifications/notification.service");
             await notificationService.markAsRead(req.params.id);
-            res.json({ success: true, message: "Notification marked as read" });
+            res.status(200).json({
+                success: true,
+                data: null,
+                message: "Notification marked as read"
+            });
         } catch (err) { next(err); }
     }
 

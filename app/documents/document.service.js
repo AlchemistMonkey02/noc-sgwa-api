@@ -123,7 +123,7 @@ class DocumentService {
             // But we need to ensure the user owns the company? 
             // Simplified: if user owns document OR is officer.
 
-            const isOfficer = ["DGO", "RSGWA", "ENFORCEMENT", "SGWA"].includes(userType);
+            const isOfficer = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "INSPECTION"].includes(userType);
 
             if (!isOwner && !isOfficer) {
                 // If checking company ownership is needed, we'd need to look up company
@@ -309,7 +309,7 @@ class DocumentService {
 
             // Enforce ownership if userId is provided and not an officer
             // List of officer roles who can see all documents
-            const officerRoles = ["DGO", "RSGWA", "SGWA", "ENFORCEMENT", "ADMIN"]; // Added ADMIN just in case
+            const officerRoles = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "INSPECTION_OFFICER", "ADMIN"];
 
             // If we have user info, and they are NOT an officer, filter by userId
             if (userId && userRole && !officerRoles.includes(userRole)) {
@@ -383,7 +383,6 @@ class DocumentService {
             const roleMap = {
                 "DGO": "dgo",
                 "SGWA": "sgwa",
-                "RSGWA": "sgwa",
                 "ENFORCEMENT": "enforcement"
             };
 

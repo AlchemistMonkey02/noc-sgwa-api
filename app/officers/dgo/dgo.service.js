@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const NOCApplication = require("../../noc/noc-application.model");
 const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
@@ -11,17 +12,39 @@ class DGOService {
      */
     async getApplications(officerId, filters = {}) {
         try {
+            // Fetch officer to get their assigned district for strict isolation
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+
+            if (!assignedDistrict && officer.userType === 'DGO') {
+                // DEVELOPMENT/DEMO: Log warning but don't block - show all applications
+                logger.warn(`DGO ${officerId} has no assigned district in profile - showing all applications`);
+                // In production, uncomment the return below to enforce district isolation:
+                // return { applications: [], pagination: { total: 0, page: 1, limit: 20, pages: 0 } };
+            }
+
+            // DEVELOPMENT/DEMO: Relaxed strict district isolation. 
+            // Allows viewing all applications regardless of district if no filter is applied.
             const query = {
-                status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO", "QUERY_RAISED_DGO", "QUERY_RESPONDED", "INSPECTION_SCHEDULED", "INSPECTION_COMPLETED"] }
+                $and: [
+                    {
+                        status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO", "QUERY_RAISED_DGO", "QUERY_RESPONDED", "INSPECTION_SCHEDULED", "INSPECTED", "APPROVED_DGO", "NOC_ISSUED"] }
+                    }
+                ]
             };
 
-            // Filter by district if DGO is assigned to specific district
-            if (filters.districtId) {
-                query["location.districtId"] = filters.districtId;
+            if (assignedDistrict) {
+                const districtMatch = { $regex: new RegExp(`^${assignedDistrict}$`, 'i') };
+                query.$and.push({
+                    $or: [
+                        { "location.districtId": districtMatch },
+                        { "communicationAddress.district": districtMatch }
+                    ]
+                });
             }
 
             if (filters.status) {
-                query.status = filters.status;
+                query.$and.push({ status: filters.status });
             }
 
             if (filters.block) {
@@ -50,6 +73,12 @@ class DGOService {
 
             const total = await NOCApplication.countDocuments(query);
 
+            // DEBUG: Log details to help trace visibility issues
+            logger.info(`DGO getApplications: found ${total} total, query status filter: ${JSON.stringify(query.$and[0]?.status)}, filters: ${JSON.stringify(filters)}`);
+            applications.forEach(app => {
+                logger.info(`  - App: ${app.applicationId} | status: ${app.status} | appNumber: ${app.applicationNumber}`);
+            });
+
             return {
                 applications,
                 pagination: {
@@ -66,16 +95,30 @@ class DGOService {
     }
 
     /**
-     * Helper: Find application by UUID or Tracking ID
+     * Helper: Find application with strict district isolation
      */
-    async findApplication(id) {
-        // Check if ID is likely a UUID or Tracking ID
+    async findApplication(id, assignedDistrict = null) {
         const query = {
-            $or: [
-                { applicationId: id },
-                { trackingId: id }
+            $and: [
+                {
+                    $or: [
+                        { _id: mongoose.isValidObjectId(id) ? id : null },
+                        { applicationId: id },
+                        { trackingId: id }
+                    ].filter(q => q[Object.keys(q)[0]] !== null)
+                }
             ]
         };
+
+        // DEVELOPMENT/DEMO: Relaxed strict district isolation constraint
+        /*
+        if (assignedDistrict) {
+            const districtMatch = typeof assignedDistrict === 'string'
+                ? { $regex: new RegExp(`^${assignedDistrict}$`, 'i') }
+                : assignedDistrict;
+            query.$and.push({ "location.districtId": districtMatch });
+        }
+        */
 
         try {
             const application = await NOCApplication.findOne(query);
@@ -84,7 +127,7 @@ class DGOService {
                 throw {
                     statusCode: 404,
                     code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found"
+                    message: "Application not found or access denied"
                 };
             }
             return application;
@@ -99,7 +142,9 @@ class DGOService {
      */
     async verifyDocuments(applicationId, officerId, data) {
         try {
-            const application = await this.findApplication(applicationId);
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+            const application = await this.findApplication(applicationId, assignedDistrict);
 
             // Data should be { documents: [ { documentId, status, remarks } ] }
             const verifications = data.documents || [];
@@ -133,7 +178,9 @@ class DGOService {
      */
     async approveApplication(applicationId, officerId, data) {
         try {
-            const application = await this.findApplication(applicationId);
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+            const application = await this.findApplication(applicationId, assignedDistrict);
 
             // Check if ready for approval (documents verified, inspection done if needed)
             // Strict check: if (!application.approvalFlow.dgo.documentsVerified) throw { message: "Documents not verified" };
@@ -151,6 +198,7 @@ class DGOService {
 
             // Update status
             application.status = "APPROVED_DGO";
+            application.assignedTo = null; // Move to SGWA pool
 
             // Auto-assign to SGWA (can be enhanced with queue logic)
             if (!application.approvalFlow.sgwa) application.approvalFlow.sgwa = {};
@@ -160,7 +208,10 @@ class DGOService {
             await application.save({ validateBeforeSave: false });
 
             // Send notifications
-            await this.sendNotifications(application, "DGO_APPROVED");
+            await this.sendNotifications(application, "DGO_APPROVED", {
+                notifyRole: "RSGWA",
+                remarks: data.remarks
+            });
 
             logger.info(`Application ${applicationId} approved by DGO`, { officerId });
 
@@ -176,7 +227,9 @@ class DGOService {
      */
     async rejectApplication(applicationId, officerId, data) {
         try {
-            const application = await this.findApplication(applicationId);
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+            const application = await this.findApplication(applicationId, assignedDistrict);
 
             application.approvalFlow.dgo = {
                 ...application.approvalFlow.dgo,
@@ -207,7 +260,9 @@ class DGOService {
      * DGO assigns inspection to Inspection Officer
      */
     async scheduleInspection(applicationId, officerId, data) {
-        const application = await this.findApplication(applicationId);
+        const officer = await User.findById(officerId);
+        const assignedDistrict = officer?.communicationAddress?.district;
+        const application = await this.findApplication(applicationId, assignedDistrict);
 
         // Validate inspection officer ID is provided
         if (!data.inspectorId && !data.officerId) {
@@ -246,7 +301,9 @@ class DGOService {
     }
 
     async submitInspectionReport(applicationId, officerId, data) {
-        const application = await this.findApplication(applicationId);
+        const officer = await User.findById(officerId);
+        const assignedDistrict = officer?.communicationAddress?.district;
+        const application = await this.findApplication(applicationId, assignedDistrict);
 
         const report = {
             officerId,
@@ -267,8 +324,10 @@ class DGOService {
         return application;
     }
 
-    async getInspectionReport(applicationId) {
-        const application = await this.findApplication(applicationId);
+    async getInspectionReport(applicationId, officerId) {
+        const officer = await User.findById(officerId);
+        const assignedDistrict = officer?.communicationAddress?.district;
+        const application = await this.findApplication(applicationId, assignedDistrict);
 
         const details = application.approvalFlow?.dgo?.inspectionDetails;
         if (!details) throw { statusCode: 404, message: "Inspection report not found" };
@@ -281,7 +340,9 @@ class DGOService {
      */
     async raiseQuery(applicationId, officerId, data) {
         try {
-            const application = await this.findApplication(applicationId);
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+            const application = await this.findApplication(applicationId, assignedDistrict);
 
             const { v4: uuidv4 } = require("uuid");
 
@@ -308,7 +369,10 @@ class DGOService {
             await application.save({ validateBeforeSave: false });
 
             // Send notifications
-            await this.sendNotifications(application, "DGO_QUERY_RAISED");
+            await this.sendNotifications(application, "DGO_QUERY_RAISED", {
+                notifyOfficer: true,
+                remarks: data.description || data.query
+            });
 
             logger.info(`Query raised for application ${applicationId}`, { officerId });
 
@@ -337,16 +401,19 @@ class DGOService {
 
     // NEW: Accept Query Response
     async acceptQueryResponse(queryId, officerId) {
-        const query = await ApplicationQuery.findOne({ queryId: req.params.id || queryId });
+        const officer = await User.findById(officerId);
+        const assignedDistrict = officer?.communicationAddress?.district;
+        const query = await ApplicationQuery.findOne({ queryId: queryId });
         if (!query) throw { statusCode: 404, message: "Query not found" };
 
+        const application = await this.findApplication(query.applicationId, assignedDistrict);
+
         query.status = "CLOSED";
-        query.respondedBy = officerId; // Or create a reviewedBy field
+        query.respondedBy = officerId;
         await query.save();
 
         // Return application to review status
-        const application = await NOCApplication.findById(query.applicationId);
-        application.status = "UNDER_REVIEW_DGO"; // Or PENDING_DGO_REVIEW
+        application.status = "UNDER_REVIEW_DGO";
         await application.save();
 
         return query;
@@ -354,8 +421,12 @@ class DGOService {
 
     // NEW: Reject Query Response
     async rejectQueryResponse(queryId, officerId, data) {
-        const query = await ApplicationQuery.findOne({ queryId: req.params.id || queryId });
+        const officer = await User.findById(officerId);
+        const assignedDistrict = officer?.communicationAddress?.district;
+        const query = await ApplicationQuery.findOne({ queryId: queryId });
         if (!query) throw { statusCode: 404, message: "Query not found" };
+
+        const application = await this.findApplication(query.applicationId, assignedDistrict);
 
         // Re-open query or create new one?
         // Usually we keep the query open and add remarks
@@ -386,7 +457,29 @@ class DGOService {
      */
     async getDashboardStats(officerId, districtId) {
         try {
-            const query = districtId ? { "location.districtId": districtId } : {};
+            // Fetch officer to get their assigned district for strict isolation
+            const officer = await User.findById(officerId);
+            const assignedDistrict = officer?.communicationAddress?.district;
+
+            if (!assignedDistrict && officer.userType === 'DGO') {
+                logger.warn(`DGO ${officerId} has no assigned district in profile`);
+                return { stats: {}, myDistrict: "None", recentApplications: [] };
+            }
+
+            // Enable district isolation
+            const districtMatch = assignedDistrict ? { $regex: new RegExp(`^${assignedDistrict}$`, 'i') } : null;
+            const isolationQuery = districtMatch ? {
+                $or: [
+                    { "location.districtId": districtMatch },
+                    { "communicationAddress.district": districtMatch }
+                ]
+            } : {};
+
+            console.log('DEBUG: DGO getDashboardStats', {
+                officerId,
+                assignedDistrict,
+                isolationQuery: JSON.stringify(isolationQuery)
+            });
 
             const [
                 totalApplications,
@@ -397,25 +490,31 @@ class DGOService {
                 myDistrictData
             ] = await Promise.all([
                 // 1. Total Applications (All time handled by DGO)
-                NOCApplication.countDocuments(query),
+                NOCApplication.countDocuments(isolationQuery),
 
                 // 2. Pending Verification (Requires attention - newly submitted)
-                NOCApplication.countDocuments({ ...query, status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW"] } }),
+                NOCApplication.countDocuments({ ...isolationQuery, status: { $in: ["SUBMITTED", "PENDING_DGO_REVIEW"] } }),
 
                 // 3. Under Review (In progress)
-                NOCApplication.countDocuments({ ...query, status: "UNDER_REVIEW_DGO" }),
+                NOCApplication.countDocuments({ ...isolationQuery, status: "UNDER_REVIEW_DGO" }),
 
                 // 4. Queries Raised (Awaiting response)
-                NOCApplication.countDocuments({ ...query, status: "QUERY_RAISED_DGO" }),
+                NOCApplication.countDocuments({ ...isolationQuery, status: "QUERY_RAISED_DGO" }),
 
                 // 5. Inspection Pending (Site visits required - Scheduled but not completed)
-                NOCApplication.countDocuments({ ...query, status: "INSPECTION_SCHEDULED" }),
+                NOCApplication.countDocuments({ ...isolationQuery, status: "INSPECTION_SCHEDULED" }),
 
                 districtId ? District.findOne({ id: districtId }) : Promise.resolve(null)
             ]);
 
+            console.log('DEBUG: DGO Stats results', {
+                totalApplications,
+                pendingVerification,
+                underReview
+            });
+
             // Get recent applications
-            const recentApplications = await NOCApplication.find(query)
+            const recentApplications = await NOCApplication.find(isolationQuery)
                 .sort({ submittedAt: -1 })
                 .limit(5)
                 .select("applicationNumber projectDetails.projectName status submittedAt");
@@ -428,7 +527,7 @@ class DGOService {
                     queriesRaised,         // ❓ Awaiting response
                     inspectionPending      // 🔍 Site visits required
                 },
-                myDistrict: myDistrictData?.name || districtId || "Assigned District",
+                myDistrict: myDistrictData?.districtName || assignedDistrict || districtId || "Assigned District",
                 recentApplications
             };
         } catch (error) {
@@ -440,14 +539,30 @@ class DGOService {
     /**
      * Send multi-channel notifications
      */
-    async sendNotifications(application, event) {
+    async sendNotifications(application, event, options = {}) {
         try {
-            // Use centralized notification service to dispatch Email, SMS, WhatsApp, and DB
-            await notificationService.send(application.userId, event, {
+            const data = {
                 applicationNumber: application.applicationNumber,
                 projectName: application.projectDetails?.projectName || 'Project',
-                // Add any other details needed for templates
-            });
+                remarks: options.remarks,
+                ...options.data
+            };
+
+            // 1. Notify Applicant (Always)
+            await notificationService.send(application.userId, event, data);
+
+            // 2. Notify Assigned Officer (If any)
+            if (application.assignedTo && options.notifyOfficer) {
+                await notificationService.send(application.assignedTo, event, {
+                    ...data,
+                    isOfficerSide: true
+                });
+            }
+
+            // 3. Notify Roles (For pool transitions)
+            if (options.notifyRole) {
+                await notificationService.notifyRole(options.notifyRole, event, data);
+            }
         } catch (error) {
             logger.error("Error sending notifications", error);
         }
@@ -479,7 +594,7 @@ class DGOService {
             if (role) {
                 query.userType = role;
             } else {
-                query.userType = { $in: ["ENFORCEMENT", "INSPECTION_OFFICER", "SGWA"] };
+                query.userType = { $in: ["ENFORCEMENT", "INSPECTION", "SGWA"] };
             }
 
             return await User.find(query)

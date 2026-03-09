@@ -16,11 +16,18 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    const allowedTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only PDF and JPG/PNG files are allowed'), false);
+        cb(new Error('Only PDF, JPG/PNG and Word documents are allowed'), false);
     }
 };
 
@@ -32,17 +39,20 @@ const upload = multer({
 
 // Public routes (no auth for now)
 
+// User-specific routes
+router.get('/user/all', authMiddleware.authenticate, queryController.getUserQueries);
+
+// Application-specific routes
+router.post('/applications/:applicationId/queries', authMiddleware.authenticate, queryController.raiseQuery);
+router.get('/applications/:applicationId/queries', authMiddleware.authenticate, queryController.getQueries);
+
 // Get query details
 router.get('/:queryId', queryController.getQueryDetails);
 
 // Reply to query (with optional file upload)
-router.post('/:queryId/reply', upload.single('document'), queryController.replyToQuery);
+router.post('/:queryId/reply', authMiddleware.authenticate, upload.single('document'), queryController.replyToQuery);
 
 // Close/resolve query (officer)
 router.post('/:queryId/close', queryController.closeQuery);
-
-// Application-specific routes
-router.post('/applications/:applicationId/queries', queryController.raiseQuery);
-router.get('/applications/:applicationId/queries', queryController.getQueries);
 
 module.exports = router;

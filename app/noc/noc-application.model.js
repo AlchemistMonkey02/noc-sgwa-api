@@ -20,12 +20,10 @@ const NOCApplicationSchema = new mongoose.Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            index: true,
         },
         companyId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company",
-            index: true,
         },
         applicationCategory: {
             type: String,
@@ -67,6 +65,19 @@ const NOCApplicationSchema = new mongoose.Schema(
             type: String,
             default: "DRAFT",
             index: true,
+        },
+
+        // Exemption Fields
+        isExempted: {
+            type: Boolean,
+            default: false,
+        },
+        exemptionEligible: {
+            type: Boolean,
+            default: false,
+        },
+        exemptionDetails: {
+            type: Object, // Stores exact agricultural details, KLD, etc.
         },
 
         // 3-Tier Approval Flow Tracking
@@ -508,7 +519,6 @@ const NOCApplicationSchema = new mongoose.Schema(
         assignedTo: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            index: true,
         },
         assignedAt: Date,
 
@@ -565,7 +575,6 @@ const NOCApplicationSchema = new mongoose.Schema(
 );
 
 // Indexes
-NOCApplicationSchema.index({ applicationNumber: 1 });
 NOCApplicationSchema.index({ userId: 1, status: 1 });
 NOCApplicationSchema.index({ "location.districtId": 1, "location.blockId": 1 });
 NOCApplicationSchema.index({ assignedTo: 1, status: 1 });
@@ -578,8 +587,12 @@ NOCApplicationSchema.pre("save", async function () {
         const count = await this.constructor.countDocuments({
             applicationNumber: { $exists: true },
         });
-        const year = new Date().getFullYear();
-        this.applicationNumber = `NOC/RAJ/${year}/${String(count + 1).padStart(5, "0")}`;
+        const now = new Date();
+        const year = now.getFullYear();
+        const day = String(now.getDate()).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const datePart = `${day}${month}`;
+        this.applicationNumber = `Noc/${year}/${datePart}/Noc${String(count + 1).padStart(4, "0")}`;
     }
 });
 

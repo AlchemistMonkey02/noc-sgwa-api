@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const NOCApplication = require("../../noc/noc-application.model");
 const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
@@ -5,7 +6,9 @@ const logger = require("../../utils/logger");
 class SGWAService {
     async assignApplication(applicationId, currentOfficerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
             const { officerId, remarks } = data; // officerId is the target assignee
 
             if (!application) throw { statusCode: 404, message: "Application not found" };
@@ -37,12 +40,17 @@ class SGWAService {
      */
     async getApplications(officerId, filters = {}) {
         try {
+            // Base: all statuses SGWA can see
+            const sgwaStatuses = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA", "QUERY_RAISED_SGWA", "QUERY_RESPONDED"];
+
             const query = {
-                status: { $in: ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"] }
+                // If a specific status filter is given, use it; otherwise show all SGWA-relevant statuses
+                status: filters.status ? filters.status : { $in: sgwaStatuses }
             };
 
-            if (filters.status) {
-                query.status = filters.status;
+            // If myTasksOnly is specified, filter by assigned officer
+            if (filters.myTasksOnly === 'true' || filters.myTasksOnly === true) {
+                query.assignedTo = officerId;
             }
 
             if (filters.search) {
@@ -62,7 +70,6 @@ class SGWAService {
             }
 
             if (filters.district) query["location.districtId"] = filters.district;
-            if (filters.priority) query.priority = filters.priority; // Assuming priority field exists or derived
             if (filters.dgoRecommendation) query["approvalFlow.dgo.recommendation"] = filters.dgoRecommendation;
 
             const sortOptions = {};
@@ -79,12 +86,13 @@ class SGWAService {
             const applications = await NOCApplication.find(query)
                 .populate("userId", "firstName lastName email phone")
                 .populate("companyId", "companyName contactPerson")
-                .populate("assignedTo", "firstName lastName designation") // Officer details
+                .populate("assignedTo", "firstName lastName designation")
                 .sort(sortOptions)
                 .skip(skip)
                 .limit(limit);
 
             const total = await NOCApplication.countDocuments(query);
+
 
             // Transform to response format
             const formattedApplications = applications.map(app => ({
@@ -141,7 +149,9 @@ class SGWAService {
      */
     async approveApplication(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -151,7 +161,7 @@ class SGWAService {
                 };
             }
 
-            const allowedStatuses = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"];
+            const allowedStatuses = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA", "PENDING_FINAL_APPROVAL", "QUERY_RESPONDED"];
             if (!allowedStatuses.includes(application.status)) {
                 throw {
                     statusCode: 400,
@@ -175,6 +185,7 @@ class SGWAService {
 
             // Final Status - Forward to Enforcement for Final NOC Issuance
             application.status = "PENDING_FINAL_APPROVAL";
+            application.assignedTo = null; // Move to Enforcement pool
 
             // Map validity to root fields if needed
             if (data.nocValidityYears) {
@@ -206,7 +217,10 @@ class SGWAService {
             await application.save({ validateBeforeSave: false });
 
             // Send notifications
-            await this.sendNotifications(application, "SGWA_APPROVED");
+            await this.sendNotifications(application, "SGWA_APPROVED", {
+                notifyRole: "ENFORCEMENT",
+                remarks: data.remarks
+            });
 
             logger.info(`Application ${applicationId} approved by SGWA`, { officerId });
 
@@ -228,7 +242,9 @@ class SGWAService {
      */
     async rejectApplication(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
 
             if (!application) {
                 throw {
@@ -256,7 +272,10 @@ class SGWAService {
             application.status = "REJECTED_SGWA";
             await application.save({ validateBeforeSave: false });
 
-            await this.sendNotifications(application, "SGWA_REJECTED");
+            await this.sendNotifications(application, "SGWA_REJECTED", {
+                notifyOfficer: true,
+                remarks: data.detailedRemarks || data.remarks
+            });
 
             logger.info(`Application ${applicationId} rejected by SGWA`, { officerId });
 
@@ -277,7 +296,9 @@ class SGWAService {
 
     async getApplicationById(applicationId) {
         try {
-            const application = await NOCApplication.findOne({ applicationId })
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query)
                 .populate("userId", "firstName lastName email phone")
                 .populate("companyId", "companyName contactPerson")
                 .populate("assignedTo", "firstName lastName designation");
@@ -342,7 +363,9 @@ class SGWAService {
      */
     async raiseQuery(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const appQuery = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(appQuery);
 
             if (!application) {
                 throw {
@@ -374,7 +397,10 @@ class SGWAService {
             application.approvalFlow.sgwa.remarks = data.query;
             await application.save({ validateBeforeSave: false });
 
-            await this.sendNotifications(application, "SGWA_QUERY_RAISED");
+            await this.sendNotifications(application, "SGWA_QUERY_RAISED", {
+                notifyOfficer: true,
+                remarks: data.query
+            });
 
             logger.info(`Query raised by SGWA for application ${applicationId}`, { officerId });
 
@@ -390,39 +416,31 @@ class SGWAService {
      */
     async getDashboardStats(officerId) {
         try {
-            const District = require("../../master-data/district.model");
+            // SGWA sees all applications in DGO-approved or SGWA-review stages
+            // For development, we also include SUBMITTED to see data
+            const sgwaStatuses = ["SUBMITTED", "APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA", "QUERY_RAISED_SGWA", "QUERY_RESPONDED"];
 
             const [
                 totalApplications,
-                pendingReview,
-                pendingSgwaApproval,
-                approvedThisMonth,
-                rejectedThisMonth,
-                queriesRaised,
-                districtStats
+                pendingApproval,
+                dgoRecommended,
+                approved,
+                rejected,
+                queriesRaised
             ] = await Promise.all([
-                NOCApplication.countDocuments({}),
-                NOCApplication.countDocuments({ status: { $in: ["PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"] } }),
-                NOCApplication.countDocuments({ status: "PENDING_SGWA_REVIEW" }),
-                NOCApplication.countDocuments({
-                    status: "APPROVED_SGWA",
-                    "approvalFlow.sgwa.reviewedAt": { $gte: new Date(new Date().setDate(1)) } // Start of month
-                }),
-                NOCApplication.countDocuments({
-                    status: "REJECTED_SGWA",
-                    "approvalFlow.sgwa.reviewedAt": { $gte: new Date(new Date().setDate(1)) }
-                }),
-                NOCApplication.countDocuments({ status: "QUERY_RAISED_SGWA" }),
-                NOCApplication.aggregate([
-                    { $group: { _id: "$location.districtId", total: { $sum: 1 }, approved: { $sum: { $cond: [{ $eq: ["$status", "APPROVED_SGWA"] }, 1, 0] } } } }
-                ])
+                NOCApplication.countDocuments({ status: { $in: sgwaStatuses } }),
+                NOCApplication.countDocuments({ status: { $in: ["PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA", "APPROVED_DGO"] } }),
+                NOCApplication.countDocuments({ status: "APPROVED_DGO" }),
+                NOCApplication.countDocuments({ status: { $in: ["PENDING_FINAL_APPROVAL", "NOC_ISSUED", "APPROVED_SGWA"] } }),
+                NOCApplication.countDocuments({ status: { $in: ["REJECTED_SGWA", "REJECTED"] } }),
+                NOCApplication.countDocuments({ status: { $in: ["QUERY_RAISED_SGWA", "QUERY_RAISED_DGO"] } })
             ]);
 
-            // Recent Applications
-            const recentApplications = await NOCApplication.find()
+            // Recent Applications visible to SGWA
+            const recentApplications = await NOCApplication.find({ status: { $in: sgwaStatuses } })
                 .sort({ submittedAt: -1 })
                 .limit(5)
-                .select("applicationNumber projectDetails.projectName status submittedAt approvalFlow.dgo location");
+                .select("applicationId applicationNumber projectDetails status submittedAt approvalFlow location");
 
             const formattedRecent = recentApplications.map(app => ({
                 id: app.applicationId,
@@ -431,36 +449,27 @@ class SGWAService {
                 district: app.location?.districtId,
                 status: app.status,
                 submittedDate: app.submittedAt,
-                dgoRecommendation: app.approvalFlow?.dgo?.recommendation
+                dgoRecommendation: app.approvalFlow?.dgo?.recommendation,
+                applicantDetails: { name: app.projectDetails?.applicantName },
+                locationDetails: { district: app.location?.districtId }
             }));
-
-            // Mock alerts for now (can be real DB queries)
-            const alerts = [
-                {
-                    id: "alert-1",
-                    type: "URGENT",
-                    message: `${pendingSgwaApproval} applications pending approval`,
-                    count: pendingSgwaApproval,
-                    link: "/sgwa/applications?status=PENDING_SGWA_REVIEW"
-                }
-            ];
 
             return {
                 stats: {
                     totalApplications,
-                    pendingReview,
-                    pendingSgwaApproval,
-                    approvedThisMonth,
-                    rejectedThisMonth,
+                    pendingApproval,
+                    dgoRecommended,
+                    approved,
+                    rejected,
                     queriesRaised
                 },
-                trends: {
-                    applicationsThisMonth: approvedThisMonth + rejectedThisMonth + pendingReview, // Approximation
-                    approvalRate: totalApplications > 0 ? Math.round((approvedThisMonth / totalApplications) * 100) + "%" : "0%"
-                },
-                districtWiseBreakdown: districtStats.map(d => ({ district: d._id, total: d.total, approved: d.approved })),
                 recentApplications: formattedRecent,
-                alerts,
+                alerts: pendingApproval > 0 ? [{
+                    id: "alert-1",
+                    type: "URGENT",
+                    message: `${pendingApproval} applications pending review`,
+                    count: pendingApproval
+                }] : [],
                 upcomingTasks: []
             };
         } catch (error) {
@@ -469,13 +478,31 @@ class SGWAService {
         }
     }
 
-    async sendNotifications(application, event) {
+
+    async sendNotifications(application, event, options = {}) {
         try {
-            // Use centralized notification service
-            await notificationService.send(application.userId, event, {
+            const data = {
                 applicationNumber: application.applicationNumber,
                 projectName: application.projectDetails?.projectName || 'Project',
-            });
+                remarks: options.remarks,
+                ...options.data
+            };
+
+            // 1. Notify Applicant (Always)
+            await notificationService.send(application.userId, event, data);
+
+            // 2. Notify Assigned Officer (If any)
+            if (application.assignedTo && options.notifyOfficer) {
+                await notificationService.send(application.assignedTo, event, {
+                    ...data,
+                    isOfficerSide: true
+                });
+            }
+
+            // 3. Notify Roles (For pool transitions)
+            if (options.notifyRole) {
+                await notificationService.notifyRole(options.notifyRole, event, data);
+            }
         } catch (error) {
             logger.error("Error sending notifications", error);
         }
@@ -627,7 +654,9 @@ class SGWAService {
      */
     async addInternalNote(applicationId, officerId, data) {
         try {
-            const application = await NOCApplication.findOne({ applicationId });
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            const application = await NOCApplication.findOne(query);
             if (!application) throw { statusCode: 404, message: "Application not found" };
 
             // Ensure notes array exists

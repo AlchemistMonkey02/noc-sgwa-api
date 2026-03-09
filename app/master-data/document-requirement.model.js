@@ -69,7 +69,6 @@ const DocumentRequirementSchema = new mongoose.Schema(
 );
 
 // Indexes
-DocumentRequirementSchema.index({ documentId: 1 });
 DocumentRequirementSchema.index({ applicationType: 1 });
 DocumentRequirementSchema.index({ isMandatory: 1 });
 DocumentRequirementSchema.index({ isActive: 1 });

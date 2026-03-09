@@ -23,8 +23,9 @@ class NotificationController {
 
             res.status(200).json({
                 success: true,
+                data: notifications,
                 count: notifications.length,
-                data: notifications
+                message: "Notifications retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -40,7 +41,8 @@ class NotificationController {
 
             res.status(200).json({
                 success: true,
-                data: { unreadCount: count }
+                data: { unreadCount: count },
+                message: "Unread count retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -94,6 +96,7 @@ class NotificationController {
 
             res.status(200).json({
                 success: true,
+                data: result,
                 message: result.message
             });
         } catch (error) {

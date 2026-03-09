@@ -14,6 +14,7 @@ class MasterController {
                 success: true,
                 count: states.length,
                 data: states,
+                message: "States retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -33,6 +34,7 @@ class MasterController {
                 success: true,
                 count: districts.length,
                 data: districts,
+                message: "Districts retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -52,6 +54,7 @@ class MasterController {
                 success: true,
                 count: blocks.length,
                 data: blocks,
+                message: "Blocks retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -71,6 +74,7 @@ class MasterController {
                 success: true,
                 count: units.length,
                 data: units,
+                message: "Assessment units retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -90,6 +94,7 @@ class MasterController {
                 success: true,
                 count: tehsils.length,
                 data: tehsils,
+                message: "Tehsils retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -111,6 +116,7 @@ class MasterController {
             res.status(200).json({
                 success: true,
                 data: blockCategory,
+                message: "Block category retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -130,6 +136,7 @@ class MasterController {
                 success: true,
                 count: industryTypes.length,
                 data: industryTypes,
+                message: "Industry types retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -149,6 +156,7 @@ class MasterController {
                 success: true,
                 count: documents.length,
                 data: documents,
+                message: "Document requirements retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -174,6 +182,7 @@ class MasterController {
             res.status(200).json({
                 success: true,
                 data: fees,
+                message: "Fee structure retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -197,6 +206,7 @@ class MasterController {
                 success: true,
                 count: idProofTypes.length,
                 data: idProofTypes,
+                message: "ID proof types retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -215,6 +225,7 @@ class MasterController {
                 success: true,
                 count: titles.length,
                 data: titles,
+                message: "User titles retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -233,6 +244,34 @@ class MasterController {
                 success: true,
                 count: genders.length,
                 data: genders,
+                message: "Genders retrieved successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * GET /api/master/rejection-reasons
+     * Get common rejection reasons for officers
+     */
+    async getRejectionReasons(req, res, next) {
+        try {
+            const reasons = [
+                { id: "R001", reason: "Incomplete application details." },
+                { id: "R002", reason: "Required documents missing or invalid." },
+                { id: "R003", reason: "Water requirement exceeds permissible limits." },
+                { id: "R004", reason: "Proposed extraction in a critical/over-exploited block without adequate recharge." },
+                { id: "R005", reason: "Failure to comply with previous NOC conditions." },
+                { id: "R006", reason: "Discrepancy in submitted site inspection data." },
+                { id: "R007", reason: "Non-payment of required environmental compensation/fees." },
+                { id: "R008", reason: "Other (Please specify in remarks)" }
+            ];
+
+            res.status(200).json({
+                success: true,
+                data: reasons,
+                message: "Rejection reasons retrieved successfully"
             });
         } catch (error) {
             next(error);

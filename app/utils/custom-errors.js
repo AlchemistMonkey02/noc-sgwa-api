@@ -3,10 +3,10 @@
  */
 
 class AppError extends Error {
-    constructor(message, statusCode = 500, code = 'INTERNAL_ERROR') {
+    constructor(code, message, statusCode = 500) {
         super(message);
-        this.statusCode = statusCode;
         this.code = code;
+        this.statusCode = statusCode;
         this.isOperational = true;
         Error.captureStackTrace(this, this.constructor);
     }
@@ -14,44 +14,44 @@ class AppError extends Error {
 
 class ValidationError extends AppError {
     constructor(message, details = []) {
-        super(message, 400, 'VALIDATION_ERROR');
+        super('VALIDATION_ERROR', message, 400);
         this.details = details;
     }
 }
 
 class NotFoundError extends AppError {
     constructor(resource = 'Resource') {
-        super(`${resource} not found`, 404, 'NOT_FOUND');
+        super('NOT_FOUND', `${resource} not found`, 404);
     }
 }
 
 class UnauthorizedError extends AppError {
     constructor(message = 'Unauthorized access') {
-        super(message, 401, 'UNAUTHORIZED');
+        super('UNAUTHORIZED', message, 401);
     }
 }
 
 class ForbiddenError extends AppError {
     constructor(message = 'Access forbidden') {
-        super(message, 403, 'FORBIDDEN');
+        super('FORBIDDEN', message, 403);
     }
 }
 
 class ConflictError extends AppError {
     constructor(message = 'Resource already exists') {
-        super(message, 409, 'CONFLICT');
+        super('CONFLICT', message, 409);
     }
 }
 
 class BadRequestError extends AppError {
     constructor(message = 'Bad request') {
-        super(message, 400, 'BAD_REQUEST');
+        super('BAD_REQUEST', message, 400);
     }
 }
 
 class ServiceUnavailableError extends AppError {
     constructor(message = 'Service temporarily unavailable') {
-        super(message, 503, 'SERVICE_UNAVAILABLE');
+        super('SERVICE_UNAVAILABLE', message, 503);
     }
 }
 

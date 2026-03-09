@@ -33,8 +33,11 @@ class UserController {
 
             res.status(200).json({
                 success: true,
-                count: users.length,
-                users: users
+                data: {
+                    count: users.length,
+                    users: users
+                },
+                message: "Users retrieved successfully"
             });
         } catch (error) {
             logger.error("Error fetching users", error);

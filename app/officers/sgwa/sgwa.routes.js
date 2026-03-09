@@ -3,7 +3,7 @@ const sgwaController = require("./sgwa.controller");
 const authMiddleware = require("../../middleware/auth.middleware");
 
 router.use(authMiddleware.authenticate);
-router.use(authMiddleware.authorize("RSGWA"));
+router.use(authMiddleware.authorize("SGWA", "RSGWA"));
 
 router.get("/applications", sgwaController.getApplications);
 router.get("/applications/technical-review", sgwaController.getTechnicalReviewApplications);

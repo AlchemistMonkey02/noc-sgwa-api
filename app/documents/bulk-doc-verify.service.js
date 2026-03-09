@@ -13,7 +13,6 @@ class BulkDocVerificationService {
             // Map role to verification field
             const roleMap = {
                 'DGO': 'dgo',
-                'RSGWA': 'sgwa',
                 'SGWA': 'sgwa',
                 'ENFORCEMENT': 'enforcement'
             };

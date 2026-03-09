@@ -10,17 +10,22 @@ class DashboardController {
             const userId = req.user.id;
 
             // Parallel execution
-            const [stats, recentApplications] = await Promise.all([
+            const [stats, recentApplications, announcements, deadlines] = await Promise.all([
                 dashboardService.getDashboardStats(userId),
-                dashboardService.getRecentApplications(userId, 5)
+                dashboardService.getRecentApplications(userId, 5),
+                dashboardService.getAnnouncements(),
+                dashboardService.getUpcomingDeadlines(userId)
             ]);
 
             res.status(200).json({
                 success: true,
                 data: {
                     stats,
-                    recentApplications
-                }
+                    recentApplications,
+                    announcements,
+                    deadlines
+                },
+                message: "Dashboard data retrieved successfully"
             });
         } catch (error) {
             next(error);

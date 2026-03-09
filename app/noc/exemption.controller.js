@@ -1,4 +1,4 @@
-const NocExemptionApplication = require("./exemption.model");
+const NOCApplication = require("./noc-application.model");
 const { v4: uuidv4 } = require('uuid');
 const { checkExemption, getExemptionDisplayConfig } = require('../../exemptionRules');
 
@@ -86,10 +86,31 @@ exports.createApplication = async (req, res) => {
         // 2. Check Exemption Eligibility
         const eligible = isExempted(data);
 
-        // 3. Create Record
-        const newApp = new NocExemptionApplication({
-            ...data,
+        const newApp = new NOCApplication({
+            applicationId: uuidv4(),
+            applicationNumber: `EXP-${Date.now()}`,
+            applicationType: data.applicationType || "Agriculture Activities",
+            applicationSubType: data.applicationSubType || "Ground Water Requirement for Agriculture",
+            waterQualityType: data.waterQualityType || "Fresh Water",
+            isExempted: true,
             exemptionEligible: eligible,
+            exemptionDetails: data, // Store the raw form for the details view
+
+            // Map common fields so the Officer tables don't break
+            projectDetails: {
+                projectName: data.ownerDetails?.ownerName || "Agricultural Exemption",
+                applicantName: data.ownerDetails?.ownerName || "Unknown",
+                mobile: data.ownerDetails?.ownerPhone,
+                email: data.ownerDetails?.ownerEmail
+            },
+            location: {
+                stateId: data.ownerDetails?.state || "RAJASTHAN",
+                districtId: data.ownerDetails?.district || "JAIPUR",
+                blockId: data.agriculturalDetails?.assessmentUnitBlockTehsil || "Unknown",
+                village: data.agriculturalDetails?.gramPanchayatName || "Unknown",
+                pincode: data.ownerDetails?.pinCode || "Unknown",
+            },
+
             status: "SUBMITTED"
         });
 
@@ -97,7 +118,7 @@ exports.createApplication = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            applicationId: newApp._id,
+            applicationId: newApp.applicationId, // Use correct ID property
             status: newApp.status,
             exemptionEligible: newApp.exemptionEligible,
             message: "Application saved successfully"
@@ -116,15 +137,23 @@ exports.createApplication = async (req, res) => {
 exports.getApplication = async (req, res) => {
     try {
         const { applicationId } = req.params;
-        const application = await NocExemptionApplication.findById(applicationId);
+        const mongoose = require('mongoose');
 
-        if (!application) {
-            return res.status(404).json({ success: false, message: "Application not found" });
+        const query = { $or: [{ applicationId: applicationId }] };
+        if (mongoose.Types.ObjectId.isValid(applicationId)) {
+            query.$or.push({ _id: applicationId });
         }
 
-        res.json({
+        const application = await NOCApplication.findOne(query);
+
+        if (!application || !application.isExempted) {
+            return res.status(404).json({ success: false, message: "Exempted Application not found" });
+        }
+
+        res.status(200).json({
             success: true,
-            data: application
+            data: application,
+            message: "Application retrieved successfully"
         });
 
     } catch (error) {
@@ -135,10 +164,17 @@ exports.getApplication = async (req, res) => {
 exports.submitApplication = async (req, res) => {
     try {
         const { applicationId } = req.params;
-        const application = await NocExemptionApplication.findById(applicationId);
+        const mongoose = require('mongoose');
 
-        if (!application) {
-            return res.status(404).json({ success: false, message: "Application not found" });
+        const query = { $or: [{ applicationId: applicationId }] };
+        if (mongoose.Types.ObjectId.isValid(applicationId)) {
+            query.$or.push({ _id: applicationId });
+        }
+
+        const application = await NOCApplication.findOne(query);
+
+        if (!application || !application.isExempted) {
+            return res.status(404).json({ success: false, message: "Exempted Application not found" });
         }
 
         if (application.status !== "DRAFT") {
@@ -155,10 +191,12 @@ exports.submitApplication = async (req, res) => {
         application.status = "SUBMITTED";
         await application.save();
 
-        res.json({
+        res.status(200).json({
             success: true,
-            message: "Application submitted successfully",
-            nextSteps: application.exemptionEligible ? "Exemption Certificate Generated" : "Submit supporting documents for review."
+            data: {
+                nextSteps: application.exemptionEligible ? "Exemption Certificate Generated" : "Submit supporting documents for review."
+            },
+            message: "Application submitted successfully"
         });
 
     } catch (error) {
@@ -174,11 +212,14 @@ exports.checkEligibility = async (req, res) => {
         const exemptionResult = checkExemption(formData);
         const displayConfig = getExemptionDisplayConfig(exemptionResult);
 
-        res.json({
+        res.status(200).json({
             success: true,
-            isExempt: exemptionResult.isExempt,
-            exemptionResult,
-            displayConfig
+            data: {
+                isExempt: exemptionResult.isExempt,
+                exemptionResult,
+                displayConfig
+            },
+            message: "Eligibility check completed"
         });
     } catch (error) {
         console.error("Check Eligibility Error:", error);
@@ -189,10 +230,17 @@ exports.checkEligibility = async (req, res) => {
 exports.getCertificate = async (req, res) => {
     try {
         const { applicationId } = req.params;
-        const application = await NocExemptionApplication.findById(applicationId);
+        const mongoose = require('mongoose');
 
-        if (!application) {
-            return res.status(404).json({ success: false, message: "Application not found" });
+        const query = { $or: [{ applicationId: applicationId }] };
+        if (mongoose.Types.ObjectId.isValid(applicationId)) {
+            query.$or.push({ _id: applicationId });
+        }
+
+        const application = await NOCApplication.findOne(query);
+
+        if (!application || !application.isExempted) {
+            return res.status(404).json({ success: false, message: "Exempted Application not found" });
         }
 
         if (!application.exemptionEligible) {
@@ -212,19 +260,20 @@ exports.getCertificate = async (req, res) => {
 
         // Generate Mock Certificate Data
         const certificate = {
-            certificateId: `EXEMPT-NOC-${application.applicationId || applicationId.substring(0, 8).toUpperCase()}`,
+            certificateId: `EXEMPT-NOC-${application.applicationNumber || application.applicationId.substring(0, 8).toUpperCase()}`,
             issueDate: new Date(),
             validAndEffectiveFrom: new Date(),
-            applicantName: application.nameOfApplicant || "N/A",
-            projectLocation: application.agriculturalDetails?.assessmentUnitBlockTehsil || "Specified Location",
+            applicantName: application.projectDetails?.applicantName || "N/A",
+            projectLocation: application.location?.blockId || "Specified Location",
             exemptionCategory: "Agricultural Activities", // Dynamic based on rules if needed
             status: "ACTIVE",
             message: "This is a computer-generated exemption certificate."
         };
 
-        res.json({
+        res.status(200).json({
             success: true,
-            certificate
+            data: certificate,
+            message: "Certificate generated successfully"
         });
 
     } catch (error) {
@@ -251,12 +300,13 @@ exports.getConfig = async (req, res) => {
             { code: "EXISTING", name: "Existing" }
         ];
 
-        res.json({
+        res.status(200).json({
             success: true,
             data: {
                 utilizationTypes,
                 utilizationPurposes
-            }
+            },
+            message: "Configuration retrieved successfully"
         });
     } catch (error) {
         console.error("Get Config Error:", error);

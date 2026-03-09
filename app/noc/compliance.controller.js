@@ -54,7 +54,8 @@ class ComplianceController {
 
             res.status(200).json({
                 success: true,
-                data: nocData
+                data: nocData,
+                message: "Application search completed"
             });
         } catch (error) {
             logger.error('Error searching application', error);
@@ -142,7 +143,8 @@ class ComplianceController {
 
             res.status(200).json({
                 success: true,
-                data: response
+                data: response,
+                message: "NOC details retrieved successfully"
             });
         } catch (error) {
             logger.error('Error getting NOC details', error);
@@ -333,7 +335,8 @@ class ComplianceController {
                         totalReports,
                         limit: parseInt(limit)
                     }
-                }
+                },
+                message: "Compliance history retrieved successfully"
             });
         } catch (error) {
             logger.error('Error getting compliance history', error);

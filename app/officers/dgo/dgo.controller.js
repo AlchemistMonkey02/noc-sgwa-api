@@ -12,7 +12,8 @@ class DGOController {
             res.status(200).json({
                 success: true,
                 data: result.applications,
-                pagination: result.pagination
+                pagination: result.pagination,
+                message: "Applications retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -39,7 +40,8 @@ class DGOController {
 
             res.status(200).json({
                 success: true,
-                data: application
+                data: application,
+                message: "Application details retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -140,7 +142,11 @@ class DGOController {
     async getInspectionReport(req, res, next) {
         try {
             const report = await dgoService.getInspectionReport(req.params.id);
-            res.status(200).json({ success: true, data: report });
+            res.status(200).json({
+                success: true,
+                data: report,
+                message: "Inspection report retrieved successfully"
+            });
         } catch (err) { next(err); }
     }
 
@@ -277,7 +283,8 @@ class DGOController {
 
             res.status(200).json({
                 success: true,
-                data: stats
+                data: stats,
+                message: "Dashboard statistics retrieved successfully"
             });
         } catch (error) {
             next(error);
@@ -292,7 +299,8 @@ class DGOController {
             const officers = await dgoService.getOfficers(req.query.role || req.query.userType);
             res.status(200).json({
                 success: true,
-                data: officers
+                data: officers,
+                message: "Officers retrieved successfully"
             });
         } catch (error) {
             next(error);

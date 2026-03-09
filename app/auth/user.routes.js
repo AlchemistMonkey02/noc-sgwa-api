@@ -11,7 +11,7 @@ router.use(authMiddleware.authenticate);
  * Restricted to Admins and Officers
  */
 router.get("/",
-    authMiddleware.authorize("DGO", "RSGWA", "ENFORCEMENT", "ADMIN"),
+    authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT", "ADMIN"),
     userController.getUsers
 );
 

@@ -12,6 +12,7 @@ class OfficerController {
             res.status(200).json({
                 success: true,
                 ...result,
+                message: "Applications retrieved successfully"
             });
         } catch (error) {
             next(error);

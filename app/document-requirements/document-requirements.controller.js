@@ -148,7 +148,8 @@ class DocumentRequirementsController {
                     withdrawalCategory: category,
                     totalDocuments: documents.length,
                     requiredDocuments: documents
-                }
+                },
+                message: "Document requirements retrieved successfully"
             });
 
         } catch (error) {

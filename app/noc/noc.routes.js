@@ -8,9 +8,6 @@ const nocValidator = require("./noc.validator");
 // Track Application - Uses regex capture group for ID with slashes
 router.get(/^\/track\/(.*)/, nocController.trackApplication);
 
-// Approve Timeline Step (Public - No Auth)
-router.post("/approve-step", nocController.updateTimelineStep);
-
 // Processing Estimates (Public)
 router.get("/processing-estimates", nocController.getProcessingEstimates);
 
@@ -19,6 +16,13 @@ router.get("/ref/:trackingId/document", nocController.getNocDocumentByTrackingId
 
 // All routes require authentication
 router.use(authMiddleware.authenticate);
+
+// Approve Timeline Step (Authenticated - Officer Only)
+router.post(
+    "/approve-step",
+    authMiddleware.authorize(["DGO", "SGWA", "ENFORCEMENT"]),
+    nocController.updateTimelineStep
+);
 
 // Get Application Documents by Tracking ID (Authenticated & Role Restricted)
 router.get("/ref/:trackingId/documents", nocController.getDocumentsByTrackingId);
@@ -40,6 +44,12 @@ router.get("/", nocController.getUserApplications);
 
 // GET /api/applications/noc/:id - Get application details
 router.get("/:id", nocController.getApplicationById);
+
+// GET /api/applications/noc/:id/summary - Get application summary with fee calculations
+router.get("/:id/summary", nocController.getApplicationSummary);
+
+// GET /api/applications/noc/:id/download - Download full application summary as PDF
+router.get("/:id/download", nocController.downloadApplication);
 
 // PUT /api/applications/noc/:id - Update application
 router.put("/:id", nocValidator.validateNOCApplication, nocController.updateApplication);
@@ -95,6 +105,9 @@ router.post("/:id/calculate-fees", nocController.calculateFees);
 // NEW: Application summary (Section 8)
 router.get("/:id/summary", nocController.getApplicationSummary);
 
+// NEW: Save Payment Details (before final submission)
+router.post("/:id/payment", nocController.savePaymentDetails);
+
 // NEW: AI-driven pre-submission validation
 router.get("/:id/validate", nocController.validateApplication);
 
@@ -111,7 +124,5 @@ router.get("/:id/approval-flow", nocController.getApprovalFlow);
 
 // NEW: Pump Discharge Calculation (Public util)
 router.post("/calculate-discharge", nocController.calculatePumpDischarge);
-
-
 
 module.exports = router;

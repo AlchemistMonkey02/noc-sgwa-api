@@ -42,7 +42,6 @@ const DistrictSchema = new mongoose.Schema(
 );
 
 // Indexes
-DistrictSchema.index({ districtId: 1 });
 DistrictSchema.index({ stateId: 1 });
 DistrictSchema.index({ isActive: 1 });
 

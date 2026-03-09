@@ -3,11 +3,11 @@ const inspectionController = require("./inspection.controller");
 const authMiddleware = require("../../middleware/auth.middleware");
 const { upload } = require("../../documents/upload.middleware");
 
-// Auth & Role Check (Allow INSPECTION_OFFICER, DGO, ENFORCEMENT)
+// Auth & Role Check (Allow INSPECTION, DGO, ENFORCEMENT)
 router.use(authMiddleware.authenticate);
 // Assuming roles are set up. If not, this might block.
 // Allowing multiple relevant roles.
-router.use(authMiddleware.authorize("INSPECTION_OFFICER", "DGO", "ENFORCEMENT", "SGWA_OFFICER"));
+router.use(authMiddleware.authorize("INSPECTION", "DGO", "ENFORCEMENT", "SGWA_OFFICER"));
 
 // Dashboard
 router.get("/dashboard", inspectionController.getDashboardStats);

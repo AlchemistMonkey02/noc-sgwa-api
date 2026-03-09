@@ -350,7 +350,8 @@ class SelfComplianceController {
                         : null,
                     reviewedAt: compliance.reviewedAt,
                     reviewRemarks: compliance.reviewRemarks
-                }
+                },
+                message: "Compliance status retrieved successfully"
             });
         } catch (error) {
             logger.error('Error getting compliance status', error);
