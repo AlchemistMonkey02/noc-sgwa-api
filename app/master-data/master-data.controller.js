@@ -3,9 +3,14 @@ const mongoose = require("mongoose");
 
 // Define loose schemas for the imported collections to avoid strict validation errors
 // or assume they are stored in "applicationtypes", "applicationsubtypes", "projectcategories"
-const ApplicationType = mongoose.model('ApplicationType', new mongoose.Schema({ id: Number, name: String, isActive: Boolean }), 'applicationtypes');
-const ApplicationSubType = mongoose.model('ApplicationSubType', new mongoose.Schema({ appSubTypeCode: Number, appTypeCode: Number, name: String, isActive: Boolean }), 'applicationsubtypes');
-const ProjectCategory = mongoose.model('ProjectCategory', new mongoose.Schema({ categoryCode: Number, appSubTypeCode: Number, appTypeCode: Number, name: String, waterBased: Boolean, exemptionAllow: Boolean, isActive: Boolean }), 'projectcategories');
+// Define schemas and models safely to avoid OverwriteModelError
+const applicationTypeSchema = new mongoose.Schema({ id: Number, name: String, isActive: Boolean });
+const applicationSubTypeSchema = new mongoose.Schema({ appSubTypeCode: Number, appTypeCode: Number, name: String, isActive: Boolean });
+const projectCategorySchema = new mongoose.Schema({ categoryCode: Number, appSubTypeCode: Number, appTypeCode: Number, name: String, waterBased: Boolean, exemptionAllow: Boolean, isActive: Boolean });
+
+const ApplicationType = mongoose.models.ApplicationType || mongoose.model('ApplicationType', applicationTypeSchema, 'applicationtypes');
+const ApplicationSubType = mongoose.models.ApplicationSubType || mongoose.model('ApplicationSubType', applicationSubTypeSchema, 'applicationsubtypes');
+const ProjectCategory = mongoose.models.ProjectCategory || mongoose.model('ProjectCategory', projectCategorySchema, 'projectcategories');
 
 class MasterDataController {
     async getByType(req, res, next, type) {

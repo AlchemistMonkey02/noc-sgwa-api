@@ -75,17 +75,28 @@ class InspectionService {
 
             if (filters.status) query.status = filters.status;
             if (filters.date) {
-                const date = new Date(filters.date);
-                const nextDate = new Date(date);
-                nextDate.setDate(date.getDate() + 1);
-                query.scheduledDate = { $gte: date, $lt: nextDate };
+                // Parse date string (e.g., "2026-03-14") and create range for that day in server local time
+                const [year, month, day] = filters.date.split('-').map(Number);
+                const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+                const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+                query.scheduledDate = { $gte: startOfDay, $lte: endOfDay };
             }
 
             const inspections = await Inspection.find(query)
                 .populate("applicationId")
                 .sort({ scheduledDate: 1 });
 
-            return inspections;
+            return inspections.map(ins => ({
+                inspectionId: ins.inspectionId,
+                status: ins.status,
+                scheduledDate: ins.scheduledDate,
+                applicationNumber: ins.applicationId?.applicationNumber,
+                applicantName: ins.applicationId?.projectDetails?.applicantName || ins.applicationId?.applicantName,
+                holderName: ins.applicationId?.projectDetails?.applicantName || ins.applicationId?.applicantName, // Added for frontend mapping
+                location: ins.applicationId?.location?.village || ins.applicationId?.address,
+                inspectionType: ins.applicationId?.applicationType || 'General',
+                priority: ins.priority || 'MEDIUM' // Added priority
+            }));
         } catch (error) {
             throw error;
         }
@@ -105,18 +116,19 @@ class InspectionService {
                 inspectionId: inspection.inspectionId,
                 status: inspection.status,
                 scheduledDate: inspection.scheduledDate,
-                application: {
-                    id: inspection.applicationId._id,
-                    number: inspection.applicationId.applicationNumber,
-                    project: inspection.applicationId.projectDetails,
-                    location: inspection.applicationId.location,
-                    structures: inspection.applicationId.groundWaterStructures,
-                    coordinates: {
-                        lat: inspection.applicationId.location?.latitude,
-                        lng: inspection.applicationId.location?.longitude
-                    }
+                applicationNumber: inspection.applicationId.applicationNumber,
+                applicantName: inspection.applicationId.projectDetails?.applicantName || inspection.applicationId.applicantName,
+                projectType: inspection.applicationId.projectDetails?.projectType || inspection.applicationId.applicationType,
+                locationDetails: inspection.applicationId.location,
+                existingSources: inspection.report?.existingSources || 0,
+                groundWaterStructures: inspection.applicationId.groundWaterStructures,
+                coordinates: {
+                    lat: inspection.applicationId.location?.latitude,
+                    lng: inspection.applicationId.location?.longitude
                 },
-                instructions: "Verify all borewells and water meter installation."
+                projectDetails: inspection.applicationId.projectDetails,
+                applicantDetails: inspection.applicationId.applicantDetails,
+                instructions: inspection.instructions || "Verify all borewells and water meter installation."
             };
         } catch (error) {
             throw error;
@@ -155,7 +167,23 @@ class InspectionService {
             if (!inspection) throw { statusCode: 404, message: "Inspection not found" };
 
             inspection.report = {
-                ...data, // Spreads photos, geolocation, checklist
+                locationMatch: data.locationMatch === 'Yes',
+                landUseMatch: data.landUseMatch === 'Yes',
+                borewellExists: data.borewellExists === 'Yes',
+                waterSource: data.waterSource,
+                meterInstalled: data.meterInstalled === 'Yes' ? 'YES' : 'NO',
+                meterReading: data.meterReading ? parseFloat(data.meterReading) : 0,
+                piezometerInstalled: data.piezometerInstalled === 'Yes',
+                dwraDetails: data.dwraDetails,
+                rainwaterHarvesting: data.rainwaterHarvesting || 'NOT_STARTED',
+                plantationStatus: data.plantationStatus || 'NOT_STARTED',
+                remarks: data.remarks,
+                recommendation: data.recommendation === 'REJECTED' ? 'NOT_RECOMMENDED' : data.recommendation,
+                photos: data.photos || [],
+                geoLocation: data.coordinates ? {
+                    lat: parseFloat(data.coordinates.split(',')[0]),
+                    lng: parseFloat(data.coordinates.split(',')[1])
+                } : null,
                 submittedAt: new Date()
             };
             inspection.status = "COMPLETED";
@@ -212,6 +240,32 @@ class InspectionService {
     }
 
     /**
+     * Get Inspection Report
+     */
+    async getReport(inspectionId, officerId) {
+        try {
+            const inspection = await Inspection.findOne({ inspectionId, officerId })
+                .populate("applicationId");
+            if (!inspection) throw { statusCode: 404, message: "Inspection not found" };
+            return {
+                ...inspection.report.toObject ? inspection.report.toObject() : inspection.report,
+                inspectionId: inspection.inspectionId,
+                applicationNumber: inspection.applicationId.applicationNumber,
+                holderName: inspection.applicationId.projectDetails?.applicantName || inspection.applicationId.applicantName,
+                applicantName: inspection.applicationId.projectDetails?.applicantName || inspection.applicationId.applicantName,
+                address: inspection.applicationId.location?.village || inspection.applicationId.address,
+                location: inspection.applicationId.location?.village || inspection.applicationId.address,
+                projectType: inspection.applicationId.projectDetails?.projectType || inspection.applicationId.applicationType,
+                inspectionDate: inspection.scheduledDate,
+                submittedAt: inspection.completedAt,
+                officerId: inspection.officerId
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
      * Assign Inspection
      */
     async createAssignment(applicationId, officerId, scheduledDate) {
@@ -224,6 +278,26 @@ class InspectionService {
         });
         await inspection.save();
         return inspection;
+    }
+
+    /**
+     * Update Inspection Status (Respond to Assignment)
+     */
+    async updateInspectionStatus(inspectionId, officerId, status, remarks) {
+        try {
+            const inspection = await Inspection.findOne({ inspectionId, officerId });
+            if (!inspection) {
+                throw { statusCode: 404, message: "Inspection not found" };
+            }
+
+            inspection.status = status;
+            if (remarks) inspection.report.remarks = remarks;
+            await inspection.save();
+
+            return inspection;
+        } catch (error) {
+            throw error;
+        }
     }
 }
 

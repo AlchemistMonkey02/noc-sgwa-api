@@ -8,6 +8,7 @@ const Block = require("../master-data/block.model");
 const FeeStructure = require("../master-data/fee-structure.model");
 const emailService = require("../utils/email.service");
 const notificationService = require("../notifications/notification.service");
+const MasterService = require("../master-data/master.service");
 const logger = require("../utils/logger");
 
 class NOCService {
@@ -58,7 +59,7 @@ class NOCService {
         // Access control: User is owner OR User is an Officer
         const appUserId = application.userId?._id || application.userId;
         const isOwner = appUserId && appUserId.toString() === userId.toString();
-        const isOfficer = ["DGO", "SGWA", "ENFORCEMENT"].includes(userType);
+        const isOfficer = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT"].includes(userType);
 
         if (!isOwner && !isOfficer) {
             throw {
@@ -327,7 +328,13 @@ class NOCService {
      */
     async getUserApplications(userId, filters = {}) {
         try {
-            const query = { userId };
+            // Handle both ObjectId and string formats for userId robustly
+            const query = {
+                $or: [
+                    { userId: new mongoose.Types.ObjectId(userId) },
+                    { userId: userId.toString() }
+                ]
+            };
 
             if (filters.status) {
                 if (filters.status === 'IN_PROCESS') {
@@ -363,23 +370,24 @@ class NOCService {
 
             const total = await NOCApplication.countDocuments(query);
 
-            // Enhance applications with stage info
-            const enhancedApplications = cursor.map(app => {
-                const { dgo, sgwa, enforcement } = app.approvalFlow || {};
+            // Enhance applications with stage info and labels
+            const enhancedApplications = await Promise.all(cursor.map(async app => {
+                const enriched = await MasterService.enrichApplicationLabels(app);
+                const { dgo, sgwa, enforcement } = enriched.approvalFlow || {};
 
                 let currentStage = "Submitted";
-                if (app.status === "DRAFT") currentStage = "Draft";
+                if (enriched.status === "DRAFT") currentStage = "Draft";
                 else if (dgo?.status === "PENDING") currentStage = "DGO Review";
                 else if (sgwa?.status === "PENDING") currentStage = "SGWA Review";
                 else if (enforcement?.status === "PENDING") currentStage = "Enforcement";
-                else if (app.status === "APPROVED" || app.status === "NOC_ISSUED") currentStage = "Completed";
+                else if (enriched.status === "APPROVED" || enriched.status === "NOC_ISSUED") currentStage = "Completed";
 
                 return {
-                    ...app.toObject(),
+                    ...enriched,
                     currentStage,
-                    projectName: app.projectDetails?.projectName || "N/A"
+                    projectName: enriched.projectDetails?.projectName || "N/A"
                 };
-            });
+            }));
 
             return {
                 applications: enhancedApplications,
@@ -401,12 +409,13 @@ class NOCService {
      */
     async getApplicationById(applicationId, userId, userType) {
         try {
-            return await this._getAuthorizedApplication(
+            const application = await this._getAuthorizedApplication(
                 applicationId,
                 userId,
                 userType,
                 "nocCertificateId"
             );
+            return await MasterService.enrichApplicationLabels(application);
         } catch (error) {
             throw error;
         }
@@ -686,6 +695,9 @@ class NOCService {
             else if (application.status === "APPROVED") pendingWith = "Final Issuance";
             else if (application.status === "NOC_ISSUED") pendingWith = "Completed";
 
+            // Enrich tracking response
+            const enrichedTracked = await MasterService.enrichApplicationLabels(application);
+
             return {
                 applicationId: application._id,
                 applicationNumber: application.applicationNumber,
@@ -695,7 +707,9 @@ class NOCService {
                 applicantDetails: {
                     name: application.userId ? `${application.userId.firstName} ${application.userId.lastName}` : "Applicant"
                 },
-                applicationType: application.applicationType || "NOC",
+                applicationType: enrichedTracked.applicationTypeLabel || application.applicationType || "NOC",
+                applicationTypeLabel: enrichedTracked.applicationTypeLabel,
+                applicationSubTypeLabel: enrichedTracked.applicationSubTypeLabel,
                 submittedDate: application.submittedAt || application.createdAt,
                 pendingWith: pendingWith,
                 currentLocation: pendingWith,
@@ -748,16 +762,38 @@ class NOCService {
             // Update section based on section number
             switch (sectionNumber) {
                 case 1: // Basic Details
-                    Object.assign(application, {
-                        applicationType: sectionData.applicationType,
-                        sectorType: sectionData.sectorType,
-                        validityPeriodRequested: sectionData.validityPeriodRequested,
-                        projectDetails: {
-                            ...application.projectDetails,
+                    // Top level fields
+                    if (sectionData.applicationCategory) application.applicationCategory = sectionData.applicationCategory;
+                    if (sectionData.applicationType) application.applicationType = sectionData.applicationType;
+                    if (sectionData.applicationSubType) application.applicationSubType = sectionData.applicationSubType;
+                    if (sectionData.projectType) application.projectType = sectionData.projectType;
+                    if (sectionData.waterQualityType) application.waterQualityType = sectionData.waterQualityType;
+                    if (sectionData.groundWaterUtilizationFor) application.groundWaterUtilizationFor = sectionData.groundWaterUtilizationFor;
+                    if (sectionData.dateOfCommencement) application.dateOfCommencement = sectionData.dateOfCommencement;
+                    if (sectionData.existingNOCStatus) application.existingNOCStatus = sectionData.existingNOCStatus;
+                    if (sectionData.oldNOCNumber) application.oldNOCNumber = sectionData.oldNOCNumber;
+                    if (sectionData.projectCategory) application.projectCategory = sectionData.projectCategory;
+                    if (sectionData.sectorType) application.sectorType = sectionData.sectorType;
+                    if (sectionData.validityPeriodRequested) application.validityPeriodRequested = sectionData.validityPeriodRequested;
+
+                    // Nested Objects
+                    if (sectionData.projectDetails) {
+                        application.projectDetails = {
+                            ...(application.projectDetails || {}),
                             ...sectionData.projectDetails
-                        },
-                        communicationAddress: sectionData.communicationAddress
-                    });
+                        };
+                    }
+
+                    if (sectionData.communicationAddress) {
+                        application.communicationAddress = {
+                            ...(application.communicationAddress || {}),
+                            ...sectionData.communicationAddress
+                        };
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section1BasicDetails = true;
+                    }
                     break;
 
                 case 2: // Location Details
@@ -769,14 +805,16 @@ class NOCService {
                         });
 
                         application.location = {
+                            ...(application.location || {}),
                             ...sectionData.location,
-                            blockCategory: block?.category || application.location.blockCategory
+                            blockCategory: block?.category || sectionData.location.blockCategory || application.location?.blockCategory
                         };
                     }
+
                     // Update land area details
                     if (sectionData.projectDetails) {
                         application.projectDetails = {
-                            ...application.projectDetails,
+                            ...(application.projectDetails || {}),
                             ...sectionData.projectDetails
                         };
                     }
@@ -784,81 +822,148 @@ class NOCService {
                     // Update Hydrogeology Details (e.g., Aquifer Type) if provided
                     if (sectionData.hydrogeology) {
                         application.hydrogeology = {
-                            ...application.hydrogeology,
+                            ...(application.hydrogeology || {}),
                             ...sectionData.hydrogeology
                         };
+                    }
+
+                    // Sync top level if necessary
+                    if (sectionData.waterQualityType) application.waterQualityType = sectionData.waterQualityType;
+                    if (sectionData.projectType) application.projectType = sectionData.projectType;
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section2LocationDetails = true;
                     }
                     break;
 
                 case 3: // Drinking & Domestic Use
-                    application.drinkingDomesticUse = sectionData.drinkingDomesticUse;
-                    // Auto-calculate totals
                     if (sectionData.drinkingDomesticUse) {
                         const { numberOfWorkers = 0, numberOfResidents = 0, dailyRequirementPerPerson = 135 } = sectionData.drinkingDomesticUse;
-                        const totalDailyDomestic = ((numberOfWorkers * 45) + (numberOfResidents * dailyRequirementPerPerson)) / 1000; // Convert to KL/m3
-                        application.drinkingDomesticUse.totalRequirement = totalDailyDomestic;
-                        application.drinkingDomesticUse.totalDailyDomestic = totalDailyDomestic;
-                        application.drinkingDomesticUse.totalAnnualDomestic = totalDailyDomestic * 365;
+                        
+                        // CGWA Standard Calculation: 45L for Workers, User Defined (Default 135L) for Residents
+                        const totalDailyDomestic = ((numberOfWorkers * 45) + (numberOfResidents * dailyRequirementPerPerson)) / 1000;
+                        
+                        application.drinkingDomesticUse = {
+                            ...(application.drinkingDomesticUse || {}),
+                            ...sectionData.drinkingDomesticUse,
+                            totalDailyDomestic,
+                            totalAnnualDomestic: totalDailyDomestic * 365,
+                            totalRequirement: totalDailyDomestic
+                        };
+                    }
+
+                    if (sectionData.waterRequirement) {
+                        application.waterRequirement = {
+                            ...(application.waterRequirement || {}),
+                            ...sectionData.waterRequirement
+                        };
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section3DrinkingDomestic = true;
                     }
                     break;
 
                 case 4: // Water Requirement Breakup
-                    application.waterRequirementBreakup = sectionData.waterRequirementBreakup || [];
-                    application.stpEtpDetails = sectionData.stpEtpDetails || {};
-                    // Also update the main waterRequirement object if provided
+                    if (sectionData.waterRequirementBreakup) {
+                        application.waterRequirementBreakup = sectionData.waterRequirementBreakup;
+                    }
+
+                    if (sectionData.stpEtpDetails) {
+                        application.stpEtpDetails = {
+                            ...(application.stpEtpDetails || {}),
+                            ...sectionData.stpEtpDetails
+                        };
+                    }
+
                     if (sectionData.waterRequirement) {
                         application.waterRequirement = {
-                            ...application.waterRequirement,
-                            ...sectionData.waterRequirement,
-                            breakup: {
-                                ...application.waterRequirement?.breakup,
-                                ...sectionData.waterRequirement.breakup
-                            }
+                            ...(application.waterRequirement || {}),
+                            ...sectionData.waterRequirement
                         };
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section4WaterBreakup = true;
                     }
                     break;
 
-                case 5: // Ground Water Structures & Hydrogeology
+                case 5: // Ground Water Structures
                     if (sectionData.groundWaterStructures) {
                         application.groundWaterStructures = sectionData.groundWaterStructures;
                     }
                     if (sectionData.hydrogeology) {
                         application.hydrogeology = {
-                            ...application.hydrogeology,
+                            ...(application.hydrogeology || {}),
                             ...sectionData.hydrogeology
                         };
                     }
                     if (sectionData.waterRequirement?.proposedExtraction) {
                         application.waterRequirement = {
-                            ...application.waterRequirement,
+                            ...(application.waterRequirement || {}),
                             proposedExtraction: {
-                                ...application.waterRequirement?.proposedExtraction,
+                                ...(application.waterRequirement?.proposedExtraction || {}),
                                 ...sectionData.waterRequirement.proposedExtraction
                             }
                         };
                     }
-                    break;
-
-                case 6: // Document Attachments
-                    application.documentsReviewed = sectionData.documentsReviewed || false;
-                    if (sectionData.documents && Array.isArray(sectionData.documents)) {
-                        application.documents = sectionData.documents;
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section5GroundWaterStructures = true;
                     }
                     break;
 
-                case 9: // Digital Flow Meter (New Section)
+                case 6: // Document Attachments
+                    if (sectionData.documents && Array.isArray(sectionData.documents)) {
+                        application.documents = sectionData.documents;
+                    }
+                    if (sectionData.documentsReviewed !== undefined) {
+                        application.documentsReviewed = sectionData.documentsReviewed;
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section6Attachments = true;
+                    }
+                    break;
+
+                case 7: // Fee Calculation / GW Charges
+                    if (sectionData.feeDetails) {
+                        application.feeDetails = {
+                            ...(application.feeDetails || {}),
+                            ...sectionData.feeDetails
+                        };
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section7GWCharges = true;
+                    }
+                    break;
+
+                case 8: // Final Summary / Undertakings
+                    if (sectionData.undertakings) {
+                        application.undertakings = {
+                            ...(application.undertakings || {}),
+                            ...sectionData.undertakings
+                        };
+                    }
+                    
+                    if (application.sectionCompletionStatus) {
+                        application.sectionCompletionStatus.section8Summary = true;
+                    }
+                    break;
+
+                case 9: // Digital Flow Meter
                     if (sectionData.digitalFlowMeter) {
                         application.digitalFlowMeter = {
-                            ...application.digitalFlowMeter,
+                            ...(application.digitalFlowMeter || {}),
                             ...sectionData.digitalFlowMeter,
-                            // Ensure nested objects are merged correctly
                             telemetry: {
-                                ...application.digitalFlowMeter?.telemetry,
-                                ...sectionData.digitalFlowMeter.telemetry
+                                ...(application.digitalFlowMeter?.telemetry || {}),
+                                ...(sectionData.digitalFlowMeter.telemetry || {})
                             },
                             complianceCommitments: {
-                                ...application.digitalFlowMeter?.complianceCommitments,
-                                ...sectionData.digitalFlowMeter.complianceCommitments
+                                ...(application.digitalFlowMeter?.complianceCommitments || {}),
+                                ...(sectionData.digitalFlowMeter.complianceCommitments || {})
                             }
                         };
                     }
@@ -868,9 +973,10 @@ class NOCService {
                     throw {
                         statusCode: 400,
                         code: "INVALID_SECTION",
-                        message: "Invalid section number. Supported sections: 1-6 and 9.",
+                        message: `Invalid section number: ${sectionNumber}. Supported sections: 1-9.`,
                     };
             }
+
 
             await application.save({ validateBeforeSave: false });
             logger.info(`Application section ${sectionNumber} updated: ${applicationId}`, { userId });
@@ -1455,7 +1561,7 @@ class NOCService {
                 query.applicationId = applicationId;
             }
 
-            const authorizedRoles = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"];
+            const authorizedRoles = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "ADMIN"];
             if (authorizedRoles.indexOf(userType) === -1) {
                 query.userId = userId;
             } else if (userType !== 'ADMIN') {
@@ -1516,6 +1622,15 @@ class NOCService {
                 const newDocsMap = new Map(existingDocs.map(d => [d.documentType, d]));
 
                 data.documents.forEach(doc => {
+                    const existing = newDocsMap.get(doc.documentType);
+
+                    // Prevention: If incoming doc has a 'doc_' ID but we already have a UUID, keep the UUID
+                    if (existing && existing.documentId && !existing.documentId.startsWith('doc_')) {
+                        if (doc.documentId && doc.documentId.startsWith('doc_')) {
+                            doc.documentId = existing.documentId;
+                        }
+                    }
+
                     newDocsMap.set(doc.documentType, doc);
                 });
 

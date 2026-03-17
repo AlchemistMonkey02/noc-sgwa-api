@@ -89,6 +89,8 @@ exports.createApplication = async (req, res) => {
         const newApp = new NOCApplication({
             applicationId: uuidv4(),
             applicationNumber: `EXP-${Date.now()}`,
+            userId: req.user?.id || req.user?._id, // Link to user if logged in
+            companyId: req.company?._id || req.userCompany?._id, // Link to company if available
             applicationType: data.applicationType || "Agriculture Activities",
             applicationSubType: data.applicationSubType || "Ground Water Requirement for Agriculture",
             waterQualityType: data.waterQualityType || "Fresh Water",

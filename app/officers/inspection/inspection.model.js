@@ -28,6 +28,12 @@ const InspectionSchema = new mongoose.Schema(
         },
         startedAt: Date,
         completedAt: Date,
+        instructions: String,
+        priority: {
+            type: String,
+            enum: ["LOW", "MEDIUM", "HIGH"],
+            default: "MEDIUM"
+        },
 
         // Location Data from Check-In
         checkInLocation: {

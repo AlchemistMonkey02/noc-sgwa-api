@@ -971,8 +971,80 @@ class NOCController {
     }
 
     /**
+     * PUT /api/applications/noc/:id/section7
+     * Update Section 7: Fee Details
+     */
+    async updateSection7(req, res, next) {
+        try {
+            const application = await nocService.updateSection(
+                req.params.id,
+                7,
+                req.body,
+                req.user.id,
+                req.user.userType
+            );
+
+            res.status(200).json({
+                success: true,
+                data: application,
+                message: "Section 7 (Fee Details) updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/applications/noc/:id/section8
+     * Update Section 8: Final Summary / Undertaking
+     */
+    async updateSection8(req, res, next) {
+        try {
+            const application = await nocService.updateSection(
+                req.params.id,
+                8,
+                req.body,
+                req.user.id,
+                req.user.userType
+            );
+
+            res.status(200).json({
+                success: true,
+                data: application,
+                message: "Section 8 (Final Summary) updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * PUT /api/applications/noc/:id/section9
+     * Update Section 9: Digital Flow Meter
+     */
+    async updateSection9(req, res, next) {
+        try {
+            const application = await nocService.updateSection(
+                req.params.id,
+                9,
+                req.body,
+                req.user.id,
+                req.user.userType
+            );
+
+            res.status(200).json({
+                success: true,
+                data: application,
+                message: "Section 9 (Digital Flow Meter) updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * PUT /api/applications/noc/:id/flow-meter
-     * Update Digital Flow Meter (Section 9)
+     * Update Digital Flow Meter (Section 9 Alias)
      */
     async updateDigitalFlowMeter(req, res, next) {
         try {
@@ -980,7 +1052,8 @@ class NOCController {
                 req.params.id,
                 9,
                 req.body,
-                req.user.id
+                req.user.id,
+                req.user.userType
             );
 
             res.status(200).json({

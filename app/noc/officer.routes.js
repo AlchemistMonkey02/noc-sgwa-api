@@ -5,7 +5,7 @@ const nocValidator = require("./noc.validator");
 
 // All routes require officer authentication
 router.use(authMiddleware.authenticate);
-router.use(authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"));
+router.use(authMiddleware.authorize("DGO", "SGWA", "RSGWA", "ENFORCEMENT"));
 
 // GET /api/officer/applications - Get applications for review
 router.get("/applications", officerController.getApplications);

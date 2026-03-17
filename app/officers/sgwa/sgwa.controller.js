@@ -124,7 +124,7 @@ class SGWAController {
             res.status(200).json({
                 success: true,
                 data: stats,
-                message: "Dashboard statistics retrieved successfully"
+                message: "PROBE SGWA: Dashboard statistics retrieved successfully"
             });
         } catch (error) {
             next(error);

@@ -18,7 +18,7 @@ class InspectionController {
             const result = await inspectionService.getAssignedInspections(req.user.id, req.query);
             res.status(200).json({
                 success: true,
-                data: result,
+                data: { inspections: result },
                 message: "Assigned inspections retrieved successfully"
             });
         } catch (err) { next(err); }
@@ -107,6 +107,32 @@ class InspectionController {
                 message: "Inspection history retrieved successfully"
             });
         } catch (err) { next(err); }
+    }
+
+    async getReport(req, res, next) {
+        try {
+            const result = await inspectionService.getReport(req.params.id, req.user.id);
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Inspection report retrieved successfully"
+            });
+        } catch (err) { next(err); }
+    }
+
+    async updateStatus(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { status, remarks } = req.body;
+            const result = await inspectionService.updateInspectionStatus(id, req.user.id, status, remarks);
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Inspection status updated successfully"
+            });
+        } catch (error) {
+            next(error);
+        }
     }
 }
 

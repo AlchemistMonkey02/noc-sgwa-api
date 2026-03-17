@@ -4,7 +4,7 @@ const authMiddleware = require("../../middleware/auth.middleware");
 
 // All routes require authentication and officer role (DGO/SGWA/ENFORCEMENT)
 router.use(authMiddleware.authenticate);
-router.use(authMiddleware.requireRole(["DGO", "SGWA", "ENFORCEMENT"]));
+router.use(authMiddleware.requireRole(["DGO", "SGWA", "RSGWA", "ENFORCEMENT"]));
 
 // GET /api/officers/company-verification/stats - Get statistics
 router.get("/stats", companyVerificationController.getStats);

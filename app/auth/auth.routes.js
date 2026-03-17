@@ -74,7 +74,7 @@ router.post("/reset-password", authValidator.validateResetPassword, authControll
 // Officer Routes
 router.put(
     "/officer/users/:id/verify",
-    authMiddleware.authorize(["DGO", "SGWA", "ENFORCEMENT"]),
+    authMiddleware.authorize(["DGO", "SGWA", "RSGWA", "ENFORCEMENT"]),
     authController.verifyUser
 );
 

@@ -61,6 +61,9 @@ const NOCApplicationSchema = new mongoose.Schema(
         oldNOCNumber: {
             type: String,
         },
+        projectCategory: {
+            type: String,
+        },
         status: {
             type: String,
             default: "DRAFT",
@@ -91,6 +94,9 @@ const NOCApplicationSchema = new mongoose.Schema(
                 remarks: String,
                 recommendation: String,
                 inspectionReport: String,
+                inspectionScheduledAt: Date,
+                inspectionAssignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+                inspectionId: String,
                 documentsVerified: { type: Boolean, default: false }
             },
             sgwa: {
@@ -248,11 +254,11 @@ const NOCApplicationSchema = new mongoose.Schema(
             numberOfWorkers: { type: Number, default: 0 },
             numberOfResidents: { type: Number, default: 0 },
             dailyRequirementPerPerson: { type: Number, default: 135 },
-            totalDailyDomestic: Number,
-            totalAnnualDomestic: Number
+            totalDailyDomestic: { type: Number, default: 0 },
+            totalAnnualDomestic: { type: Number, default: 0 },
+            totalRequirement: { type: Number, default: 0 }
         },
 
-        // Water Requirement Breakup
         waterRequirementBreakup: [{
             activityType: {
                 type: String,
@@ -263,8 +269,19 @@ const NOCApplicationSchema = new mongoose.Schema(
             recycledWaterSTP: Number,
             recycledWaterETP: Number,
             municipalSupply: Number,
-            remarks: String
+            remarks: String,
+            subTotal: Number // Supporting combined field
         }],
+
+        // STP & ETP Details
+        stpEtpDetails: {
+            stpCapacity: { type: Number, default: 0 },
+            etpCapacity: { type: Number, default: 0 },
+            stpInstalled: { type: Boolean, default: false },
+            etpInstalled: { type: Boolean, default: false },
+            stpStatus: String,
+            etpStatus: String
+        },
 
         // Ground Water Structures
         groundWaterStructures: [{
@@ -299,13 +316,14 @@ const NOCApplicationSchema = new mongoose.Schema(
             horsepower: Number,
         }],
 
-        // Enhanced Water Requirements
         waterRequirement: {
             purpose: { type: String },
 
             totalRequirement: Number,
             freshWaterRequirement: Number,
             recycledWaterUsage: Number,
+            annualRequirement: Number,
+            dailyRequirement: Number,
 
             breakup: {
                 domestic: {

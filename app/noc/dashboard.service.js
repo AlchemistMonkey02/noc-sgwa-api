@@ -8,8 +8,16 @@ class DashboardService {
      */
     async getDashboardStats(userId) {
         // Aggregation pipeline to group by status
+        // Handle both ObjectId and string formats for userId robustly
+        const matchQuery = {
+            $or: [
+                { userId: new mongoose.Types.ObjectId(userId) },
+                { userId: userId.toString() }
+            ]
+        };
+
         const stats = await NOCApplication.aggregate([
-            { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+            { $match: matchQuery },
             {
                 $group: {
                     _id: "$status",
@@ -29,12 +37,12 @@ class DashboardService {
         // Map status to categories
         stats.forEach(item => {
             const count = item.count;
-            const status = item._id;
+            const status = item._id?.toUpperCase() || "";
             total += count;
 
             if (status === "DRAFT") {
                 drafts += count;
-            } else if (status === "NOC_ISSUED") {
+            } else if (status === "NOC_ISSUED" || status === "APPROVED" || status === "EXEMPT") {
                 approved += count;
             } else if (status.includes("REJECTED")) {
                 rejected += count;
@@ -63,7 +71,15 @@ class DashboardService {
      * @param {number} limit 
      */
     async getRecentApplications(userId, limit = 5) {
-        let applications = await NOCApplication.find({ userId })
+        // Handle both ObjectId and string formats for userId robustly
+        const matchQuery = {
+            $or: [
+                { userId: new mongoose.Types.ObjectId(userId) },
+                { userId: userId.toString() }
+            ]
+        };
+
+        let applications = await NOCApplication.find(matchQuery)
             .sort({ updatedAt: -1 })
             .limit(limit)
             .select("applicationNumber projectDetails.projectName status updatedAt applicationType trackingId")

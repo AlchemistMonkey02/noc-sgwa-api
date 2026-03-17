@@ -124,7 +124,7 @@ class CompanyController {
             const userId = req.user.id;
 
             // Allow officers to bypass ownership check
-            const isOfficer = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+            const isOfficer = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
 
             const documents = await companyService.getCompanyDocuments(
                 companyId,
@@ -197,7 +197,7 @@ class CompanyController {
             const userId = req.user.id;
 
             // Allow officers to view any company
-            const isOfficer = ["DGO", "SGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
+            const isOfficer = ["DGO", "SGWA", "RSGWA", "ENFORCEMENT", "ADMIN"].includes(req.user.userType);
 
             // If officer, pass null for userId to skip ownership check
             // If applicant, pass userId to enforce ownership

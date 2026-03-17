@@ -5,6 +5,9 @@ const Tehsil = require("./tehsil.model");
 const IndustryType = require("./industry-type.model");
 const DocumentRequirement = require("./document-requirement.model");
 const FeeStructure = require("./fee-structure.model");
+const ApplicationType = require("./application-type.model");
+const ApplicationSubType = require("./application-sub-type.model");
+const ProjectCategory = require("./project-category.model");
 const logger = require("../utils/logger");
 
 class MasterService {
@@ -306,6 +309,53 @@ class MasterService {
         } catch (error) {
             logger.error("Error fetching fee structure", error);
             throw error;
+        }
+    }
+
+    /**
+     * Enrich application object with human-readable labels
+     */
+    async enrichApplicationLabels(application) {
+        if (!application) return null;
+
+        try {
+            // Need to handle both mongoose documents and plain objects
+            const doc = application.toObject ? application.toObject() : JSON.parse(JSON.stringify(application));
+            
+            // Resolve Application Type
+            if (doc.applicationType) {
+                const type = await ApplicationType.findOne({ id: doc.applicationType });
+                if (type) doc.applicationTypeLabel = type.name;
+            }
+
+            // Resolve Application Sub Type
+            if (doc.applicationSubType) {
+                const subType = await ApplicationSubType.findOne({ appSubTypeCode: doc.applicationSubType });
+                if (subType) doc.applicationSubTypeLabel = subType.name;
+            }
+
+            // Resolve Project Category
+            if (doc.projectDetails?.projectCategory) {
+                const category = await ProjectCategory.findOne({ categoryCode: doc.projectDetails.projectCategory });
+                if (category) doc.projectDetails.projectCategoryLabel = category.name;
+            }
+
+            // Resolve District
+            if (doc.location?.districtId) {
+                const district = await District.findOne({ districtId: doc.location.districtId.toUpperCase() });
+                if (district) doc.location.districtLabel = district.districtName;
+            }
+
+            // Resolve Block
+            if (doc.location?.blockId) {
+                const block = await Block.findOne({ blockId: doc.location.blockId.toUpperCase() });
+                if (block) doc.location.blockLabel = block.blockName;
+            }
+
+            return doc;
+        } catch (error) {
+            logger.error("Error enriching application labels", error);
+            return application; // Return original on error to avoid breaking the flow
         }
     }
 }

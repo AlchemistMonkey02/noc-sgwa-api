@@ -276,17 +276,32 @@ const loginSchema = Joi.object({
             "string.empty": "Password is required",
         }),
 
-    userType: Joi.string().valid("APPLICANT", "DGO", "SGWA", "ENFORCEMENT").optional(),
+    userType: Joi.string().valid("APPLICANT", "DGO", "SGWA", "RSGWA", "ENFORCEMENT").optional(),
 
     captcha: Joi.string().optional(),
 });
 
 // Forgot password validation
 const forgotPasswordSchema = Joi.object({
+    userId: Joi.string().required()
+        .messages({ "string.empty": "User ID is required" }),
+    
     email: Joi.string().email().required()
         .messages({
             "string.email": "Please provide a valid email address",
             "string.empty": "Email is required",
+        }),
+
+    mobileNumber: Joi.string().pattern(/^[6-9]\d{9}$/).required()
+        .messages({
+            "string.pattern.base": "Please provide a valid 10-digit Indian mobile number",
+            "string.empty": "Mobile number is required",
+        }),
+
+    userType: Joi.string().valid("APPLICANT", "DGO", "SGWA", "RSGWA", "ENFORCEMENT").required()
+        .messages({
+            "any.only": "Please select a valid user type",
+            "any.required": "User type is required",
         }),
 
     captcha: Joi.string().optional(),

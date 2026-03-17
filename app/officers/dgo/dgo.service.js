@@ -5,6 +5,7 @@ const logger = require("../../utils/logger");
 const ApplicationQuery = require("../../noc/application-query.model");
 const District = require("../../master-data/district.model");
 const User = require("../../auth/user.model");
+const MasterService = require("../../master-data/master.service");
 
 class DGOService {
     /**
@@ -44,7 +45,12 @@ class DGOService {
             }
 
             if (filters.status) {
-                query.$and.push({ status: filters.status });
+                const statusList = filters.status.split(",");
+                if (statusList.length > 1) {
+                    query.$and.push({ status: { $in: statusList } });
+                } else {
+                    query.$and.push({ status: filters.status });
+                }
             }
 
             if (filters.block) {
@@ -73,14 +79,16 @@ class DGOService {
 
             const total = await NOCApplication.countDocuments(query);
 
+            // Enrich with labels for Dashboard visibility
+            const enrichedApplications = await Promise.all(
+                applications.map(app => MasterService.enrichApplicationLabels(app))
+            );
+
             // DEBUG: Log details to help trace visibility issues
             logger.info(`DGO getApplications: found ${total} total, query status filter: ${JSON.stringify(query.$and[0]?.status)}, filters: ${JSON.stringify(filters)}`);
-            applications.forEach(app => {
-                logger.info(`  - App: ${app.applicationId} | status: ${app.status} | appNumber: ${app.applicationNumber}`);
-            });
 
             return {
-                applications,
+                applications: enrichedApplications,
                 pagination: {
                     page,
                     limit,
@@ -513,11 +521,13 @@ class DGOService {
                 underReview
             });
 
-            // Get recent applications
+            // Get recent applications with full details for dashboard
             const recentApplications = await NOCApplication.find(isolationQuery)
+                .populate("userId", "firstName lastName name email mobile phone")
+                .populate("companyId", "companyName contactPerson")
                 .sort({ submittedAt: -1 })
                 .limit(5)
-                .select("applicationNumber projectDetails.projectName status submittedAt");
+                .lean();
 
             return {
                 stats: {
@@ -590,18 +600,54 @@ class DGOService {
      */
     async getOfficers(role) {
         try {
-            const query = {};
-            if (role) {
-                query.userType = role;
+            const query = { accountStatus: "ACTIVE" }; // Only active officers
+            
+            console.log('DEBUG: getOfficers called with role:', role);
+
+            if (role && role !== "undefined" && role !== "null") {
+                // Handle synonyms
+                if (role === "INSPECTION_OFFICER") {
+                    query.userType = "INSPECTION";
+                } else {
+                    query.userType = role;
+                }
             } else {
-                query.userType = { $in: ["ENFORCEMENT", "INSPECTION", "SGWA"] };
+                // Default roles that can be assigned for inspections
+                query.userType = { $in: ["INSPECTION", "ENFORCEMENT", "SGWA", "RSGWA", "DGO"] };
             }
 
-            return await User.find(query)
-                .select("firstName lastName email phone userType")
+            console.log('DEBUG: getOfficers query:', JSON.stringify(query));
+            
+            const officers = await User.find(query)
+                .select("firstName lastName email phone userType communicationAddress")
                 .lean();
+
+            console.log(`DEBUG: getOfficers found ${officers.length} officers`);
+            return officers;
         } catch (error) {
             logger.error("Error fetching officers", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get application details by ID with enrichment
+     */
+    async getApplicationById(applicationId) {
+        try {
+            const isObjectId = mongoose.Types.ObjectId.isValid(applicationId);
+            const query = isObjectId ? { _id: applicationId } : { applicationId };
+            
+            const application = await NOCApplication.findOne(query)
+                .populate("userId", "firstName lastName email phone")
+                .populate("companyId", "companyName contactPerson")
+                .populate("approvalFlow.dgo.inspectionAssignedTo", "firstName lastName email phone userType");
+
+            if (!application) return null;
+
+            return await MasterService.enrichApplicationLabels(application);
+        } catch (error) {
+            logger.error("Error fetching application by ID", error);
             throw error;
         }
     }
