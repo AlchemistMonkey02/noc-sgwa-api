@@ -5,7 +5,7 @@ const { upload } = require("../../documents/upload.middleware");
 
 router.use(authMiddleware.authenticate);
 // Authorize any officer role
-router.use(authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"));
+router.use(authMiddleware.authorize("DGO", "SGWA", "RSGWA", "ENFORCEMENT"));
 
 // Profile
 router.get("/profile", commonController.getProfile);
@@ -28,6 +28,8 @@ router.get("/documents/pending-verifications", commonController.getPendencyBased
 router.get("/applications/:appId/documents", commonController.getApplicationDocuments); // List all
 router.get("/applications/:appId/documents/:docType/view", commonController.viewApplicationDocument);
 router.get("/applications/:appId/documents/:docType/download", commonController.downloadApplicationDocument);
+router.post("/applications/:appId/documents/verify-all", commonController.verifyAllDocuments);
+router.post("/verify-doc/:docId", commonController.verifyDocument);
 
 // Global Search
 router.get("/search", commonController.searchApplications);

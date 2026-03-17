@@ -13,8 +13,10 @@ exports.authenticate = async (req, res, next) => {
 
         if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
             token = req.headers.authorization.split(" ")[1];
-        } else if (req.cookies.jwt) {
+        } else if (req.cookies && req.cookies.jwt) {
             token = req.cookies.jwt;
+        } else if (req.query && req.query.token) {
+            token = req.query.token;
         }
 
         if (!token) {
@@ -100,6 +102,9 @@ exports.authenticate = async (req, res, next) => {
  * Authorize specific user types
  */
 exports.authorize = (...allowedTypes) => {
+    // Flatten in case an array was passed as the first argument
+    const roles = allowedTypes.flat();
+
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({
@@ -111,7 +116,8 @@ exports.authorize = (...allowedTypes) => {
             });
         }
 
-        if (!allowedTypes.includes(req.user.userType)) {
+        if (!roles.includes(req.user.userType)) {
+            logger.warn(`[AUTH DEBUG] Unauthorized Access - User: ${req.user.email}, Role: ${req.user.userType}, Required one of: ${JSON.stringify(roles)}`);
             return res.status(403).json({
                 success: false,
                 error: {
@@ -124,3 +130,8 @@ exports.authorize = (...allowedTypes) => {
         next();
     };
 };
+
+/**
+ * requireRole - Alias for authorize (used in some routes)
+ */
+exports.requireRole = exports.authorize;

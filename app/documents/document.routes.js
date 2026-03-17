@@ -79,14 +79,14 @@ router.delete("/:id", documentController.deleteDocument);
 // PUT /api/documents/:id/verify - Verify document (Officer only)
 router.put(
     "/:id/verify",
-    authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"),
+    authMiddleware.authorize("DGO", "SGWA", "RSGWA", "ENFORCEMENT"),
     documentController.verifyDocument
 );
 
 // POST /api/documents/:id/verify-officer - Three-way Officer Verification
 router.post(
     "/:id/verify-officer",
-    authMiddleware.authorize("DGO", "SGWA", "ENFORCEMENT"),
+    authMiddleware.authorize("DGO", "SGWA", "RSGWA", "ENFORCEMENT"),
     documentController.verifyDocumentThreeWay
 );
 

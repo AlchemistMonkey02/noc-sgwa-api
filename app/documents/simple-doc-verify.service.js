@@ -36,6 +36,7 @@ class SimpleDocVerificationService {
             const roleMap = {
                 'DGO': 'dgo',
                 'SGWA': 'sgwa',
+                'RSGWA': 'sgwa',
                 'ENFORCEMENT': 'enforcement'
             };
 

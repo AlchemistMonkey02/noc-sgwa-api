@@ -20,7 +20,7 @@ router.use(authMiddleware.authenticate);
 // Approve Timeline Step (Authenticated - Officer Only)
 router.post(
     "/approve-step",
-    authMiddleware.authorize(["DGO", "SGWA", "ENFORCEMENT"]),
+    authMiddleware.authorize(["DGO", "SGWA", "RSGWA", "ENFORCEMENT"]),
     nocController.updateTimelineStep
 );
 
@@ -95,7 +95,10 @@ router.put("/:id/section3", nocController.updateSection3); // Drinking & Domesti
 router.put("/:id/section4", nocController.updateSection4); // Water Requirement Breakup
 router.put("/:id/section5", nocController.updateSection5); // Ground Water Structures
 router.put("/:id/section6", nocController.updateSection6); // Document Attachments
-router.put("/:id/flow-meter", nocController.updateDigitalFlowMeter); // Digital Flow Meter (New Section)
+router.put("/:id/section7", nocController.updateSection7); // Fee Details
+router.put("/:id/section8", nocController.updateSection8); // Final Summary
+router.put("/:id/section9", nocController.updateSection9); // Flow Meter
+router.put("/:id/flow-meter", nocController.updateDigitalFlowMeter); // Digital Flow Meter (Original)
 
 // NEW: Fee calculation (Section 7)
 // Section 7 - Fee Calculation (supports both GET auto-fetch and POST manual-input)

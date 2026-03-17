@@ -99,13 +99,38 @@ class DocumentService {
                 if (app && app.documents) {
                     const embeddedDoc = app.documents.find(d => d.documentId === documentId);
                     if (embeddedDoc) {
-                        // Create a temporary Mongoose document-like object or return raw object with extra props check
+                        // Create a temporary Mongoose document-like object
                         document = {
-                            ...embeddedDoc.toObject ? embeddedDoc.toObject() : embeddedDoc,
+                            ...(embeddedDoc.toObject ? embeddedDoc.toObject() : embeddedDoc),
                             userId: app.userId, // Inherit ownership from application
                             applicationId: app.applicationId
                         };
                     }
+                }
+            }
+
+            // Secondary Fallback: If we have a document (likely embedded) but no filePath, 
+            // or if it has a fake ID (starts with doc_), try to find a match in standalone collection
+            if (document && (!document.filePath || documentId.toString().startsWith('doc_'))) {
+                const searchCriteria = {
+                    userId: document.userId,
+                    applicationId: document.applicationId,
+                    documentType: document.documentType
+                };
+
+                const standaloneMatch = await Document.findOne(searchCriteria);
+                if (standaloneMatch && standaloneMatch.filePath) {
+                    logger.info(`Recovered filePath for ${documentId} from standalone collection`, {
+                        recoveredPath: standaloneMatch.filePath
+                    });
+
+                    // Merge standalone path into current document object
+                    if (document.toObject) {
+                        document = document.toObject();
+                    }
+                    document.filePath = standaloneMatch.filePath;
+                    document.mimeType = document.mimeType || standaloneMatch.mimeType;
+                    document.fileSize = document.fileSize || standaloneMatch.fileSize;
                 }
             }
 

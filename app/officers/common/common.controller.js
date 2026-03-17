@@ -4,6 +4,8 @@ const NOCApplication = require("../../noc/noc-application.model");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs"); // Ensure bcryptjs is installed
 const logger = require("../../utils/logger");
+const bulkDocVerify = require("../../documents/bulk-doc-verify.service");
+const simpleDocVerify = require("../../documents/simple-doc-verify.service");
 
 class CommonOfficerController {
 
@@ -107,17 +109,23 @@ class CommonOfficerController {
     // Documents
     async uploadDocument(req, res, next) {
         try {
-            // File is in req.file thanks to multer
             if (!req.file) return res.status(400).json({ success: false, message: "No file uploaded" });
 
-            // In a real app, we would save metadata to a Document model
-            // For now, return the file info
+            const documentService = require("../../documents/document.service");
+            const uploadedDocs = await documentService.uploadDocuments(
+                [req.file],
+                req.user.id,
+                null,
+                "INSPECTION_PHOTO",
+                { officerId: req.user.id }
+            );
+
             res.status(201).json({
                 success: true,
                 data: {
-                    filename: req.file.filename,
-                    path: req.file.path,
-                    originalName: req.file.originalname
+                    id: uploadedDocs[0].documentId,
+                    documentId: uploadedDocs[0].documentId,
+                    url: `/api/documents/${uploadedDocs[0].documentId}/view`
                 },
                 message: "Document uploaded successfully"
             });
@@ -174,7 +182,7 @@ class CommonOfficerController {
             // Define statuses based on flow hierarchy
             if (role === 'DGO') {
                 statusFilters = ["SUBMITTED", "PENDING_DGO_REVIEW", "UNDER_REVIEW_DGO", "QUERY_RESPONDED"];
-            } else if (role === 'SGWA') {
+            } else if (role === 'SGWA' || role === 'RSGWA') {
                 statusFilters = ["APPROVED_DGO", "PENDING_SGWA_REVIEW", "UNDER_REVIEW_SGWA"];
             } else if (role === 'ENFORCEMENT') {
                 statusFilters = ["APPROVED_SGWA", "PENDING_ENFORCEMENT_REVIEW", "INSPECTION_SCHEDULED", "UNDER_REVIEW_ENFORCEMENT"];
@@ -367,13 +375,55 @@ class CommonOfficerController {
     async getBlocks(req, res, next) {
         try {
             const blocks = [
-                { id: "Block1", name: "Block 1", districtId: "Jaipur" },
+                { id: "Block1", name: "Block 2", districtId: "Jaipur" },
                 { id: "Block2", name: "Block 2", districtId: "Jaipur" }
             ];
             res.status(200).json({
                 success: true,
                 data: blocks,
                 message: "Blocks retrieved successfully"
+            });
+        } catch (err) { next(err); }
+    }
+
+    // NEW: Bulk Verification for all documents of an application
+    async verifyAllDocuments(req, res, next) {
+        try {
+            const { appId } = req.params;
+            const { status, remarks } = req.body;
+            
+            const result = await bulkDocVerify.verifyAllDocumentsForApplication(
+                appId,
+                req.user.id,
+                req.user.userType,
+                { status: status || 'APPROVED', remarks: remarks || 'Verified by Authority' }
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: `Bulk verification completed: ${result.successCount} success, ${result.failedCount} failed`
+            });
+        } catch (err) { next(err); }
+    }
+
+    // NEW: Individual Document Verification
+    async verifyDocument(req, res, next) {
+        try {
+            const { docId } = req.params;
+            const { status, remarks } = req.body;
+
+            const result = await simpleDocVerify.verifyDocument(
+                docId,
+                req.user.id,
+                req.user.userType,
+                { status: status || 'APPROVED', remarks: remarks || 'Verified' }
+            );
+
+            res.status(200).json({
+                success: true,
+                data: result,
+                message: "Document verification status updated"
             });
         } catch (err) { next(err); }
     }

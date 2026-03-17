@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const NOCApplication = require("../../noc/noc-application.model");
 const notificationService = require("../../notifications/notification.service");
 const logger = require("../../utils/logger");
+const MasterService = require("../../master-data/master.service");
 
 class SGWAService {
     async assignApplication(applicationId, currentOfficerId, data) {
@@ -93,45 +94,34 @@ class SGWAService {
 
             const total = await NOCApplication.countDocuments(query);
 
+            // Enrich with labels for Dashboard visibility
+            const enrichedApplications = await Promise.all(
+                applications.map(app => MasterService.enrichApplicationLabels(app))
+            );
 
-            // Transform to response format
-            const formattedApplications = applications.map(app => ({
-                id: app.applicationId,
-                applicationNumber: app.applicationNumber,
-                trackingId: app.trackingId,
-                applicantDetails: {
-                    name: app.projectDetails?.applicantName,
-                    type: app.projectDetails?.organizationType,
-                    contactPerson: app.companyId?.contactPerson,
-                    email: app.projectDetails?.email,
-                    phone: app.projectDetails?.mobile
-                },
-                projectDetails: {
-                    projectName: app.projectDetails?.projectName,
-                    projectType: app.projectDetails?.projectType,
-                    sector: app.sectorType,
-                    industryType: app.projectDetails?.industryType
-                },
-                locationDetails: {
-                    state: app.location?.stateId, // Ideally fetch name
-                    district: app.location?.districtId,
-                    block: app.location?.blockId,
-                    village: app.location?.village
-                },
-                status: app.status,
-                priority: "MEDIUM", // Logic to determine priority can be added
-                submittedDate: app.submittedAt,
-                assignedOfficer: app.assignedTo ? {
-                    id: app.assignedTo._id,
-                    name: `${app.assignedTo.firstName} ${app.assignedTo.lastName}`,
-                    designation: app.assignedTo.designation
-                } : null,
-                dgoRecommendation: app.approvalFlow?.dgo?.recommendation,
-                documents: app.documents
-            }));
+
+            // Transform to response format - now returning full objects for frontend fallbacks
+            const formattedApplications = applications.map(app => {
+                const appObj = app.toObject();
+                return {
+                    ...appObj,
+                    id: app.applicationId, // Maintain compatibility
+                    applicantDetails: {
+                        ...appObj.applicantDetails,
+                        name: app.projectDetails?.applicantName || app.ownerDetails?.ownerName || app.applicantName,
+                    }
+                };
+            });
 
             return {
-                applications: formattedApplications,
+                applications: enrichedApplications.map(app => ({
+                    ...app,
+                    id: app.applicationId,
+                    applicantDetails: {
+                        ...app.applicantDetails,
+                        name: app.projectDetails?.applicantName || app.ownerDetails?.ownerName || app.applicantName,
+                    }
+                })),
                 pagination: { page, limit, total, pages: Math.ceil(total / limit) },
                 summary: {
                     totalApplications: total,
@@ -307,21 +297,31 @@ class SGWAService {
                 throw { statusCode: 404, message: "Application not found" };
             }
 
-            // Construct response matching spec
+            // Construct response matching spec - returning full object for robust frontend display
+            const enrichedApp = await MasterService.enrichApplicationLabels(application);
+            
             return {
                 application: {
+                    ...enrichedApp,
                     id: application.applicationId,
                     applicationNumber: application.applicationNumber,
                     trackingId: application.trackingId,
-                    // Copy existing details
+                    
+                    // Specific mapping for spec compatibility
                     applicantDetails: {
-                        name: application.projectDetails?.applicantName,
-                        type: application.projectDetails?.organizationType,
-                        contactPerson: application.companyId?.contactPerson,
-                        email: application.projectDetails?.email,
-                        phone: application.projectDetails?.mobile
+                        name: application.projectDetails?.applicantName || application.ownerDetails?.ownerName || application.applicantName || application.userId?.firstName + ' ' + application.userId?.lastName,
+                        type: application.applicationSubTypeLabel || application.applicationTypeLabel || application.projectDetails?.organizationType || 'Noc',
+                        contactPerson: application.companyId?.contactPerson || application.ownerDetails?.ownerName || application.projectDetails?.applicantName,
+                        email: application.projectDetails?.email || application.ownerDetails?.ownerEmail || application.userId?.email,
+                        phone: application.projectDetails?.mobile || application.ownerDetails?.ownerPhone || application.userId?.phone,
+                        panNumber: application.projectDetails?.panNumber || application.applicantDetails?.panNumber
                     },
-                    projectDetails: application.projectDetails,
+                    projectDetails: {
+                        ...application.projectDetails,
+                        projectName: application.projectDetails?.projectName || application.projectName || application.applicationNumber,
+                        projectType: application.applicationSubTypeLabel ? `${application.applicationTypeLabel} (${application.applicationSubTypeLabel})` : (application.applicationTypeLabel || 'N/A'),
+                        sector: application.projectDetails?.projectCategoryLabel || application.applicationSubTypeLabel || application.applicationTypeLabel || 'N/A'
+                    },
                     locationDetails: application.location,
                     waterRequirement: application.waterRequirement,
                     status: application.status,
@@ -332,13 +332,12 @@ class SGWAService {
                         aquiferType: application.hydrogeology.aquiferType,
                         waterTableDepth: application.hydrogeology.staticWaterLevel,
                         waterQuality: application.hydrogeology.waterQuality,
-                        // Add others as needed
                     } : {},
 
                     complianceChecklist: {
                         landOwnershipVerified: application.documents?.some(d => d.documentType === 'LAND_OWNERSHIP_PROOF' && d.isVerified),
                         environmentalClearance: application.documents?.some(d => d.documentType === 'ENVIRONMENTAL_CLEARANCE' && d.isVerified),
-                        waterRequirementValidated: true // Placeholder logic
+                        waterRequirementValidated: true
                     },
 
                     fees: application.feeDetails ? {
@@ -349,7 +348,7 @@ class SGWAService {
                     } : {},
 
                     documents: application.documents,
-                    timeline: application.progressTracking?.timeline || [] // Should implement timeline logic
+                    timeline: application.progressTracking?.timeline || []
                 }
             };
         } catch (error) {
@@ -440,19 +439,7 @@ class SGWAService {
             const recentApplications = await NOCApplication.find({ status: { $in: sgwaStatuses } })
                 .sort({ submittedAt: -1 })
                 .limit(5)
-                .select("applicationId applicationNumber projectDetails status submittedAt approvalFlow location");
-
-            const formattedRecent = recentApplications.map(app => ({
-                id: app.applicationId,
-                applicationNumber: app.applicationNumber,
-                projectName: app.projectDetails?.projectName,
-                district: app.location?.districtId,
-                status: app.status,
-                submittedDate: app.submittedAt,
-                dgoRecommendation: app.approvalFlow?.dgo?.recommendation,
-                applicantDetails: { name: app.projectDetails?.applicantName },
-                locationDetails: { district: app.location?.districtId }
-            }));
+                .lean();
 
             return {
                 stats: {
@@ -463,7 +450,7 @@ class SGWAService {
                     rejected,
                     queriesRaised
                 },
-                recentApplications: formattedRecent,
+                recentApplications: recentApplications,
                 alerts: pendingApproval > 0 ? [{
                     id: "alert-1",
                     type: "URGENT",
@@ -559,7 +546,7 @@ class SGWAService {
     async getQueries(officerId, filters = {}) {
         try {
             const ApplicationQuery = require("../../noc/application-query.model");
-            const query = { raisedByRole: "SGWA" }; // Filter for SGWA queries? Or all? Spec says "Get All Queries"
+            const query = { raisedByRole: { $in: ["SGWA", "RSGWA"] } }; // Filter for SGWA and RSGWA queries
 
             if (filters.status) query.status = filters.status;
 

@@ -14,6 +14,7 @@ class BulkDocVerificationService {
             const roleMap = {
                 'DGO': 'dgo',
                 'SGWA': 'sgwa',
+                'RSGWA': 'sgwa',
                 'ENFORCEMENT': 'enforcement'
             };
 
@@ -122,6 +123,27 @@ class BulkDocVerificationService {
             };
         } catch (error) {
             logger.error('Error in bulk document verification', error);
+            throw error;
+        }
+    }
+    /**
+     * Verify all documents for a specific application
+     */
+    async verifyAllDocumentsForApplication(applicationId, officerId, officerRole, verificationData) {
+        try {
+            const application = await NOCApplication.findById(applicationId);
+            if (!application) {
+                throw {
+                    statusCode: 404,
+                    code: 'APPLICATION_NOT_FOUND',
+                    message: 'Application not found'
+                };
+            }
+
+            const documentIds = application.documents.map(doc => doc.documentId);
+            return await this.verifyMultipleDocuments(documentIds, officerId, officerRole, verificationData);
+        } catch (error) {
+            logger.error('Error in verifying all application documents', error);
             throw error;
         }
     }

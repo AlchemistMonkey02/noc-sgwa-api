@@ -26,10 +26,7 @@ class DGOController {
      */
     async getApplicationById(req, res, next) {
         try {
-            const NOCApplication = require("../../noc/noc-application.model");
-            const application = await NOCApplication.findOne({ applicationId: req.params.id })
-                .populate("userId", "firstName lastName email phone")
-                .populate("companyId", "companyName contactPerson");
+            const application = await dgoService.getApplicationById(req.params.id);
 
             if (!application) {
                 return res.status(404).json({
@@ -284,7 +281,7 @@ class DGOController {
             res.status(200).json({
                 success: true,
                 data: stats,
-                message: "Dashboard statistics retrieved successfully"
+                message: "PROBE DGO: Dashboard statistics retrieved successfully"
             });
         } catch (error) {
             next(error);

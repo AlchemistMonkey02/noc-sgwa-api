@@ -16,6 +16,8 @@ router.get("/history", inspectionController.getHistory);
 
 // Inspection Management
 router.get("/:id/details", inspectionController.getInspectionDetails);
+router.get("/:id/report", inspectionController.getReport);
+router.put("/:id/status", inspectionController.updateStatus); // Response to assignment
 router.post("/:id/start", inspectionController.startInspection);
 
 // Photo Upload
