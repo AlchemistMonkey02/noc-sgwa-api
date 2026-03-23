@@ -41,7 +41,7 @@ class EmailService {
                 .replace(/{{lastName}}/g, user.lastName)
                 .replace(/{{email}}/g, user.email)
                 .replace(/{{username}}/g, user.username || user.email)
-                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "")
                 .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
             const mailOptions = {
@@ -80,7 +80,7 @@ class EmailService {
                 .replace(/{{ipAddress}}/g, loginInfo.ipAddress || "Unknown")
                 .replace(/{{deviceInfo}}/g, loginInfo.deviceInfo || "Unknown")
                 .replace(/{{location}}/g, loginInfo.location || "Unknown")
-                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "")
                 .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
             const mailOptions = {
@@ -116,7 +116,7 @@ class EmailService {
                 .replace(/{{applicationType}}/g, applicationData.applicationType)
                 .replace(/{{projectName}}/g, applicationData.projectDetails?.projectName || "N/A")
                 .replace(/{{submittedDate}}/g, new Date(applicationData.submittedDate).toLocaleDateString())
-                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "")
                 .replace(/{{applicationId}}/g, applicationData.applicationId)
                 .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || "support@sgwa.gov.in");
 
@@ -212,7 +212,7 @@ class EmailService {
                     .replace(/{{applicationNumber}}/g, data.applicationNumber || 'N/A')
                     .replace(/{{projectName}}/g, data.projectName || 'N/A')
                     .replace(/{{date}}/g, new Date().toLocaleDateString())
-                    .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "http://localhost:3000")
+                    .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || "")
                     .replace(/{{authorityName}}/g, data.authorityName || 'Authority')
                     .replace(/{{otp}}/g, data.otp || '')
                     .replace(/{{inspectionDate}}/g, data.inspectionDate ? new Date(data.inspectionDate).toLocaleDateString() : 'TBD')
@@ -298,7 +298,7 @@ class EmailService {
                 .replace(/{{applicationId}}/g, data.applicationId || '')
                 .replace(/{{customMessage}}/g, data.customMessage || '')
                 .replace(/{{date}}/g, data.date || new Date().toLocaleDateString())
-                .replace(/{{portalUrl}}/g, data.portalUrl || process.env.PORTAL_URL || 'http://localhost:3000')
+                .replace(/{{portalUrl}}/g, data.portalUrl || process.env.PORTAL_URL || '')
                 .replace(/{{supportEmail}}/g, data.supportEmail || process.env.SUPPORT_EMAIL || 'support@sgwa.gov.in');
 
             const mailOptions = {

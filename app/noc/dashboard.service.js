@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const NOCApplication = require("./noc-application.model");
 const logger = require("../utils/logger");
 
@@ -162,5 +163,4 @@ class DashboardService {
     }
 }
 
-const mongoose = require("mongoose");
 module.exports = new DashboardService();

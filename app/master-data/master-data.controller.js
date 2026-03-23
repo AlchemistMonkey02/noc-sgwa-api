@@ -1,16 +1,8 @@
 const MasterData = require("./master-data.model");
+const ApplicationType = require("./application-type.model");
+const ApplicationSubType = require("./application-sub-type.model");
+const ProjectCategory = require("./project-category.model");
 const mongoose = require("mongoose");
-
-// Define loose schemas for the imported collections to avoid strict validation errors
-// or assume they are stored in "applicationtypes", "applicationsubtypes", "projectcategories"
-// Define schemas and models safely to avoid OverwriteModelError
-const applicationTypeSchema = new mongoose.Schema({ id: Number, name: String, isActive: Boolean });
-const applicationSubTypeSchema = new mongoose.Schema({ appSubTypeCode: Number, appTypeCode: Number, name: String, isActive: Boolean });
-const projectCategorySchema = new mongoose.Schema({ categoryCode: Number, appSubTypeCode: Number, appTypeCode: Number, name: String, waterBased: Boolean, exemptionAllow: Boolean, isActive: Boolean });
-
-const ApplicationType = mongoose.models.ApplicationType || mongoose.model('ApplicationType', applicationTypeSchema, 'applicationtypes');
-const ApplicationSubType = mongoose.models.ApplicationSubType || mongoose.model('ApplicationSubType', applicationSubTypeSchema, 'applicationsubtypes');
-const ProjectCategory = mongoose.models.ProjectCategory || mongoose.model('ProjectCategory', projectCategorySchema, 'projectcategories');
 
 class MasterDataController {
     async getByType(req, res, next, type) {
@@ -43,10 +35,30 @@ class MasterDataController {
     getApplicationSubTypes = async (req, res, next) => {
         try {
             const { appTypeCode } = req.query;
-            const query = { isActive: true };
-            if (appTypeCode) query.appTypeCode = appTypeCode;
+            let query = { isActive: true };
+            if (appTypeCode) {
+                query.appTypeCode = appTypeCode;
+            }
 
-            const data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
+            let data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
+            
+            // Fallback 1: try numeric if was string
+            if (data.length === 0 && appTypeCode && !isNaN(appTypeCode)) {
+                query.appTypeCode = Number(appTypeCode);
+                data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
+            }
+
+            // Fallback 2: If appTypeCode looks like a name (e.g. "Industry")
+            if (data.length === 0 && appTypeCode && isNaN(appTypeCode)) {
+                const appType = await ApplicationType.findOne({ 
+                    name: { $regex: new RegExp(`^${appTypeCode}$`, 'i') } 
+                });
+                if (appType) {
+                    query.appTypeCode = appType.id; // try their ID (Mixed)
+                    data = await ApplicationSubType.find(query).sort({ appSubTypeCode: 1 });
+                }
+            }
+
             res.status(200).json({
                 success: true,
                 data,
@@ -58,11 +70,41 @@ class MasterDataController {
     getProjectCategories = async (req, res, next) => {
         try {
             const { appSubTypeCode, appTypeCode } = req.query;
-            const query = { isActive: true };
+            let query = { isActive: true };
             if (appSubTypeCode) query.appSubTypeCode = appSubTypeCode;
             if (appTypeCode) query.appTypeCode = appTypeCode;
 
-            const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            let data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            
+            // Fallback 1: Numeric
+            if (data.length === 0 && (appSubTypeCode || appTypeCode)) {
+                if (appSubTypeCode && !isNaN(appSubTypeCode)) query.appSubTypeCode = Number(appSubTypeCode);
+                if (appTypeCode && !isNaN(appTypeCode)) query.appTypeCode = Number(appTypeCode);
+                data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            }
+
+            // Fallback 2: Name based (search by AppType name first if needed)
+            if (data.length === 0 && appTypeCode && isNaN(appTypeCode)) {
+                 const appType = await ApplicationType.findOne({ 
+                    name: { $regex: new RegExp(`^${appTypeCode}$`, 'i') } 
+                });
+                if (appType) {
+                    query.appTypeCode = appType.id;
+                    data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+                }
+            }
+
+            // Fallback 3: SubType name based
+            if (data.length === 0 && appSubTypeCode && isNaN(appSubTypeCode)) {
+                const subType = await ApplicationSubType.findOne({ 
+                   name: { $regex: new RegExp(`^${appSubTypeCode}$`, 'i') } 
+                });
+                if (subType) {
+                   query.appSubTypeCode = subType.appSubTypeCode;
+                   data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+                }
+            }
+
             res.status(200).json({
                 success: true,
                 data,
@@ -70,17 +112,48 @@ class MasterDataController {
             });
         } catch (error) { next(error); }
     }
+
     getGeologyTypes = (req, res, next) => this.getByType(req, res, next, "GEOLOGY_TYPE");
     getWaterQualityTypes = (req, res, next) => this.getByType(req, res, next, "WATER_QUALITY_TYPE");
     // Link "Project Types" to the new Project Categories data
     getProjectTypes = async (req, res, next) => {
         try {
             const { appSubTypeCode, appTypeCode } = req.query;
-            const query = { isActive: true };
+            let query = { isActive: true };
             if (appSubTypeCode) query.appSubTypeCode = appSubTypeCode;
             if (appTypeCode) query.appTypeCode = appTypeCode;
 
-            const data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            let data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+
+            // Fallback 1: Numeric
+            if (data.length === 0 && (appSubTypeCode || appTypeCode)) {
+                if (appSubTypeCode && !isNaN(appSubTypeCode)) query.appSubTypeCode = Number(appSubTypeCode);
+                if (appTypeCode && !isNaN(appTypeCode)) query.appTypeCode = Number(appTypeCode);
+                data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+            }
+
+            // Fallback 2: AppType Name
+            if (data.length === 0 && appTypeCode && isNaN(appTypeCode)) {
+                const appType = await ApplicationType.findOne({ 
+                    name: { $regex: new RegExp(`^${appTypeCode}$`, 'i') } 
+                });
+                if (appType) {
+                    query.appTypeCode = appType.id;
+                    data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+                }
+            }
+
+            // Fallback 3: SubType Name
+            if (data.length === 0 && appSubTypeCode && isNaN(appSubTypeCode)) {
+                const subType = await ApplicationSubType.findOne({ 
+                    name: { $regex: new RegExp(`^${appSubTypeCode}$`, 'i') } 
+                });
+                if (subType) {
+                    query.appSubTypeCode = subType.appSubTypeCode;
+                    data = await ProjectCategory.find(query).sort({ categoryCode: 1 });
+                }
+            }
+
             res.status(200).json({
                 success: true,
                 data,

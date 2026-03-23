@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:5000/api/noc/exemption';
+const BASE_URL = 'http://rgwcma-noc-api.geoplanetsolution.in/api/noc/exemption';
 
 async function testExemptionAPI() {
     console.log("🚀 Starting Exemption API Tests...\n");

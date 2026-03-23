@@ -1,13 +1,13 @@
 // Load environment variables
 // version 1.1.0
 require("dotenv").config();
+const mongoose = require("mongoose");
 
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const cors = require("cors");
 const compression = require("compression");
-const mongoose = require("mongoose");
 const dbConfig = require("./app/config/db.config");
 const errorMiddleware = require("./app/middleware/error.middleware");
 const logger = require("./app/utils/logger");
@@ -134,7 +134,7 @@ app.use(errorMiddleware);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server started on port ${PORT}`);
-  console.log(`\n🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`\n🚀 Server is running on port ${PORT}`);
   console.log(`📱 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`📧 Email configured: ${process.env.SMTP_USER ? "Yes" : "No"}`);
   console.log(`🔌 WebRTC Socket.io initialized on /stream`);

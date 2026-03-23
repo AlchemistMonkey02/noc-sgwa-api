@@ -273,7 +273,7 @@ class NotificationController {
                         applicationId,
                         customMessage: customMessage || '',
                         date: new Date().toLocaleDateString('en-IN'),
-                        portalUrl: process.env.PORTAL_URL || 'http://localhost:3000',
+                        portalUrl: process.env.PORTAL_URL || '',
                         supportEmail: process.env.SUPPORT_EMAIL || 'support@sgwa.gov.in'
                     },
                     templateData.htmlTemplate
@@ -384,7 +384,7 @@ class NotificationController {
                     .replace(/{{applicantName}}/g, applicantName)
                     .replace(/{{applicationNumber}}/g, applicationId)
                     .replace(/{{applicationId}}/g, applicationId)
-                    .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || 'http://localhost:3000')
+                    .replace(/{{portalUrl}}/g, process.env.PORTAL_URL || '')
                     .replace(/{{supportEmail}}/g, process.env.SUPPORT_EMAIL || 'support@sgwa.gov.in');
                 return message;
             }

@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 // Ideally usage: node test-self-compliance.js <TOKEN> <APPLICATION_ID>
 // If not provided, it might fail or we mock.
 
-const BASE_URL = 'http://localhost:5000/api/self-compliance';
+const BASE_URL = 'http://rgwcma-noc-api.geoplanetsolution.in/api/self-compliance';
 
 async function testSelfCompliance() {
     try {

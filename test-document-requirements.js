@@ -5,7 +5,7 @@
 
 const axios = require("axios");
 
-const API_BASE = process.env.API_URL || "http://localhost:5000";
+const API_BASE = process.env.API_URL || "http://rgwcma-noc-api.geoplanetsolution.in";
 const API_ENDPOINT = `${API_BASE}/api/tools/document-requirements`;
 
 // ANSI color codes
