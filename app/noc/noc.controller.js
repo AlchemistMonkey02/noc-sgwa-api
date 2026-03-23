@@ -339,9 +339,7 @@ class NOCController {
     async trackApplication(req, res, next) {
         try {
             // Support capturing ID with slashes
-            console.log("DEBUG: Raw Params:", req.params);
             const appNum = req.params[0] || req.params.applicationNumber || req.params.id;
-            console.log(`DEBUG: Tracking Request.AppNum: `, appNum);
             const application = await nocService.trackApplication(appNum);
 
             res.status(200).json({

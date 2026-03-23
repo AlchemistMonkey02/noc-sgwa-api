@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 
 const projectCategorySchema = new mongoose.Schema({
-    categoryCode: { type: String, required: true, unique: true },
-    appSubTypeCode: { type: String, required: true },
-    appTypeCode: { type: String, required: true },
+    categoryCode: { type: mongoose.Schema.Types.Mixed, required: true, unique: true },
+    appSubTypeCode: { type: mongoose.Schema.Types.Mixed, required: true },
+    appTypeCode: { type: mongoose.Schema.Types.Mixed, required: true },
     name: { type: String, required: true },
     waterBased: { type: Boolean, default: false },
     exemptionAllow: { type: Boolean, default: false },

@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const mongoose = require("mongoose");
 const Document = require("../documents/document.model");
 const NOCApplication = require("./noc-application.model");
 const ApplicationQuery = require("./application-query.model");
@@ -540,12 +541,20 @@ class NOCService {
     async trackApplication(applicationNumberOrId) {
         try {
             const isObjectId = /^[0-9a-fA-F]{24}$/.test(applicationNumberOrId);
-            const query = isObjectId ? { _id: applicationNumberOrId } : { applicationNumber: applicationNumberOrId };
+            const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/i.test(applicationNumberOrId);
+            
+            const query = isObjectId ? { _id: applicationNumberOrId } : {
+                $or: [
+                    { applicationNumber: applicationNumberOrId },
+                    { trackingId: applicationNumberOrId },
+                    { applicationId: applicationNumberOrId }
+                ]
+            };
 
             const application = await NOCApplication.findOne(query)
                 .populate("userId", "firstName lastName")
                 .select(
-                    "applicationNumber applicationType status submittedAt approvalFlow rejectionReason createdAt projectDetails location trackingId"
+                    "applicationNumber applicationType status submittedAt approvalFlow rejectionReason createdAt projectDetails location trackingId applicationId"
                 );
 
             if (!application) {
@@ -715,7 +724,12 @@ class NOCService {
                 currentLocation: pendingWith,
                 remarks: application.rejectionReason,
                 timeline: steps, // Match frontend expectation
-                trackingSteps: steps // Keep for compatibility
+                trackingSteps: steps, // Keep for compatibility
+                stages: steps.map(s => ({
+                    ...s,
+                    label: s.title,
+                    date: s.date ? new Date(s.date).toLocaleDateString() : 'Pending'
+                }))
             };
         } catch (error) {
             throw error;
