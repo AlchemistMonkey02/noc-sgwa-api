@@ -18,7 +18,7 @@ class DocumentRequirementsService {
             return `${prefix}_INDUSTRY`;
         } else if (applicationType === "MINING") {
             return `${prefix}_MINING`;
-        } else if (applicationType === "INFRASTRUCTURE") {
+        } else if (applicationType === "INFRASTRUCTURE" || applicationType === "BULK WATER SUPPLY") {
             if (utilizationFor === "NEW") {
                 // Fresh Infrastructure needs purpose
                 if (purpose === "CONSTRUCTION") {

@@ -1,91 +1,134 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGWA Notification</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
         }
-
         .container {
             max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            border: 1px solid #eee;
-            border-radius: 10px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-
         .header {
-            background-color: #2c3e50;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-radius: 10px 10px 0 0;
-        }
-
-        .content {
+            background-color: #1e3a8a;
+            color: #ffffff;
             padding: 30px 20px;
-            background-color: #f9f9f9;
+            text-align: center;
         }
-
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        .message-box {
+            background-color: #f1f5f9;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 15px;
+        }
+        .data-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .data-item { margin-bottom: 10px; }
+        .data-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .data-value { font-size: 14px; font-weight: 600; color: #1e293b; }
+        
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #2563eb;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
         .footer {
+            background-color: #f1f5f9;
+            padding: 30px 20px;
             text-align: center;
             font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
+            color: #64748b;
         }
-
-        .data-box {
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 4px solid #3498db;
-            margin: 15px 0;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 20px;
+        .legal {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="header">
-            <h2>SGWA Notification</h2>
+            <h1>Official Notification</h1>
         </div>
+        
         <div class="content">
-            <p>Dear {{firstName}},</p>
-
-            <p>{{message}}</p>
-
-            <div class="data-box">
-                <p><strong>Application Number:</strong> {{applicationNumber}}</p>
-                <p><strong>Project:</strong> {{projectName}}</p>
-                <p><strong>Date:</strong> {{date}}</p>
+            <div class="greeting">Dear {{firstName}},</div>
+            
+            <div class="message-box">
+                {{message}}
             </div>
-
-            <p>Please log in to the portal for more details and to take necessary actions.</p>
-
-            <div style="text-align: center;">
-                <a href="{{portalUrl}}" class="btn">Login to Portal</a>
+            
+            <div class="data-card">
+                <div class="data-item">
+                    <div class="data-label">Reference Number</div>
+                    <div class="data-value">{{applicationNumber}}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Project Name</div>
+                    <div class="data-value">{{projectName}}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Event Date</div>
+                    <div class="data-value">{{date}}</div>
+                </div>
+            </div>
+            
+            <div class="button-container">
+                <a href="{{portalUrl}}" class="button">View Details in Portal</a>
             </div>
         </div>
+        
         <div class="footer">
-            <p>This is an automated message. Please do not reply.</p>
-            <p>&copy; 2025 State Ground Water Authority. All rights reserved.</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <div class="legal">
+                This is an automated system notification from the SGWA Portal.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

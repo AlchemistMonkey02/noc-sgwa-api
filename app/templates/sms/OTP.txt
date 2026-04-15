@@ -1,1 +1,1 @@
-Your SGWA Verification Code is {{otp}}. Valid for 10 minutes.
+SGWA: Your verification code is {{otp}}. Valid for 10 mins. Do not share.

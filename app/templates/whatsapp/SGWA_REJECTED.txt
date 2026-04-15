@@ -1,5 +1,7 @@
-❌ *Application Rejected by SGWA*
+❌ *SGWA Application Update*
 
-NOC Application: {{applicationNumber}}
+Application No: {{applicationNumber}}
+Status: *Rejected by SGWA*
 
-Check portal for detailed technical remarks.
+View remarks and next steps:
+{{portalUrl}}/dashboard

@@ -274,12 +274,7 @@ class EnforcementService {
                 throw { statusCode: 404, message: "Application not found" };
             }
 
-            // Assignment Check: Allow unassigned (pool) OR if explicitly assigned to this officer
-            // DEVELOPMENT/DEMO: Allow any enforcement officer to issue NOC from the pool
-            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
-                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
-            }
-            // Auto-assign to this officer if unassigned
+            // Assignment Check removed as per requirement: Allow any enforcement officer to issue NOC
             if (!application.assignedTo) {
                 application.assignedTo = officerId;
             }
@@ -529,10 +524,7 @@ class EnforcementService {
                 };
             }
 
-            // Allow unassigned pool apps OR own-assigned apps
-            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
-                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
-            }
+            // Allow any enforcement officer to process applications as per requirement
 
             application.approvalFlow.enforcement = {
                 reviewedBy: officerId,
@@ -573,10 +565,7 @@ class EnforcementService {
                 };
             }
 
-            // Allow unassigned pool apps OR own-assigned apps
-            if (application.assignedTo && String(application.assignedTo) !== String(officerId)) {
-                throw { statusCode: 403, message: "This application is assigned to a different enforcement officer" };
-            }
+            // Allow any enforcement officer to process applications as per requirement
 
             const ApplicationQuery = require("../../noc/application-query.model");
             const { v4: uuidv4 } = require("uuid");

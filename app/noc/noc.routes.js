@@ -12,7 +12,7 @@ router.get(/^\/track\/(.*)/, nocController.trackApplication);
 router.get("/processing-estimates", nocController.getProcessingEstimates);
 
 // Download NOC via Tracking ID (Public)
-router.get("/ref/:trackingId/document", nocController.getNocDocumentByTrackingId);
+router.get(/^\/ref\/(.*)\/document/, nocController.getNocDocumentByTrackingId);
 
 // All routes require authentication
 router.use(authMiddleware.authenticate);
@@ -25,7 +25,7 @@ router.post(
 );
 
 // Get Application Documents by Tracking ID (Authenticated & Role Restricted)
-router.get("/ref/:trackingId/documents", nocController.getDocumentsByTrackingId);
+router.get(/^\/ref\/(.*)\/documents/, nocController.getDocumentsByTrackingId);
 
 // POST /api/applications/noc - Create or update draft (requires verified company)
 router.post(

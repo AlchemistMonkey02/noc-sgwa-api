@@ -5,8 +5,11 @@ const User = require("./user.model");
 const OTP = require("./otp.model");
 const jwtConfig = require("../config/jwt.config");
 const emailService = require("../utils/email.service");
+const smsService = require("../services/sms.service");
 const notificationService = require("../notifications/notification.service");
 const logger = require("../utils/logger");
+const syncService = require("../services/sync.service");
+
 
 class AuthService {
     /**
@@ -16,7 +19,7 @@ class AuthService {
         try {
             // Generate 6-digit OTP
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
             // Delete any existing OTPs for this identifier
             await OTP.deleteMany({ identifier, type });
@@ -31,19 +34,21 @@ class AuthService {
 
             // Send OTP
             if (type === "EMAIL") {
-                // Log for now (TODO: integrate with email service)
-                logger.info(`Email OTP for ${identifier}: ${otp}`);
-                console.log("\n-------------------------------------------");
-                console.log(`📧  EMAIL OTP FOR: ${identifier}`);
-                console.log(`🔑  CODE: ${otp}`);
-                console.log("-------------------------------------------\n");
+                await emailService.sendGenericEmail(
+                    { email: identifier, firstName: "User" },
+                    "Your SGWA Verification Code",
+                    { otp, message: `Your verification code is ${otp}. Valid for 10 minutes.` },
+                    "generic-notification.html"
+                );
+                logger.info(`Email OTP sent to ${identifier}`);
             } else if (type === "MOBILE") {
-                // Log for now (TODO: integrate SMS gateway)
-                logger.info(`Mobile OTP for ${identifier}: ${otp}`);
-                console.log("\n-------------------------------------------");
-                console.log(`📱  MOBILE OTP FOR: ${identifier}`);
-                console.log(`🔑  CODE: ${otp}`);
-                console.log("-------------------------------------------\n");
+                await smsService.sendOTP(identifier, otp);
+                logger.info(`Mobile OTP sent to ${identifier}`);
+            }
+
+            // Still log to console in dev/test for convenience, but with reduced footprint
+            if (process.env.NODE_ENV !== 'production') {
+                console.log(`[DEV] OTP for ${identifier}: ${otp}`);
             }
 
             return { success: true };
@@ -59,13 +64,14 @@ class AuthService {
     async verifyOTP(identifier, otp, type) {
         try {
             // Support for default testing OTP
-            if (otp === "1234") {
-                console.log(`⚡ Using bypass OTP 1234 for ${identifier}`);
+            // Support for default testing OTP in development
+            if (process.env.NODE_ENV !== 'production' && otp === "000000") {
+                console.log(`⚡ Using bypass OTP 000000 for ${identifier}`);
                 
                 // Keep record for checkPreVerified
                 await OTP.updateOne(
                     { identifier, type },
-                    { verified: true, otp: "1234", expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
+                    { verified: true, otp: "000000", expiresAt: new Date(Date.now() + 30 * 60 * 1000) },
                     { upsert: true }
                 );
 
@@ -77,6 +83,8 @@ class AuthService {
                 }
                 return true;
             }
+            // Find the most recent OTP for this identifier and type
+            const otpRecord = await OTP.findOne({ identifier, type }).sort({ createdAt: -1 });
 
             if (!otpRecord) {
                 console.log(`❌ No active OTP record found for ${identifier}`);
@@ -193,16 +201,21 @@ class AuthService {
                 accountStatus: initialAccountStatus,
             });
 
+            // Set temporary property for automated sync hook
+            user._plainPassword = userData.password;
+
             await user.save();
 
             logger.info(`New user registered: ${user.email}`, { userId: user._id });
 
             // Send welcome email (async, don't wait)
-            // Send welcome notification (email + sms + whatsapp)
             notificationService.send(user._id, 'USER_REGISTERED', {
                 applicationNumber: 'N/A', // No app yet
                 message: 'Welcome to SGWA Portal!'
             });
+
+            // Sync is now handled automatically by User model post('save') hook
+
 
             // Return user without password
             const userObject = user.toObject();

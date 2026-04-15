@@ -48,22 +48,26 @@ class DocumentRequirementsController {
                 }
             }
 
-            // Also handle case where numeric ID is passed in applicationType field directly
-            if (applicationType && !isNaN(applicationType)) {
-                const code = Number(applicationType);
-                switch (code) {
-                    case 2:
-                        applicationType = "INDUSTRY";
-                        break;
-                    case 4:
-                        applicationType = "MINING";
-                        break;
-                    case 3:
-                        applicationType = "INFRASTRUCTURE";
-                        break;
-                    case 1:
-                        applicationType = "INFRASTRUCTURE";
-                        break;
+            // Also handle case where numeric ID or specific string is passed in applicationType field directly
+            if (applicationType) {
+                if (!isNaN(applicationType)) {
+                    const code = Number(applicationType);
+                    switch (code) {
+                        case 2:
+                            applicationType = "INDUSTRY";
+                            break;
+                        case 4:
+                            applicationType = "MINING";
+                            break;
+                        case 3:
+                            applicationType = "INFRASTRUCTURE";
+                            break;
+                        case 1:
+                            applicationType = "INFRASTRUCTURE";
+                            break;
+                    }
+                } else if (applicationType && typeof applicationType === 'string' && applicationType.trim().toUpperCase() === "BULK WATER SUPPLY") {
+                    applicationType = "INFRASTRUCTURE";
                 }
             }
 
@@ -111,12 +115,12 @@ class DocumentRequirementsController {
                 });
             }
 
-            if (utilizationFor && !["INDUSTRY", "MINING", "INFRASTRUCTURE"].includes(applicationType)) {
+            if (utilizationFor && !["INDUSTRY", "MINING", "INFRASTRUCTURE", "BULK WATER SUPPLY"].includes(applicationType)) {
                 return res.status(400).json({
                     success: false,
                     error: {
                         code: "VALIDATION_ERROR",
-                        message: "When using utilizationFor, applicationType must be INDUSTRY, MINING, or INFRASTRUCTURE"
+                        message: "When using utilizationFor, applicationType must be INDUSTRY, MINING, INFRASTRUCTURE or BULK WATER SUPPLY"
                     }
                 });
             }

@@ -131,7 +131,11 @@ class AuthController {
             // Check if it's a multipart request (has files)
             if (req.files && Object.keys(req.files).length > 0) {
                 // Multipart form-data request
-                rawData = req.body.userData ? JSON.parse(req.body.userData) : req.body;
+                try {
+                    rawData = req.body.userData ? JSON.parse(req.body.userData) : req.body;
+                } catch (e) {
+                    return next(new BadRequestError("Invalid user data format. Please provide valid JSON in userData field."));
+                }
 
                 // Get uploaded files
                 if (req.files.idProofDocument) {
@@ -231,14 +235,16 @@ class AuthController {
             res.cookie("jwt", token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                sameSite: "lax",
                 maxAge: jwtConfig.jwtExpiration * 1000,
             });
 
             res.cookie("refreshToken", refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                sameSite: "lax",
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             });
 
@@ -334,19 +340,18 @@ class AuthController {
             res.cookie("jwt", result.token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                sameSite: "lax",
                 maxAge: 24 * 60 * 60 * 1000, // 24 hours
             });
 
             res.cookie("refreshToken", result.refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                sameSite: "lax",
                 maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             });
-
-            // Add token to response header
-            res.setHeader("Authorization", `Bearer ${result.token}`);
 
             // Add token to response header
             res.setHeader("Authorization", `Bearer ${result.token}`);
@@ -387,11 +392,15 @@ class AuthController {
             res.cookie("jwt", "", {
                 httpOnly: true,
                 expires: new Date(0),
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                path: "/",
             });
 
             res.cookie("refreshToken", "", {
                 httpOnly: true,
                 expires: new Date(0),
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                path: "/",
             });
 
             res.status(200).json({
@@ -422,7 +431,8 @@ class AuthController {
             res.cookie("jwt", result.token, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
+                domain: process.env.COOKIE_DOMAIN || undefined,
+                sameSite: "lax",
                 maxAge: result.expiresIn * 1000,
             });
 
@@ -770,6 +780,52 @@ class AuthController {
                 },
                 message: "Officer account approved successfully",
             });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * POST /api/auth/sync-user
+     * Sync user from Server
+     * @access Internal
+     */
+    async syncUser(req, res, next) {
+        try {
+            const syncKey = req.headers['x-auth-sync-key'];
+            if (syncKey !== process.env.SYNC_SECRET_KEY) {
+                return next(new AppError("UNAUTHORIZED", "Unauthorized sync request", 401));
+            }
+
+            const userData = req.body;
+
+            // Check if user already exists
+            const existingUser = await User.findOne({
+                $or: [{ email: userData.email }, { phone: userData.phone }, { username: userData.username }],
+            });
+
+            if (existingUser) {
+                return res.status(200).json({
+                    success: true,
+                    message: "User already synced",
+                });
+            }
+
+            // Register user via service (bypassing OTP since it's a sync)
+            const result = await authService.register({
+                ...userData,
+                phone: userData.phone,
+                phoneVerified: true,
+                emailVerified: true,
+                initialSync: true // Flag to prevent loop in model hooks
+            });
+
+            res.status(201).json({
+                success: true,
+                message: "User synced successfully",
+                data: result.user
+            });
+
         } catch (error) {
             next(error);
         }

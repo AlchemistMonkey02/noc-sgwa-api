@@ -1,169 +1,129 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Action Required: Document Issue</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
             margin: 0;
             padding: 0;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-
-        .warning-badge {
-            background-color: #1e40af;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            display: inline-block;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-
-        .content {
-            padding: 40px 30px;
             background-color: #f8fafc;
         }
-
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #475569; /* Muted Slate */
+            color: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
         .greeting {
             font-size: 18px;
-            color: #1e293b;
-            margin-bottom: 20px;
-        }
-
-        .info-box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #3b82f6;
-            margin: 20px 0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-row {
-            margin: 10px 0;
-        }
-
-        .info-label {
             font-weight: 600;
-            color: #64748b;
-            font-size: 14px;
+            margin-bottom: 20px;
+            color: #0f172a;
         }
-
-        .info-value {
-            color: #1e293b;
+        .alert-banner {
+            background-color: #fff1f2;
+            border-left: 4px solid #f43f5e;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #9f1239;
+        }
+        .deficiency-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .deficiency-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 10px; }
+        .deficiency-content { font-size: 14px; color: #1e293b; background: #ffffff; padding: 15px; border-radius: 6px; border: 1px solid #f1f5f9; }
+        
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 35px;
+            background-color: #475569;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
             font-size: 16px;
         }
-
-        .alert-box {
-            background-color: #dbeafe;
-            border: 1px solid #93c5fd;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-        }
-
-        .reason-box {
-            background-color: #eff6ff;
-            border-left: 4px solid #2563eb;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            margin-top: 20px;
-            font-weight: 600;
-        }
-
         .footer {
-            text-align: center;
-            font-size: 12px;
-            color: #64748b;
+            background-color: #f1f5f9;
             padding: 30px 20px;
-            border-top: 1px solid #e2e8f0;
-            background-color: #ffffff;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚠ Documents Rejected</h1>
-            <div class="warning-badge">Action Required</div>
+            <h1>Document Verification Issue</h1>
         </div>
-
+        
         <div class="content">
-            <p class="greeting">Dear {{applicantName}},</p>
-
-            <div class="alert-box">
-                Your submitted documents for Application ID <strong>{{applicationId}}</strong> could not be verified.
+            <div class="greeting">Dear {{applicantName}},</div>
+            
+            <p>During the verification of your NOC application <strong>{{applicationId}}</strong>, certain submitted documents were found to be non-compliant or insufficient.</p>
+            
+            <div class="alert-banner">
+                <strong>Attention Required:</strong> Corrective action is needed to proceed with your application.
             </div>
-
-            <div class="reason-box">
-                <strong>Reason for Rejection:</strong><br>
-                {{customMessage}}
+            
+            <div class="deficiency-box">
+                <div class="deficiency-label">Reviewer Comments / Reason for Rejection</div>
+                <div class="deficiency-content">{{customMessage}}</div>
             </div>
-
-            <div class="info-box">
-                <div class="info-row">
-                    <div class="info-label">Application ID</div>
-                    <div class="info-value">{{applicationId}}</div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Status</div>
-                    <div class="info-value" style="color: #1e40af;">Documents Rejected ✕</div>
-                </div>
-                <div class="info-row">
-                    <div class="info-label">Reviewed On</div>
-                    <div class="info-value">{{date}}</div>
-                </div>
+            
+            <div class="button-container">
+                <a href="{{portalUrl}}" class="button">Upload Corrected Documents</a>
             </div>
-
-            <p><strong>Next Steps:</strong></p>
-            <ul>
-                <li>Review the rejection reason above carefully</li>
-                <li>Prepare corrected/updated documents</li>
-                <li>Re-upload documents through the portal</li>
-            </ul>
-
-            <div style="text-align: center;">
-                <a href="{{portalUrl}}" class="btn">Upload Corrected Documents</a>
-            </div>
+            
+            <p style="font-size: 14px; color: #64748b;">Please re-upload the corrected documents through the portal dashboard. Prompt action will help avoid further delays in processing.</p>
         </div>
-
+        
         <div class="footer">
-            <p>This is an automated notification from State Ground Water Authority</p>
-            <p>For support, contact: {{supportEmail}}</p>
-            <p>&copy; 2026 State Ground Water Authority. All rights reserved.</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <div class="legal">
+                This is a formal system notification. Replies to this address are not monitored.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

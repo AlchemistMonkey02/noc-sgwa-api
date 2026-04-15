@@ -1,0 +1,46 @@
+# AI Document Verification API cURL
+
+## Verify Document (AI)
+
+**Endpoint:** `POST /api/documents/:documentId/verify-ai`
+
+**Description:** Updates the AI verification status, confidence score, and remarks for a specific document. This endpoint is public (no token required currently, but can be protected).
+
+**Note:** You can use either `"verified": true/false` OR `"valid": true/false` in the JSON body.
+
+### 1. Valid Document (Verified = true)
+
+Use this command to mark the document as **valid (approved)** by AI.
+
+```bash
+curl -X POST http://localhost:5000/api/documents/8ab3e02b-8d4d-4fbd-acdf-2ccc23d42eba/verify-ai \
+  -H "Content-Type: application/json" \
+  -d '{
+    "verified": true,
+    "confidence": 0.98,
+    "remarks": "Document matches requirements."
+  }'
+```
+
+### 2. Invalid Document (Verified = false)
+
+Use this command to mark the document as **invalid (rejected)** by AI.
+
+```bash
+curl -X POST http://localhost:5000/api/documents/8ab3e02b-8d4d-4fbd-acdf-2ccc23d42eba/verify-ai \
+  -H "Content-Type: application/json" \
+  -d '{
+    "verified": false,
+    "confidence": 0.45,
+    "remarks": "Document blurry or mismatched."
+  }'
+```
+
+### Check Result
+
+To see if the verification updated:
+
+```bash
+curl -X GET http://localhost:5000/api/documents/8ab3e02b-8d4d-4fbd-acdf-2ccc23d42eba/details \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```

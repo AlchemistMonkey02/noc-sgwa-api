@@ -1,91 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Site Inspection Scheduled</title>
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            background-color: #f4f4f4;
-        }
-
-        .email-container {
+            margin: 20px auto;
             background-color: #ffffff;
-            margin: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-
         .header {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            padding: 30px 20px;
+            background-color: #f59e0b;
+            color: #ffffff;
+            padding: 40px 20px;
             text-align: center;
         }
-
-        .content {
-            padding: 30px 20px;
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
-
-        .info-box {
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        .alert-banner {
             background-color: #fffbeb;
             border-left: 4px solid #f59e0b;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-
-        .details {
-            background-color: #f9fafb;
             padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #92400e;
         }
-
+        .details-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .detail-item { margin-bottom: 15px; }
+        .detail-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+        .detail-value { font-size: 16px; font-weight: 600; color: #1e293b; }
+        
         .footer {
-            background-color: #f9fafb;
-            padding: 20px;
+            background-color: #f1f5f9;
+            padding: 30px 20px;
             text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
-    <div class="email-container">
+    <div class="container">
         <div class="header">
-            <h1>📅 Inspection Scheduled</h1>
+            <h1>Inspection Scheduled</h1>
         </div>
+        
         <div class="content">
-            <p>Dear {{firstName}},</p>
-
-            <p>A site inspection has been scheduled for your NOC application.</p>
-
-            <div class="info-box">
-                Please ensure you or an authorized representative is present at the site with all original documents.
+            <div class="greeting">Dear {{firstName}},</div>
+            
+            <p>An official site inspection has been scheduled for your NOC application. This is a critical part of the technical assessment process.</p>
+            
+            <div class="alert-banner">
+                <strong>Important:</strong> Please ensure that you or an authorized representative is present at the location with all original documentation.
             </div>
-
-            <div class="details">
-                <p><strong>Application No:</strong> {{applicationNumber}}</p>
-                <p><strong>Project:</strong> {{projectName}}</p>
-                <p><strong>Scheduled Date:</strong> {{inspectionDate}}</p> <!-- Need to pass this var -->
+            
+            <div class="details-card">
+                <div class="detail-item">
+                    <div class="detail-label">Application Number</div>
+                    <div class="detail-value">{{applicationNumber}}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Scheduled Date</div>
+                    <div class="detail-value">{{inspectionDate}}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Project</div>
+                    <div class="detail-value">{{projectName}}</div>
+                </div>
             </div>
-
-            <p>You can view more details on your dashboard.</p>
+            
+            <p style="font-size: 14px; color: #64748b;">You can view the assigned officer's details and specific instructions on the SGWA Portal dashboard.</p>
         </div>
+        
         <div class="footer">
-            <p><strong>State Ground Water Authority</strong><br>Government of Rajasthan</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <div class="legal">
+                This is a formal administrative notice. No reply is required.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

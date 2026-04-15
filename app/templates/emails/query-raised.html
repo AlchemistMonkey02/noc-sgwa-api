@@ -1,92 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Query Raised on Application</title>
+    <title>Action Required: Query Raised</title>
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            background-color: #f4f4f4;
-        }
-
-        .email-container {
+            margin: 20px auto;
             background-color: #ffffff;
-            margin: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-
         .header {
-            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-            color: white;
-            padding: 30px 20px;
+            background-color: #f59e0b; /* Alert Amber */
+            color: #ffffff;
+            padding: 40px 20px;
             text-align: center;
         }
-
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .content {
-            padding: 30px 20px;
+            padding: 40px 30px;
         }
-
-        .alert-box {
-            background-color: #fef2f2;
-            border-left: 4px solid #ef4444;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
         }
-
-        .footer {
-            background-color: #f9fafb;
+        .query-banner {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
             padding: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #92400e;
+            font-weight: 500;
         }
-
+        .remarks-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .remarks-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 10px; }
+        .remarks-content { font-size: 14px; color: #1e293b; font-weight: 500; }
+        
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
         .button {
             display: inline-block;
-            padding: 12px 30px;
-            background-color: #ef4444;
-            color: white;
+            padding: 14px 35px;
+            background-color: #f59e0b;
+            color: #ffffff !important;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .footer {
+            background-color: #f1f5f9;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
-    <div class="email-container">
+    <div class="container">
         <div class="header">
-            <h1>❓ Action Required: Query Raised</h1>
+            <h1>Action Required</h1>
         </div>
+        
         <div class="content">
-            <p>Dear {{firstName}},</p>
-
-            <p>The reviewing officer has raised a query regarding your NOC application.</p>
-
-            <div class="alert-box">
-                <strong>Query:</strong> {{message}} <br> <!-- message holds remarks -->
+            <div class="greeting">Dear {{firstName}},</div>
+            
+            <p>During the technical review of your Ground Water NOC application, the reviewing officer has raised a specific query that requires your immediate attention.</p>
+            
+            <div class="query-banner">
+                <strong>Attention:</strong> Application processing is currently on hold pending your response.
             </div>
-
-            <p style="text-align: center;">
-                <a href="{{portalUrl}}/dashboard" class="button">Respond to Query</a>
-            </p>
-
-            <p>Please respond promptly to avoid delays in processing your application.</p>
+            
+            <div class="remarks-box">
+                <div class="remarks-label">Query / Clarification Requested</div>
+                <div class="remarks-content">{{message}}</div>
+            </div>
+            
+            <div class="button-container">
+                <a href="{{portalUrl}}/dashboard" class="button">Submit Response</a>
+            </div>
+            
+            <p style="font-size: 14px; color: #64748b;">Please provide the requested information or documents promptly to avoid further delays or potential rejection of your application.</p>
         </div>
+        
         <div class="footer">
-            <p><strong>State Ground Water Authority</strong><br>Government of Rajasthan</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <div class="legal">
+                This is a time-sensitive administrative notification. Replies are not monitored.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

@@ -293,7 +293,10 @@ class DGOController {
      */
     async getOfficers(req, res, next) {
         try {
-            const officers = await dgoService.getOfficers(req.query.role || req.query.userType);
+            const officers = await dgoService.getOfficers(
+                req.query.role || req.query.userType,
+                req.user.id
+            );
             res.status(200).json({
                 success: true,
                 data: officers,

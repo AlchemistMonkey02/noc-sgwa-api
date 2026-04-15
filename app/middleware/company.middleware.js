@@ -48,13 +48,8 @@ const verifyCompanyOwnership = async (req, res, next) => {
         const companyId = req.body.companyId;
 
         if (!companyId) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: "COMPANY_ID_REQUIRED",
-                    message: "Company ID is required for NOC application",
-                },
-            });
+            // Allow missing companyId for Step 1 (auto-provisioning in service)
+            return next();
         }
 
         // Verify company exists and belongs to user (disabled verification check)

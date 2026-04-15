@@ -27,7 +27,7 @@ const NOCApplicationSchema = new mongoose.Schema(
         },
         applicationCategory: {
             type: String,
-            default: "WITHDRAWAL",
+            default: "NEW",
         },
         sectorType: {
             type: String,
@@ -351,6 +351,9 @@ const NOCApplicationSchema = new mongoose.Schema(
 
             proposedExtraction: {
                 numberOfBorewells: { type: Number },
+                numberOfTubewells: { type: Number },
+                numberOfDugwells: { type: Number },
+                numberOfPumps: { type: Number },
                 borewellDetails: [{
                     depth: Number,
                     diameter: Number,
@@ -584,7 +587,8 @@ const NOCApplicationSchema = new mongoose.Schema(
             section5GroundWaterStructures: { type: Boolean, default: false },
             section6Attachments: { type: Boolean, default: false },
             section7GWCharges: { type: Boolean, default: false },
-            section8Summary: { type: Boolean, default: false }
+            section8Summary: { type: Boolean, default: false },
+            section9FlowMeter: { type: Boolean, default: false }
         },
     },
     {

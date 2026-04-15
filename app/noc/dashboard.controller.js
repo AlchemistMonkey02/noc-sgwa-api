@@ -10,9 +10,10 @@ class DashboardController {
             const userId = req.user.id;
 
             // Parallel execution
-            const [stats, recentApplications, announcements, deadlines] = await Promise.all([
+            const [stats, recentApplications, approvedApplications, announcements, deadlines] = await Promise.all([
                 dashboardService.getDashboardStats(userId),
-                dashboardService.getRecentApplications(userId, 5),
+                dashboardService.getRecentApplications(userId, 8),
+                dashboardService.getApprovedApplications(userId),
                 dashboardService.getAnnouncements(),
                 dashboardService.getUpcomingDeadlines(userId)
             ]);
@@ -22,6 +23,7 @@ class DashboardController {
                 data: {
                     stats,
                     recentApplications,
+                    approvedApplications,
                     announcements,
                     deadlines
                 },

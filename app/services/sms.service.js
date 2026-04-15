@@ -4,14 +4,19 @@ const logger = require('../utils/logger');
 class SMSService {
     constructor() {
         // Check if Twilio is configured
-        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-            this.client = twilio(
-                process.env.TWILIO_ACCOUNT_SID,
-                process.env.TWILIO_AUTH_TOKEN
-            );
-            this.smsNumber = process.env.TWILIO_SMS_NUMBER;
+        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_ACCOUNT_SID.startsWith('AC')) {
+            try {
+                this.client = twilio(
+                    process.env.TWILIO_ACCOUNT_SID,
+                    process.env.TWILIO_AUTH_TOKEN
+                );
+                this.smsNumber = process.env.TWILIO_SMS_NUMBER;
+            } catch (error) {
+                logger.error('Failed to initialize Twilio client:', error.message);
+                this.client = null;
+            }
         } else {
-            logger.warn('SMS/Twilio not configured. SMS notifications will be disabled.');
+            logger.warn('SMS/Twilio not configured or invalid SID. SMS notifications will be disabled.');
             this.client = null;
         }
     }
@@ -96,6 +101,29 @@ class SMSService {
             return { success: true, sid: result.sid };
         } catch (error) {
             logger.error(`Failed to send SMS to ${phone}`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async sendOTP(phone, otp) {
+        if (!this.client) {
+            logger.warn(`SMS not configured. OTP not sent to ${phone}. OTP: ${otp}`);
+            return { success: false, message: 'SMS not configured' };
+        }
+
+        try {
+            const message = `SGWA: Your OTP for login/registration is ${otp}. Valid for 10 minutes. Do not share.`;
+
+            const result = await this.client.messages.create({
+                from: this.smsNumber,
+                to: `+91${phone}`,
+                body: message
+            });
+
+            logger.info(`OTP SMS sent to ${phone}`);
+            return { success: true, sid: result.sid };
+        } catch (error) {
+            logger.error(`Failed to send OTP SMS to ${phone}`, error.message);
             return { success: false, error: error.message };
         }
     }

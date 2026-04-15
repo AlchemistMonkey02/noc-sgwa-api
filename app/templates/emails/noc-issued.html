@@ -1,105 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOC Certificate Issued</title>
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            background-color: #f4f4f4;
-        }
-
-        .email-container {
+            margin: 20px auto;
             background-color: #ffffff;
-            margin: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-
         .header {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 30px 20px;
+            background-color: #1e3a8a; /* Professional Blue */
+            color: #ffffff;
+            padding: 40px 20px;
             text-align: center;
         }
-
-        .content {
-            padding: 30px 20px;
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
-
-        .success-box {
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        .success-banner {
             background-color: #ecfdf5;
             border-left: 4px solid #10b981;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-
-        .details {
-            background-color: #f9fafb;
             padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #065f46;
         }
-
-        .footer {
-            background-color: #f9fafb;
-            padding: 20px;
+        .certificate-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 25px 0;
             text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
         }
-
+        .cert-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
+        .cert-number { font-size: 22px; font-weight: 700; color: #1e3a8a; letter-spacing: 1px; margin-bottom: 20px; }
+        
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
+        }
         .button {
             display: inline-block;
-            padding: 12px 30px;
-            background-color: #10b981;
-            color: white;
+            padding: 14px 35px;
+            background-color: #1e3a8a;
+            color: #ffffff !important;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .footer {
+            background-color: #f1f5f9;
+            padding: 30px 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
-    <div class="email-container">
+    <div class="container">
         <div class="header">
-            <h1>🎉 NOC Issued Successfully!</h1>
+            <h1>NOC Issued</h1>
         </div>
+        
         <div class="content">
-            <p>Dear {{firstName}},</p>
-
-            <div class="success-box">
-                <strong>Congratulations!</strong> Your NOC application has been fully approved and the certificate has
-                been issued.
+            <div class="greeting">Dear {{firstName}},</div>
+            
+            <p>Congratulations. Your application for a Ground Water No Objection Certificate (NOC) has been processed successfully and the official certificate is now available.</p>
+            
+            <div class="success-banner">
+                <strong>Status:</strong> Certificate Generated & Digitally Signed
             </div>
-
-            <div class="details">
-                <p><strong>NOC Number:</strong> {{applicationNumber}}</p>
-                <p><strong>Project:</strong> {{projectName}}</p>
-                <p><strong>Issued Date:</strong> {{date}}</p>
+            
+            <div class="certificate-card">
+                <div class="cert-label">Official NOC Number</div>
+                <div class="cert-number">{{applicationNumber}}</div>
+                <div class="cert-label">Project Name</div>
+                <div style="font-weight: 600; color: #1e293b;">{{projectName}}</div>
+                <div class="cert-label" style="margin-top: 15px;">Date of Issuance</div>
+                <div style="font-weight: 600; color: #1e293b;">{{date}}</div>
             </div>
-
-            <p style="text-align: center;">
-                <a href="{{portalUrl}}/dashboard" class="button">Download Certificate</a>
+            
+            <div class="button-container">
+                <a href="{{portalUrl}}/dashboard" class="button">Download Official Certificate</a>
+            </div>
+            
+            <p style="font-size: 14px; color: #64748b; margin-top: 30px;">
+                Note: This NOC is subject to the terms and conditions specified in the document. Please ensure periodic compliance reports are submitted as mandated.
             </p>
-
-            <p>Please ensure you adhere to all conditions mentioned in the NOC certificate. Failure to comply may lead
-                to cancellation.</p>
         </div>
+        
         <div class="footer">
-            <p><strong>State Ground Water Authority</strong><br>Government of Rajasthan</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <div class="legal">
+                This is a formal administrative notification. No reply is required.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

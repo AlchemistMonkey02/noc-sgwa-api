@@ -4,14 +4,19 @@ const logger = require('../utils/logger');
 class WhatsAppService {
     constructor() {
         // Check if Twilio is configured
-        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-            this.client = twilio(
-                process.env.TWILIO_ACCOUNT_SID,
-                process.env.TWILIO_AUTH_TOKEN
-            );
-            this.whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+        if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_ACCOUNT_SID.startsWith('AC')) {
+            try {
+                this.client = twilio(
+                    process.env.TWILIO_ACCOUNT_SID,
+                    process.env.TWILIO_AUTH_TOKEN
+                );
+                this.whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+            } catch (error) {
+                logger.error('Failed to initialize Twilio WhatsApp client:', error.message);
+                this.client = null;
+            }
         } else {
-            logger.warn('WhatsApp/Twilio not configured. WhatsApp notifications will be disabled.');
+            logger.warn('WhatsApp/Twilio not configured or invalid SID. WhatsApp notifications will be disabled.');
             this.client = null;
         }
     }

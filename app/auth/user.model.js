@@ -154,11 +154,17 @@ const UserSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        initialSync: { type: Boolean, default: false } // Flag to identify sync-in requests
     },
     {
         timestamps: true, // Adds createdAt and updatedAt
     }
 );
+
+// Temporary virtual-like property to hold plain password for sync
+UserSchema.virtual('_plainPassword')
+    .set(function(password) { this.__plainPassword = password; })
+    .get(function() { return this.__plainPassword; });
 
 // Create indexes for faster queries
 UserSchema.index({ userType: 1 });
@@ -188,6 +194,32 @@ UserSchema.pre("save", async function () {
         const count = await this.constructor.countDocuments({ userType: this.userType });
         this.username = `${prefix}${String(count + 1).padStart(3, "0")}`;
     }
+});
+
+// Sync to other backends after successful save (ONLY for new users)
+UserSchema.post('save', async function (doc) {
+    // Only sync if it's a new user AND NOT an incoming sync request
+    if (this._isNewUser && !doc.initialSync && doc._plainPassword) {
+        try {
+            const syncService = require('../services/sync.service');
+            // We use a background-style call (don't await to avoid blocking response)
+            syncService.syncUserToServer({
+                ...doc.toObject(),
+                plainPassword: doc._plainPassword
+            }).then(results => {
+                console.log(`✅ [MODEL-SYNC] SGWA Sync complete for ${doc.email}`);
+            }).catch(err => {
+                console.warn(`⚠️ [MODEL-SYNC] SGWA Sync failed for ${doc.email}:`, err.message);
+            });
+        } catch (err) {
+            console.error("❌ [MODEL-SYNC] Error initializing sync service in SGWA:", err.message);
+        }
+    }
+});
+
+// Capture 'isNew' state before save for the post-save hook
+UserSchema.pre('save', function() {
+    this._isNewUser = this.isNew;
 });
 
 const User = mongoose.model("User", UserSchema);

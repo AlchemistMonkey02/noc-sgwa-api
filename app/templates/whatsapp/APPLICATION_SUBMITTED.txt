@@ -1,6 +1,8 @@
-✅ *NOC Application Submitted*
+🛡️ *SGWA Portal: Application Submitted*
 
-Application No: {{applicationNumber}}
+Reference No: {{applicationNumber}}
 Project: {{projectName}}
+Status: *Under Review*
 
-Track your application at sgwa.raj.in
+Track your application real-time at:
+{{portalUrl}}/applications

@@ -9,7 +9,7 @@ const nocDraftSchema = Joi.object({
     waterQualityType: Joi.string().optional(),
     groundWaterUtilizationFor: Joi.string().optional(),
     dateOfCommencement: Joi.date().allow("", null).optional(),
-    existingNOCStatus: Joi.string().valid("YES", "NO").optional(),
+    existingNOCStatus: Joi.string().optional(),
     oldNOCNumber: Joi.any().optional(),
 
     location: Joi.object({

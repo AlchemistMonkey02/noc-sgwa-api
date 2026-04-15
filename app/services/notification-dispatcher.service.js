@@ -72,6 +72,16 @@ class NotificationDispatcher {
      * Send status update notifications
      */
     async sendStatusUpdate(user, application, newStatus) {
+        const eventMap = {
+            'UNDER_REVIEW': 'UNDER_REVIEW',
+            'QUERY_RAISED': application.timeline?.currentStep?.includes('DGO') ? 'DGO_QUERY_RAISED' : 'SGWA_QUERY_RAISED',
+            'INSPECTION_SCHEDULED': 'INSPECTION_SCHEDULED',
+            'APPROVED': application.timeline?.currentStep?.includes('DGO') ? 'DGO_APPROVED' : 'SGWA_APPROVED',
+            'REJECTED': application.timeline?.currentStep?.includes('DGO') ? 'DGO_REJECTED' : 'SGWA_REJECTED',
+            'NOC_ISSUED': 'NOC_ISSUED'
+        };
+
+        const event = eventMap[newStatus] || 'DEFAULT';
         const statusMessages = {
             'UNDER_REVIEW': 'Your application is now under review by our team',
             'QUERY_RAISED': 'A query has been raised. Please respond within 7 days.',
@@ -84,10 +94,17 @@ class NotificationDispatcher {
         const message = statusMessages[newStatus] || `Application status updated to ${newStatus}`;
         const promises = [];
 
-        // Email - will be implemented when template is created
-        // promises.push(emailService.sendApplicationStatusUpdate(user, application, newStatus));
+        // 1. Email
+        promises.push(
+            emailService.sendNotification(event, user, {
+                ...application,
+                message: message,
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName
+            }).catch(err => logger.error('Email status update failed', err))
+        );
 
-        // WhatsApp
+        // 2. WhatsApp
         if (user.phone) {
             promises.push(
                 whatsappService.sendStatusUpdate(
@@ -99,7 +116,7 @@ class NotificationDispatcher {
             );
         }
 
-        // SMS
+        // 3. SMS
         if (user.phone) {
             promises.push(
                 smsService.sendStatusUpdate(
@@ -110,7 +127,7 @@ class NotificationDispatcher {
             );
         }
 
-        // In-App
+        // 4. In-App
         promises.push(
             notificationService.createNotification(user._id, {
                 type: 'STATUS_UPDATE',
@@ -133,9 +150,20 @@ class NotificationDispatcher {
      * Send query raised notifications
      */
     async sendQueryRaised(user, application, query) {
+        const event = application.timeline?.currentStep?.includes('DGO') ? 'DGO_QUERY_RAISED' : 'SGWA_QUERY_RAISED';
         const promises = [];
 
-        // WhatsApp
+        // 1. Email
+        promises.push(
+            emailService.sendNotification(event, user, {
+                ...application,
+                remarks: query.remarks || query.message,
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName
+            }).catch(err => logger.error('Email query notification failed', err))
+        );
+
+        // 2. WhatsApp
         if (user.phone) {
             promises.push(
                 whatsappService.sendQueryRaised(
@@ -145,7 +173,7 @@ class NotificationDispatcher {
             );
         }
 
-        // SMS
+        // 3. SMS
         if (user.phone) {
             promises.push(
                 smsService.sendQueryRaised(
@@ -155,7 +183,7 @@ class NotificationDispatcher {
             );
         }
 
-        // In-App
+        // 4. In-App
         promises.push(
             notificationService.createNotification(user._id, {
                 type: 'QUERY_RAISED',
@@ -180,7 +208,17 @@ class NotificationDispatcher {
     async sendNOCIssued(user, application, nocCertificate) {
         const promises = [];
 
-        // WhatsApp
+        // 1. Email
+        promises.push(
+            emailService.sendNotification('NOC_ISSUED', user, {
+                ...application,
+                nocNumber: nocCertificate.nocNumber,
+                applicationNumber: application.applicationNumber,
+                projectName: application.projectDetails?.projectName
+            }).catch(err => logger.error('Email NOC issued failed', err))
+        );
+
+        // 2. WhatsApp
         if (user.phone) {
             promises.push(
                 whatsappService.sendNOCIssued(
@@ -191,7 +229,7 @@ class NotificationDispatcher {
             );
         }
 
-        // SMS
+        // 3. SMS
         if (user.phone) {
             promises.push(
                 smsService.sendNOCIssued(
@@ -202,7 +240,7 @@ class NotificationDispatcher {
             );
         }
 
-        // In-App
+        // 4. In-App
         promises.push(
             notificationService.createNotification(user._id, {
                 type: 'NOC_ISSUED',

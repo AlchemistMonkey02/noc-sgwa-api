@@ -1,19 +1,32 @@
 FROM node:20-alpine
 
+# Install Chromium and other dependencies for Puppeteer
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Tell Puppeteer to skip installing Chrome. We'll be using the installed package.
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Create app directory
 WORKDIR /usr/src/app
 
 # Install app dependencies
 COPY package*.json ./
 
-# Install dependencies (production only to save space, or all if build process needs devDependencies)
+# Install dependencies
 RUN npm install
 
 # Bundle app source
 COPY . .
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5021
 
-# Start command (using basic node start, or npm start if it uses nodemon which is fine for dev containers)
+# Start command
 CMD [ "npm", "start" ]

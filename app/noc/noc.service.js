@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const mongoose = require("mongoose");
 const Document = require("../documents/document.model");
@@ -10,6 +12,8 @@ const FeeStructure = require("../master-data/fee-structure.model");
 const emailService = require("../utils/email.service");
 const notificationService = require("../notifications/notification.service");
 const MasterService = require("../master-data/master.service");
+const Company = require("../company/company.model");
+const User = require("../auth/user.model");
 const logger = require("../utils/logger");
 
 class NOCService {
@@ -80,20 +84,57 @@ class NOCService {
         try {
             const applicationId = data.applicationId || uuidv4();
 
+            // --- AUTO-PROVISION COMPANY IF MISSING ---
+            let companyId = data.companyId;
+            if (!companyId) {
+                // Check if user already has a company
+                const existingCompany = await Company.findOne({ userId });
+                if (existingCompany) {
+                    companyId = existingCompany._id;
+                    logger.info(`Auto-linking application to existing company: ${existingCompany.companyName}`, { userId });
+                } else if (data.organizationName) {
+                    // Create minimal company profile from Step 1 data
+                    const newCompany = new Company({
+                        userId,
+                        companyName: data.organizationName,
+                        companyType: data.organizationType,
+                        authorizedPerson: {
+                            name: data.applicantName,
+                            designation: data.designation,
+                            email: data.applicantEmail,
+                            phone: data.applicantMobile
+                        },
+                        registrationStatus: 'DRAFT',
+                        verificationStatus: 'PENDING'
+                    });
+                    await newCompany.save();
+                    companyId = newCompany._id;
+                    
+                    logger.info(`Auto-provisioned minimal company profile: ${data.organizationName}`, { 
+                        userId, 
+                        companyId: newCompany._id 
+                    });
+                }
+            }
+
             // Get block category if location is provided
             let block = null;
-            if (data.location && data.location.blockId && data.location.districtId) {
+            if (data.location && (data.location.blockId || data.location.block) && (data.location.districtId || data.location.district)) {
+                const bId = data.location.blockId || data.location.block;
+                const dId = data.location.districtId || data.location.district;
+
                 block = await Block.findOne({
-                    blockId: data.location.blockId,
-                    districtId: data.location.districtId,
+                    $or: [
+                        { blockId: bId, districtId: dId },
+                        { 
+                            name: { $regex: new RegExp(`^${bId}$`, 'i') }, 
+                            districtName: { $regex: new RegExp(`^${dId}$`, 'i') } 
+                        }
+                    ]
                 });
 
                 if (!block) {
-                    throw {
-                        statusCode: 404,
-                        code: "BLOCK_NOT_FOUND",
-                        message: "Invalid block or district",
-                    };
+                    logger.warn(`Block not found during creation: ${bId} in ${dId}. Using default category if provided.`);
                 }
             }
 
@@ -101,6 +142,7 @@ class NOCService {
                 ...data,
                 applicationId,
                 userId,
+                companyId, // Use the resolved/created companyId
                 status: "DRAFT",
             };
 
@@ -812,10 +854,18 @@ class NOCService {
 
                 case 2: // Location Details
                     if (sectionData.location) {
-                        // Get block category for the selected block
+                        const bId = sectionData.location.blockId || sectionData.location.block;
+                        const dId = sectionData.location.districtId || sectionData.location.district;
+
+                        // Get block category for the selected block (Robust Lookup)
                         const block = await Block.findOne({
-                            blockId: sectionData.location.blockId,
-                            districtId: sectionData.location.districtId,
+                            $or: [
+                                { blockId: bId, districtId: dId },
+                                { 
+                                    name: { $regex: new RegExp(`^${bId}$`, 'i') }, 
+                                    districtName: { $regex: new RegExp(`^${dId}$`, 'i') } 
+                                }
+                            ]
                         });
 
                         application.location = {
@@ -1701,7 +1751,7 @@ class NOCService {
             }
 
             const certificate = await NOCCertificate.findById(application.nocCertificateId)
-                .populate("applicationId", "applicationNumber projectDetails")
+                .populate("applicationId", "applicationNumber projectDetails location waterRequirement groundWaterStructures communicationAddress applicationType projectStatus")
                 .populate("userId", "firstName lastName");
 
             return certificate;
@@ -1737,35 +1787,83 @@ class NOCService {
      */
     async getCertificateByTrackingId(trackingId) {
         try {
-            const application = await NOCApplication.findOne({ trackingId });
+            // 1. Try to find the application by various identifiers
+            let application = await NOCApplication.findOne({
+                $or: [
+                    { trackingId },
+                    { applicationNumber: trackingId },
+                    { applicationId: trackingId }
+                ]
+            });
 
+            let certificate = null;
+
+            // 2. If no application found, it might be a direct certificate number (legacy or standardized)
             if (!application) {
-                throw {
-                    statusCode: 404,
-                    code: "APPLICATION_NOT_FOUND",
-                    message: "Application not found with this tracking ID",
-                };
+                certificate = await NOCCertificate.findOne({
+                    $or: [
+                        { nocNumber: trackingId },
+                        { nocId: trackingId }
+                    ]
+                });
+                
+                if (!certificate) {
+                    throw {
+                        statusCode: 404,
+                        code: "APPLICATION_NOT_FOUND",
+                        message: "Application or Certificate not found with this tracking ID",
+                    };
+                }
+            } else {
+                // 3. If application found, get its linked certificate
+                if (!application.nocCertificateId) {
+                    throw {
+                        statusCode: 404,
+                        code: "CERTIFICATE_NOT_FOUND",
+                        message: "NOC Certificate has not been issued yet for this application",
+                    };
+                }
+                certificate = await NOCCertificate.findById(application.nocCertificateId);
             }
-
-            if (!application.nocCertificateId) {
-                throw {
-                    statusCode: 404,
-                    code: "CERTIFICATE_NOT_FOUND",
-                    message: "NOC Certificate has not been issued yet",
-                };
-            }
-
-            const certificate = await NOCCertificate.findById(application.nocCertificateId);
 
             if (!certificate || !certificate.certificatePDF) {
                 throw {
                     statusCode: 404,
                     code: "FILE_NOT_FOUND",
-                    message: "Certificate file not generated",
+                    message: "Certificate file record exists but the PDF path is missing",
                 };
             }
 
-            return certificate.certificatePDF;
+            // 4. Smart Path Resolution
+            let filePath = certificate.certificatePDF;
+            
+            // If the stored path doesn't exist (e.g. absolute path from a different environment),
+            // try to resolve it relative to the current project's uploads directory.
+            if (!fs.existsSync(filePath)) {
+                logger.warn(`Certificate file not found at absolute path: ${filePath}. Attempting relative resolution...`);
+                
+                const fileName = path.basename(filePath);
+                // Try searching in the standard uploads/certificates directory
+                const relativePath = path.join(process.cwd(), "uploads", "certificates", fileName);
+                
+                if (fs.existsSync(relativePath)) {
+                    filePath = relativePath;
+                } else {
+                    // One last attempt if the original path was relative-ish or had a different structure
+                    const fallbackPath = path.join(process.cwd(), "uploads", "certificates", `NOC_${trackingId.replace(/\//g, "-")}.pdf`);
+                    if (fs.existsSync(fallbackPath)) {
+                        filePath = fallbackPath;
+                    } else {
+                        throw {
+                            statusCode: 404,
+                            code: "PHYSICAL_FILE_NOT_FOUND",
+                            message: "Certificate file missing from server storage (Path mismatch)",
+                        };
+                    }
+                }
+            }
+
+            return filePath;
         } catch (error) {
             throw error;
         }

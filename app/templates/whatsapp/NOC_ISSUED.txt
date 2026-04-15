@@ -1,8 +1,9 @@
-🎉 *NOC Certificate Issued!*
+📄 *SGWA Portal: NOC Issued*
 
-Congratulations! Your NOC has been issued.
+NOC Number: {{nocNumber}}
+Application No: {{applicationNumber}}
 
-NOC Number: {{applicationNumber}}
-Project: {{projectName}}
+Your Groundwater NOC certificate is now available for download.
 
-📥 Download your certificate from sgwa.raj.in
+Download at:
+{{portalUrl}}/certificates

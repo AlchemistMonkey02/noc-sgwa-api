@@ -1,1 +1,1 @@
-NOC application {{applicationNumber}} approved by SGWA. Forwarded to Enforcement Wing.
+SGWA: Your application {{applicationNumber}} has been approved by SGWA. Now under DGO review. Track: {{portalUrl}}

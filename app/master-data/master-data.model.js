@@ -15,7 +15,6 @@ const MasterDataSchema = new mongoose.Schema(
                 "ORGANIZATION_TYPE",
                 "PROJECT_CATEGORY",
                 "GEOLOGY_TYPE",
-                "GEOLOGY_TYPE",
                 "METER_TYPE",
                 "AREA_CATEGORY",
                 // New Types for Digital Flow Meter
@@ -25,7 +24,9 @@ const MasterDataSchema = new mongoose.Schema(
                 "TELEMETRY_PROVIDER",
                 "BIS_STANDARD",
                 "NABL_LAB",
-                "SECTOR_TYPE"
+                "SECTOR_TYPE",
+                "STRUCTURE_TYPE",
+                "PUMP_TYPE"
             ],
         },
         code: {

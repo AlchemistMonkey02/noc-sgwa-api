@@ -1,7 +1,7 @@
-✅ *SGWA Approval Received*
+✅ *SGWA Approval Update*
 
-Your NOC application {{applicationNumber}} has been approved by SGWA.
+Application No: {{applicationNumber}}
+Status: *Approved by SGWA*
+Next Step: *DGO Assessment*
 
-✨ Next Step: Enforcement Wing Final Review
-
-Check sgwa.raj.in for updates.
+Track progress: {{portalUrl}}/dashboard

@@ -6,170 +6,182 @@
     <title>Welcome to SGWA Portal</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #f4f4f4;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
         }
-        .email-container {
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
             background-color: #ffffff;
-            margin: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
         .header {
-            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
-            color: white;
-            padding: 30px 20px;
+            background-color: #1e3a8a;
+            color: #ffffff;
+            padding: 40px 20px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
             font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
         }
         .content {
-            padding: 30px 20px;
+            padding: 40px 30px;
         }
-        .welcome-message {
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        .highlight-box {
             background-color: #eff6ff;
             border-left: 4px solid #3b82f6;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-        .credentials-box {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
             padding: 20px;
-            margin: 20px 0;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
         }
-        .credentials-box label {
-            display: block;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 5px;
-            font-size: 14px;
+        .credentials {
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
         }
-        .credentials-box value {
-            display: block;
-            color: #1f2937;
-            margin-bottom: 15px;
+        .credentials-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .credentials-value {
             font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 15px;
+        }
+        .button-container {
+            text-align: center;
+            margin: 35px 0;
         }
         .button {
             display: inline-block;
-            padding: 12px 30px;
-            background-color: #3b82f6;
-            color: white !important;
-            text-decoration: none;
-            border-radius: 6px;
-            margin: 20px 0;
-            font-weight: 600;
-        }
-        .button:hover {
+            padding: 14px 35px;
             background-color: #2563eb;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            transition: background-color 0.2s;
         }
-        .info-section {
-            background-color: #fef3c7;
-            border: 1px solid #fbbf24;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 20px 0;
+        .features {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
         }
-        .info-section h3 {
+        .features h3 {
+            font-size: 16px;
             margin-top: 0;
-            color: #92400e;
+            color: #1e3a8a;
+        }
+        .features-list {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        .features-list li {
+            margin-bottom: 10px;
+            font-size: 14px;
         }
         .footer {
-            background-color: #f9fafb;
-            padding: 20px;
+            background-color: #f1f5f9;
+            padding: 30px 20px;
             text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
+            font-size: 13px;
+            color: #64748b;
         }
-        .footer p {
-            margin: 5px 0;
-        }
-        ul {
-            padding-left: 20px;
-        }
-        li {
-            margin-bottom: 8px;
+        .footer p { margin: 5px 0; }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
 <body>
-    <div class="email-container">
+    <div class="container">
         <div class="header">
-            <h1>🎉 Welcome to SGWA Portal</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">State Ground Water Authority, Rajasthan</p>
+            <h1>Welcome to SGWA Portal</h1>
+            <p>State Ground Water Authority, Rajasthan</p>
         </div>
         
         <div class="content">
-            <p>Dear {{firstName}} {{lastName}},</p>
+            <div class="greeting">Dear {{firstName}} {{lastName}},</div>
             
-            <div class="welcome-message">
-                <strong>Congratulations!</strong> Your account has been successfully created on the SGWA Portal.
+            <p>Your account has been successfully registered on the Rajasthan State Ground Water Authority (SGWA) Portal. You now have access to a comprehensive suite of digital services for groundwater management.</p>
+            
+            <div class="highlight-box">
+                <strong>Account Activation:</strong> Your portal access is now active. You can proceed with NOC applications and compliance tracking immediately.
             </div>
             
-            <p>You can now apply for NOC (No Objection Certificate) for groundwater extraction, track your applications, and access various services through our portal.</p>
-            
-            <div class="credentials-box">
-                <h3 style="margin-top: 0; color: #1f2937;">📋 Your Account Details</h3>
-                <label>Email Address:</label>
-                <value>{{email}}</value>
+            <div class="credentials">
+                <h3 style="margin-top: 0; font-size: 16px; color: #1e293b;">Login Credentials</h3>
+                <div class="credentials-label">Email / User ID</div>
+                <div class="credentials-value">{{email}}</div>
                 
-                <label>Username:</label>
-                <value>{{username}}</value>
+                <div class="credentials-label">Username</div>
+                <div class="credentials-value">{{username}}</div>
             </div>
             
-            <center>
-                <a href="{{portalUrl}}/auth/login" class="button">Login to Portal →</a>
-            </center>
+            <div class="button-container">
+                <a href="{{portalUrl}}/auth/login" class="button">Access Gateway</a>
+            </div>
             
-            <div class="info-section">
-                <h3>✨ What you can do:</h3>
-                <ul>
-                    <li>Apply for new NOC for groundwater extraction</li>
-                    <li>Renew or amend existing NOC</li>
-                    <li>Track application status in real-time</li>
-                    <li>Upload required documents</li>
-                    <li>Use calculators (EC Charges, Water Budget, etc.)</li>
-                    <li>Submit compliance reports</li>
-                    <li>Download NOC certificates</li>
+            <div class="features">
+                <h3>Digital Services Available:</h3>
+                <ul class="features-list">
+                    <li>Online Application for New Ground Water NOC</li>
+                    <li>Simple Renewal and Amendment Workflows</li>
+                    <li>Real-time Application Status Tracking</li>
+                    <li>Automated Water Budget and EC Calculators</li>
+                    <li>Digital Compliance Report Submission</li>
+                    <li>Download Verified NOC Certificates</li>
                 </ul>
             </div>
             
-            <p><strong>Next Steps:</strong></p>
-            <ol>
-                <li>Login to the portal using your credentials</li>
-                <li>Complete your profile information</li>
-                <li>Upload required documents (ID proof, address proof, etc.)</li>
-                <li>Start your first application</li>
-            </ol>
+            <p style="margin-top: 30px;">For any technical assistance or queries, please reach out to our dedicated support desk at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.</p>
             
-            <p>If you have any questions or need assistance, please don't hesitate to contact our support team at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.</p>
-            
-            <p>Best regards,<br>
-            <strong>SGWA Portal Team</strong><br>
-            State Ground Water Authority, Rajasthan</p>
+            <p>Sincerely,<br>
+            <strong>Administration Team</strong><br>
+            State Ground Water Authority</p>
         </div>
         
         <div class="footer">
-            <p><strong>State Ground Water Authority</strong></p>
-            <p>Government of Rajasthan</p>
-            <p>
-                <a href="{{portalUrl}}" style="color: #3b82f6; text-decoration: none;">Visit Portal</a> | 
-                <a href="mailto:{{supportEmail}}" style="color: #3b82f6; text-decoration: none;">Support</a>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <p style="margin-top: 15px;">
+                <a href="{{portalUrl}}" style="color: #2563eb; text-decoration: none;">Public Portal</a> | 
+                <a href="{{supportEmail}}" style="color: #2563eb; text-decoration: none;">Support Center</a>
             </p>
-            <p style="font-size: 12px; margin-top: 15px;">
-                This is an automated email. Please do not reply to this message.
-            </p>
+            <div class="legal">
+                This is an automated administrative notification. Please do not reply to this email address.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>

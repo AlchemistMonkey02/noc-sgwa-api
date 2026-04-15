@@ -88,26 +88,55 @@ class PDFService {
             };
 
             const replacements = {
-                nocNumber: data.nocNumber,
-                applicationNumber: data.applicationNumber,
+                nocNumber: data.nocNumber || 'N/A',
+                applicationNumber: data.applicationNumber || 'N/A',
                 issueDate: formatDate(data.issueDate),
                 validFrom: formatDate(data.validFrom),
                 validUpto: formatDate(data.validUpto),
                 submittedDate: formatDate(data.submittedDate),
-                companyName: data.companyName,
-                address: data.address,
-                purpose: data.purpose,
-                approvedWaterQuantity: data.approvedWaterQuantity,
-                approvedWaterQuantityAnnual: (data.approvedWaterQuantity * 365).toFixed(2),
-                district: data.district,
-                block: data.block,
-                district: data.district,
-                block: data.block,
-                validityYears: data.validityYears
+                companyName: data.companyName || 'N/A',
+                projectAddress: data.address || data.projectAddress || 'N/A',
+                purpose: data.purpose || 'N/A',
+                approvedWaterQuantity: (data.approvedWaterQuantity || 0).toFixed(2),
+                approvedWaterQuantityAnnual: ((data.approvedWaterQuantity || 0) * 365).toFixed(2),
+                district: data.district || 'N/A',
+                block: data.block || 'N/A',
+                state: data.state || 'RAJASTHAN',
+                pinCode: data.pinCode || 'N/A',
+                category: data.category || 'N/A',
+                nocType: (data.nocType || 'New').toUpperCase(),
+                projectStatus: (data.projectStatus || 'New Project').toUpperCase(),
+                validityYears: data.validityYears || 3,
+                
+                // Structure Counts (Existing)
+                dw_ex: data.structures?.existing?.dw || 0,
+                dcb_ex: data.structures?.existing?.dcb || 0,
+                bw_ex: data.structures?.existing?.bw || 0,
+                tw_ex: data.structures?.existing?.tw || 0,
+                mpu_ex: data.structures?.existing?.mpu || 0,
+                total_ex: (data.structures?.existing?.dw || 0) + (data.structures?.existing?.bw || 0) + (data.structures?.existing?.tw || 0),
+                
+                // Structure Counts (Proposed)
+                dw_prop: data.structures?.proposed?.dw || 0,
+                dcb_prop: data.structures?.proposed?.dcb || 0,
+                bw_prop: data.structures?.proposed?.bw || 0,
+                tw_prop: data.structures?.proposed?.tw || 0,
+                mpu_prop: data.structures?.proposed?.mpu || 0,
+                total_prop: (data.structures?.proposed?.dw || 0) + (data.structures?.proposed?.bw || 0) + (data.structures?.proposed?.tw || 0),
+                
+                // Grand Totals
+                total_dw: (data.structures?.existing?.dw || 0) + (data.structures?.proposed?.dw || 0),
+                total_dcb: (data.structures?.existing?.dcb || 0) + (data.structures?.proposed?.dcb || 0),
+                total_bw: (data.structures?.existing?.bw || 0) + (data.structures?.proposed?.bw || 0),
+                total_tw: (data.structures?.existing?.tw || 0) + (data.structures?.proposed?.tw || 0),
+                total_mpu: (data.structures?.existing?.mpu || 0) + (data.structures?.proposed?.mpu || 0),
+                grand_total: ((data.structures?.existing?.dw || 0) + (data.structures?.existing?.bw || 0) + (data.structures?.existing?.tw || 0)) + 
+                             ((data.structures?.proposed?.dw || 0) + (data.structures?.proposed?.bw || 0) + (data.structures?.proposed?.tw || 0))
             };
 
-            // Merge all data fields to ensure new Annexure 13 fields are passed
+            // Merge all data fields for extra flexibility
             Object.assign(replacements, data);
+
 
             // Handle Signature Image
             if (data.signaturePath && fs.existsSync(data.signaturePath)) {
@@ -170,6 +199,70 @@ class PDFService {
             return filePath;
         } catch (error) {
             logger.error("NOC Certificate Generation Error", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Generate Application Summary PDF
+     * @param {object} data - Data to populate the template
+     */
+    async generateApplicationSummary(data) {
+        try {
+            const templatePath = path.join(__dirname, '../templates/certificates/application-summary.html');
+            let html = fs.readFileSync(templatePath, 'utf8');
+
+            // Formatting dates
+            const formatDate = (date) => {
+                return date ? new Date(date).toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'long', year: 'numeric'
+                }) : 'N/A';
+            };
+
+            const replacements = {
+                applicationNumber: data.applicationNumber || 'N/A',
+                trackingId: data.trackingId || 'N/A',
+                status: (data.status || 'DRAFT').toUpperCase(),
+                appliedDate: formatDate(data.appliedAt || data.createdAt),
+                applicationTypeLabel: data.applicationTypeLabel || data.applicationType || 'NOC',
+                projectCategory: data.projectCategory || data.projectDetails?.projectCategory || 'N/A',
+                projectName: data.projectName || data.projectDetails?.projectName || 'N/A',
+                organizationName: data.organizationName || 'N/A',
+                projectType: data.projectType || 'N/A',
+                address: data.address || data.location?.address || 'N/A',
+                state: data.state || data.location?.state || 'N/A',
+                district: data.district || data.location?.district || 'N/A',
+                block: data.block || data.location?.block || 'N/A',
+                latitude: data.latitude || data.location?.latitude || 'N/A',
+                longitude: data.longitude || data.location?.longitude || 'N/A',
+                industrialUse: data.waterRequirement?.industrialUse || 0,
+                domesticUse: data.waterRequirement?.domesticUse || 0,
+                greenBeltUse: data.waterRequirement?.greenBeltUse || 0,
+                totalGroundWater: data.waterRequirement?.totalGroundWater || 0,
+                generatedAt: new Date().toLocaleString('en-IN')
+            };
+
+            // Replace placeholders
+            for (const [key, value] of Object.entries(replacements)) {
+                const regex = new RegExp(`{{${key}}}`, 'g');
+                html = html.replace(regex, value !== undefined && value !== null ? value : '');
+            }
+
+            // Generate filename
+            const fileName = `Application_${(data.applicationNumber || data.applicationId || 'Unknown').replace(/\//g, '-')}.pdf`;
+            const uploadDir = path.join(__dirname, '../../uploads/temp');
+
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, fileName);
+
+            await this.generatePDF(html, filePath);
+
+            return filePath;
+        } catch (error) {
+            logger.error("Application Summary Generation Error", error);
             throw error;
         }
     }

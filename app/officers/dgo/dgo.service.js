@@ -598,12 +598,13 @@ class DGOService {
     /**
      * Get officers by role
      */
-    async getOfficers(role) {
+    async getOfficers(role, callingOfficerId) {
         try {
             const query = { accountStatus: "ACTIVE" }; // Only active officers
             
-            console.log('DEBUG: getOfficers called with role:', role);
+            console.log('DEBUG: getOfficers called by:', callingOfficerId, 'with role filter:', role);
 
+            // 1. Narrow down roles
             if (role && role !== "undefined" && role !== "null") {
                 // Handle synonyms
                 if (role === "INSPECTION_OFFICER") {
@@ -612,11 +613,22 @@ class DGOService {
                     query.userType = role;
                 }
             } else {
-                // Default roles that can be assigned for inspections
-                query.userType = { $in: ["INSPECTION", "ENFORCEMENT", "SGWA", "RSGWA", "DGO"] };
+                // DEFAULT for DGO: Only Site Inspectors
+                query.userType = "INSPECTION";
             }
 
-            console.log('DEBUG: getOfficers query:', JSON.stringify(query));
+            // 2. Filter by District (Isolation)
+            if (callingOfficerId) {
+                const officer = await User.findById(callingOfficerId);
+                const assignedDistrict = officer?.communicationAddress?.district;
+                
+                if (assignedDistrict) {
+                    console.log(`DEBUG: Filtering inspectors for district: ${assignedDistrict}`);
+                    query["communicationAddress.district"] = assignedDistrict;
+                }
+            }
+
+            console.log('DEBUG: getOfficers final query:', JSON.stringify(query));
             
             const officers = await User.find(query)
                 .select("firstName lastName email phone userType communicationAddress")

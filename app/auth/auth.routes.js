@@ -12,6 +12,9 @@ router.post("/verify-otp", authController.verifyOTP);
 // Username availability check
 router.get("/check-username/:username", authController.checkUsernameAvailability);
 
+// Sync user from Server
+router.post("/sync-user", authController.syncUser);
+
 // Registration - supports both JSON and multipart (with optional document uploads)
 router.post(
     "/register",

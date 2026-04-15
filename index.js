@@ -1,4 +1,4 @@
-// Load environment variables
+﻿// Load environment variables
 // version 1.1.0
 require("dotenv").config();
 const mongoose = require("mongoose");
@@ -31,13 +31,31 @@ const io = new Server(server, {
 io.of('/stream').on('connection', webrtcStream);
 
 // Security middleware
-// app.use(helmet());
+app.use(helmet());
 
-// CORS configuration - Simplified for debugging
-app.use(cors());
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5175'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS policy: Specified origin not allowed.'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true
+}));
 
 // Compression
-// app.use(compression());
+app.use(compression());
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
@@ -60,11 +78,11 @@ mongoose
   .connect(dbConfig.url)
   .then(() => {
     logger.info("Successfully connected to MongoDB");
-    console.log("✓ MongoDB connected");
+    console.log("âœ“ MongoDB connected");
   })
   .catch((err) => {
     logger.error("MongoDB connection error", err);
-    console.error("✗ MongoDB connection failed:", err.message);
+    console.error("âœ— MongoDB connection failed:", err.message);
     process.exit(1);
   });
 
@@ -134,12 +152,12 @@ app.use(errorMiddleware);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server started on port ${PORT}`);
-  console.log(`\n🚀 Server is running on port ${PORT}`);
-  console.log(`📱 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(`📧 Email configured: ${process.env.SMTP_USER ? "Yes" : "No"}`);
-  console.log(`🔌 WebRTC Socket.io initialized on /stream`);
-  console.log(`\n✅ API Ready!\n`);
-  console.log(`🔄 Server reloaded at ${new Date().toISOString()}`);
+  console.log(`\nðŸš€ Server is running on port ${PORT}`);
+  console.log(`ðŸ“± Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`ðŸ“§ Email configured: ${process.env.SMTP_USER ? "Yes" : "No"}`);
+  console.log(`ðŸ”Œ WebRTC Socket.io initialized on /stream`);
+  console.log(`\nâœ… API Ready!\n`);
+  console.log(`ðŸ”„ Server reloaded at ${new Date().toISOString()}`);
 });
 
 // Handle unhandled promise rejections

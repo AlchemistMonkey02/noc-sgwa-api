@@ -1,1 +1,1 @@
-Your NOC application {{applicationNumber}} approved by District Officer. Forwarded to SGWA.
+SGWA: Your application {{applicationNumber}} has been approved by DGO. Final issuance in progress.

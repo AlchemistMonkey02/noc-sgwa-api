@@ -1,80 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Application Update</title>
+    <title>Application Status Update</title>
     <style>
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+        .container {
             max-width: 600px;
-            margin: 0 auto;
-            background-color: #f4f4f4;
-        }
-
-        .email-container {
+            margin: 20px auto;
             background-color: #ffffff;
-            margin: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-
         .header {
-            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-            color: white;
-            padding: 30px 20px;
+            background-color: #1e293b; /* Professional Dark Grey/Black */
+            color: #ffffff;
+            padding: 40px 20px;
             text-align: center;
         }
-
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
         .content {
-            padding: 30px 20px;
+            padding: 40px 30px;
         }
-
-        .details {
-            background-color: #f9fafb;
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #0f172a;
+        }
+        .rejection-banner {
+            background-color: #fef2f2;
+            border-left: 4px solid #ef4444;
             padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+            color: #991b1b;
         }
-
+        .remarks-box {
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .remarks-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 10px; }
+        .remarks-content { font-size: 14px; color: #1e293b; font-style: italic; border-left: 2px solid #cbd5e1; padding-left: 15px; }
+        
         .footer {
-            background-color: #f9fafb;
-            padding: 20px;
+            background-color: #f1f5f9;
+            padding: 30px 20px;
             text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .legal {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #94a3b8;
         }
     </style>
 </head>
-
 <body>
-    <div class="email-container">
+    <div class="container">
         <div class="header">
-            <h1>Application Status Update</h1>
+            <h1>Status Notification</h1>
         </div>
+        
         <div class="content">
-            <p>Dear {{firstName}},</p>
-
-            <p>We regret to inform you that your NOC application has been returned/rejected at this stage.</p>
-
-            <div class="details">
-                <p><strong>Application No:</strong> {{applicationNumber}}</p>
-                <p><strong>Status:</strong> Rejected</p>
-                <p><strong>Reason/Remarks:</strong> {{message}}</p>
+            <div class="greeting">Dear {{firstName}},</div>
+            
+            <p>Regarding your Ground Water NOC application (Ref: <strong>{{applicationNumber}}</strong>), we regret to inform you that your application has been rejected/returned by the reviewing authority.</p>
+            
+            <div class="rejection-banner">
+                <strong>Current Status:</strong> Rejected / Non-Compliant
             </div>
-
-            <p>You may log in to the portal to view detailed comments and check if you can appeal or submit a fresh
-                application.</p>
+            
+            <div class="remarks-box">
+                <div class="remarks-label">Authority Remarks</div>
+                <div class="remarks-content">{{message}}</div>
+            </div>
+            
+            <p>You may log in to the SGWA Portal to view the detailed deficiency report. If applicable, you can address the points mentioned and submit a fresh application or an appeal as per the guidelines.</p>
         </div>
+        
         <div class="footer">
-            <p><strong>State Ground Water Authority</strong><br>Government of Rajasthan</p>
+            <p><strong>Rajasthan State Ground Water Authority</strong></p>
+            <p>Government of Rajasthan, India</p>
+            <div class="legal">
+                This is a formal system notification. Replies to this address are not monitored.<br>
+                &copy; 2025 SGWA. All rights reserved.
+            </div>
         </div>
     </div>
 </body>
-
 </html>

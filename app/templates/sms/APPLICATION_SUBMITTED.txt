@@ -1,1 +1,1 @@
-NOC Application {{applicationNumber}} submitted successfully. Track status at sgwa.raj.in
+SGWA: Application {{applicationNumber}} submitted successfully. Track status at {{portalUrl}}

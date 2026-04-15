@@ -161,6 +161,24 @@ class DashboardService {
             }
         ];
     }
+    /**
+     * Get all approved/active applications for certificates
+     * @param {string} userId 
+     */
+    async getApprovedApplications(userId) {
+        const matchQuery = {
+            $or: [
+                { userId: new mongoose.Types.ObjectId(userId) },
+                { userId: userId.toString() }
+            ],
+            status: { $in: ["APPROVED", "NOC_ISSUED", "EXEMPT", "SGWA_APPROVED", "ACTIVE"] }
+        };
+
+        return await NOCApplication.find(matchQuery)
+            .sort({ updatedAt: -1 })
+            .select("applicationNumber projectDetails.projectName status updatedAt applicationType trackingId")
+            .lean();
+    }
 }
 
 module.exports = new DashboardService();

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Summary - {{applicationNumber}}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 40px;
+            background-color: #fff;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #1a56db;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #1a56db;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 24px;
+        }
+
+        .header p {
+            color: #6b7280;
+            margin: 5px 0 0 0;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            background-color: #f3f4f6;
+            padding: 8px 15px;
+            border-left: 4px solid #1a56db;
+            font-weight: bold;
+            color: #111827;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            padding: 0 10px;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #6b7280;
+            font-size: 12px;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .value {
+            color: #111827;
+            font-size: 14px;
+            display: block;
+            min-height: 18px;
+        }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 11px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 15px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .status-submitted { background-color: #dbeafe; color: #1e40af; }
+        .status-approved { background-color: #dcfce7; color: #166534; }
+        .status-rejected { background-color: #fee2e2; color: #991b1b; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table th, table td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        table th {
+            background-color: #f9fafb;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NOC Application Summary</h1>
+        <p>State Ground Water Authority (SGWA) - Government of India</p>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Basic Information</div>
+        <div class="grid">
+            <div class="field"><span class="label">Application No.</span><span class="value">{{applicationNumber}}</span></div>
+            <div class="field"><span class="label">Tracking ID</span><span class="value">{{trackingId}}</span></div>
+            <div class="field"><span class="label">Status</span><span class="value">{{status}}</span></div>
+            <div class="field"><span class="label">Applied Date</span><span class="value">{{appliedDate}}</span></div>
+            <div class="field"><span class="label">Application Type</span><span class="value">{{applicationTypeLabel}}</span></div>
+            <div class="field"><span class="label">Category</span><span class="value">{{projectCategory}}</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Project Details</div>
+        <div class="grid">
+            <div class="field"><span class="label">Project Name</span><span class="value">{{projectName}}</span></div>
+            <div class="field"><span class="label">Organization</span><span class="value">{{organizationName}}</span></div>
+            <div class="field"><span class="label">Project Type</span><span class="value">{{projectType}}</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Location Details</div>
+        <div class="grid">
+            <div class="field"><span class="label">Address</span><span class="value">{{address}}</span></div>
+            <div class="field"><span class="label">State</span><span class="value">{{state}}</span></div>
+            <div class="field"><span class="label">District</span><span class="value">{{district}}</span></div>
+            <div class="field"><span class="label">Block</span><span class="value">{{block}}</span></div>
+            <div class="field"><span class="label">Latitude</span><span class="value">{{latitude}}</span></div>
+            <div class="field"><span class="label">Longitude</span><span class="value">{{longitude}}</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">Water Requirement Detail</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Requirement Type</th>
+                    <th>Quantity (m3/day)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Industrial Use</td><td>{{industrialUse}}</td></tr>
+                <tr><td>Domestic Use</td><td>{{domesticUse}}</td></tr>
+                <tr><td>Green Belt Use</td><td>{{greenBeltUse}}</td></tr>
+                <tr><td><strong>Total Ground Water Requirement</strong></td><td><strong>{{totalGroundWater}}</strong></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>This is a computer-generated summary for internal use and verification purposes.</p>
+        <p>Generated on {{generatedAt}} from SGWA Portal</p>
+    </div>
+</body>
+</html>
