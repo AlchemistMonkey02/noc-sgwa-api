@@ -1,1 +1,0 @@
-SGWA: NOC {{nocNumber}} issued for Application {{applicationNumber}}. Download from SGWA Portal.

@@ -1,1 +1,0 @@
-Alert: New NOC application {{applicationNumber}} submitted in your area/wing. Please review.

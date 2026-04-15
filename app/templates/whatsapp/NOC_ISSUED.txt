@@ -1,9 +1,0 @@
-📄 *SGWA Portal: NOC Issued*
-
-NOC Number: {{nocNumber}}
-Application No: {{applicationNumber}}
-
-Your Groundwater NOC certificate is now available for download.
-
-Download at:
-{{portalUrl}}/certificates

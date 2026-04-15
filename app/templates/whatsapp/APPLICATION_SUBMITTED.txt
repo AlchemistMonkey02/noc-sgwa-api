@@ -1,8 +1,0 @@
-🛡️ *SGWA Portal: Application Submitted*
-
-Reference No: {{applicationNumber}}
-Project: {{projectName}}
-Status: *Under Review*
-
-Track your application real-time at:
-{{portalUrl}}/applications

@@ -1,1 +1,0 @@
-Update on NOC application {{applicationNumber}}. Check portal.

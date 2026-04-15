@@ -1,7 +1,0 @@
-✅ *SGWA Approval Update*
-
-Application No: {{applicationNumber}}
-Status: *Approved by SGWA*
-Next Step: *DGO Assessment*
-
-Track progress: {{portalUrl}}/dashboard

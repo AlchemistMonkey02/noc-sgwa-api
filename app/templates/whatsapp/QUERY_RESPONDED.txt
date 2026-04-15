@@ -1,1 +1,0 @@
-*Query Response Received**Application:* {{applicationNumber}}*Project:* {{projectName}}Applicant has responded to the query. *Remarks:* {{remarks}}Please review the response in the portal and take necessary action.Track status at: https://sgwa.raj.in/officer/dashboard

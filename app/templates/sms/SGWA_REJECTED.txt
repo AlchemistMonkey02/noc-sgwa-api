@@ -1,1 +1,0 @@
-SGWA: Application {{applicationNumber}} has been rejected by SGWA. Check portal for remarks: {{portalUrl}}

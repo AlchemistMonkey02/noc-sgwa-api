@@ -1,1 +1,0 @@
-SGWA: Application {{applicationNumber}} submitted successfully. Track status at {{portalUrl}}

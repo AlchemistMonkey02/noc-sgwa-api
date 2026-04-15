@@ -1,81 +1,120 @@
-# Dependencies
+# ============================================================
+# sgwa-api  —  .gitignore
+# Keep only core API source: app/, index.js, package.json,
+# package-lock.json, Dockerfile, docker-compose.yml,
+# .env.example, .dockerignore, README.md (optional)
+# ============================================================
+
+# ── Dependencies ─────────────────────────────────────────────
 node_modules/
 
-# Environment variables
+# ── Environment (real secrets; keep .env.example) ────────────
 .env
+.env.local
+.env.production
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS files
+# ── OS / IDE ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Build outputs
+# ── Build outputs ────────────────────────────────────────────
 dist/
 build/
 
-# Ignore all markdown files
+# ── Uploads / media / binary assets ─────────────────────────
+uploads/
+assets/
+*.tar
+*.tar.gz
+*.zip
+
+# ── PDF files ────────────────────────────────────────────────
+*.pdf
+
+# ── Markdown documentation files ─────────────────────────────
+# (keep README.md if desired — remove its line below)
 *.md
+*.md.resolved
 
-# Scripts and Tools
-scripts/
-seeders/
-doc for sgwa/
-
-# Debug and Temp files
-create-applicant.js
-CGWA NOC.pdf
-debug-check-data.js
-debug-block.js
+# ── Plain-text / JSON data / token dumps ────────────────────
+*.txt
+token.txt
 debug_json.txt
-diagnose-inspection.js
-diagnose-noc.js
-diagnose-sgwa.js
-fix-data.js
-generate-verify-curl.js
-migrate-templates.js
+temp_data.json
+new_application_data.json
+user-dummy-flow-meter.json
+
+# ── Scratch / temp directories ───────────────────────────────
+scratch/
+doc for sgwa/
+docs
+
+# ── Seed / migration scripts ─────────────────────────────────
+seeders/
+seed-*.js
+seed_*.js
+migrate-*.js
+migrate_*.js
+
+# ── Check / verify / diagnose scripts ────────────────────────
+check-*.js
+check_*.js
+verify_*.js
+verify-*.js
+diagnose-*.js
+diagnose_*.js
+debug-*.js
+debug_*.js
+
+# ── Test scripts (JS) ────────────────────────────────────────
+test-*.js
+test_*.js
+
+# ── Test scripts (shell / PowerShell) ────────────────────────
+test-*.sh
+test_*.sh
+test-*.ps1
+test_*.ps1
+*.sh
+*.ps1
+
+# ── Other one-off / utility root-level scripts ───────────────
+blockClassification.js
+exemptionRules.js
+transitionRules.js
 probe_server.js
 prove_stale.js
+repair_docs.js
 reset-officers.js
-seed-master-data.js
-seed-officers.js
-temp_data.json
-user-dummy-flow-meter.json
-verify_routes.js
+fix-data.js
+find-company.js
+find_creds.js
+compare-colls.js
+list-collections.js
+list-users.js
+create-applicant.js
+generate-verify-curl.js
+clear_test_users.js
+check_env.js
+check_last_synced_user.js
+diagnose_officers.js
+implementation_plan.md.resolved
 
-# Test Scripts
-test_certificate_curl.ps1
-test_company_reg.js
-test_notifications.js
-test_whatsapp.js
-test-all-apis.sh
-test-all-channels.js
-test-all-emails.js
-test-all-sms.js
-test-all-whatsapp.js
-test-check-documents.js
-test-dashboard-full.ps1
-test-dashboard.ps1
-test-db-connection.js
-test-dgo-api.ps1
-test-dgo-flow.js
-test-dgo-full-flow.js
-test-eligibility.ps1
-test-email.js
-test-find-application.js
-test-registration.ps1
-test-sgwa-flow.js
-test-tracking.js
+# ── Scripts directory ─────────────────────────────────────────
+scripts/
 
-# Uploads
-uploads/
+# ── Python scripts (if any) ──────────────────────────────────
+*.py
+*.pyc
+__pycache__/

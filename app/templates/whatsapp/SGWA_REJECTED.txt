@@ -1,7 +1,0 @@
-❌ *SGWA Application Update*
-
-Application No: {{applicationNumber}}
-Status: *Rejected by SGWA*
-
-View remarks and next steps:
-{{portalUrl}}/dashboard

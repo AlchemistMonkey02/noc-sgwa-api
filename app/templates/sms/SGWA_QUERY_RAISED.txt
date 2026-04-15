@@ -1,1 +1,0 @@
-SGWA query on application {{applicationNumber}}. Respond on portal.

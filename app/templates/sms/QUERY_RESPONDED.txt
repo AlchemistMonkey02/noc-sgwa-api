@@ -1,1 +1,0 @@
-Applicant has responded to query on application {{applicationNumber}}. Remarks: {{remarks}}. Please review in portal.
